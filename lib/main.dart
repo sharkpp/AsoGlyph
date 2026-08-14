@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
-import 'ui/writing_screen.dart';
+import 'store/sample_store.dart';
+import 'ui/collection_screen.dart';
 
-void main() {
-  runApp(const AsoGlyphApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(AsoGlyphApp(store: await SampleStore.open()));
 }
 
 class AsoGlyphApp extends StatelessWidget {
-  const AsoGlyphApp({super.key});
+  const AsoGlyphApp({super.key, required this.store});
+
+  final SampleStore store;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +23,7 @@ class AsoGlyphApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xfffaf7f0),
         useMaterial3: true,
       ),
-      home: const WritingScreen(),
+      home: CollectionScreen(store: store),
     );
   }
 }

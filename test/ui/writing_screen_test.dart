@@ -1,10 +1,14 @@
 import 'package:asoglyph/ink/ink_canvas.dart';
 import 'package:asoglyph/ink/ink_controller.dart';
-import 'package:asoglyph/main.dart';
+import 'package:asoglyph/model/sample.dart';
+import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/ui/glyph_preview.dart';
+import 'package:asoglyph/ui/writing_screen.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/memory_store.dart';
 
 void main() {
   group('InkController', () {
@@ -47,49 +51,67 @@ void main() {
   });
 
   group('WritingScreen', () {
-    testWidgets('線を引くとフォントの字が出る', (tester) async {
-      await tester.pumpWidget(const AsoGlyphApp());
+    late SampleStore store;
 
-      expect(find.text('「あ」を かいてみよう'), findsOneWidget);
+    setUp(() async => store = await openMemoryStore());
+
+    Future<void> pumpScreen(WidgetTester tester, {String char = 'あ'}) async {
+      await tester.pumpWidget(
+        MaterialApp(home: WritingScreen(char: char, store: store)),
+      );
+    }
+
+    testWidgets('お手本が出て、書き上げるとフォントの字に入れ替わる', (tester) async {
+      await pumpScreen(tester);
+
+      expect(find.text('あ'), findsOneWidget, reason: 'お手本');
       expect(find.byType(GlyphPreview), findsNothing);
 
       await _drawLine(tester);
       await tester.pump();
-
-      expect(
-        tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, 'できた！'))
-            .onPressed,
-        isNotNull,
-      );
-
       await _tapDone(tester);
 
-      expect(find.byType(GlyphPreview), findsOneWidget);
+      expect(find.text('あ'), findsNothing, reason: 'お手本が字形に置き換わる');
       final preview = tester.widget<GlyphPreview>(find.byType(GlyphPreview));
       expect(preview.contours, isNotEmpty, reason: '輪郭が起こせていない');
-
-      // 書き出しの導線が現れる。
-      expect(find.widgetWithText(FilledButton, 'TTF'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'OTF'), findsOneWidget);
     });
 
-    testWidgets('書き直すとプレビューは無効になる', (tester) async {
-      await tester.pumpWidget(const AsoGlyphApp());
+    testWidgets('できた！を押した時点で記録される', (tester) async {
+      await pumpScreen(tester, char: 'き');
       await _drawLine(tester);
       await _tapDone(tester);
-      expect(find.byType(GlyphPreview), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'けす'));
+      expect(store.attemptCount('き'), 1);
+      expect(store.latestMaterialId('き'), isNotNull);
+
+      // sembast はタイマを使う。疑似非同期環境では完了しないため実時間で読む。
+      late Sample sample;
+      await tester.runAsync(
+        () async => sample = await store.read(store.latestMaterialId('き')!),
+      );
+      expect(sample.strokes, hasLength(1));
+      expect(sample.strokes.single.points.length, greaterThan(2));
+    });
+
+    testWidgets('もういちど書いても前の記録は消えない', (tester) async {
+      await pumpScreen(tester);
+      await _drawLine(tester);
+      await _tapDone(tester);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'もういちど'));
       await tester.pump();
       expect(find.byType(GlyphPreview), findsNothing, reason: '古い字形を残さない');
+
+      await _drawLine(tester);
+      await _tapDone(tester);
+      expect(store.attemptCount('あ'), 2, reason: '記録は追記のみ');
     });
 
     testWidgets('何も書いていないうちは操作できない', (tester) async {
-      await tester.pumpWidget(const AsoGlyphApp());
+      await pumpScreen(tester);
 
-      for (final label in ['もどす', 'けす']) {
-        final button = find.widgetWithText(OutlinedButton, label);
+      for (final icon in [Icons.undo, Icons.delete_outline]) {
+        final button = find.widgetWithIcon(OutlinedButton, icon);
         expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
       }
       final done = find.widgetWithText(FilledButton, 'できた！');
@@ -97,7 +119,7 @@ void main() {
     });
 
     testWidgets('スタイラス使用中はタッチを無視する', (tester) async {
-      await tester.pumpWidget(const AsoGlyphApp());
+      await pumpScreen(tester);
       final center = tester.getCenter(find.byType(InkCanvas));
 
       final stylus = await tester.startGesture(
@@ -125,14 +147,22 @@ void main() {
 
 /// 「できた！」を押して字形が出るまで待つ。
 ///
-/// ラスタ化は `Picture.toImage()` を通る実時間の非同期処理で、ウィジェットテストの
-/// 疑似非同期環境では [WidgetTester.runAsync] の中でしか完了しない。
+/// ラスタ化と記録は `Picture.toImage()` や sembast を通る実時間の非同期処理で、
+/// ウィジェットテストの疑似非同期環境では [WidgetTester.runAsync] の中でしか
+/// 進まない。所要時間は実行環境で変わるため、決め打ちで待たずに結果を待つ。
 Future<void> _tapDone(WidgetTester tester) async {
-  await tester.runAsync(() async {
-    await tester.tap(find.widgetWithText(FilledButton, 'できた！'));
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-  });
-  await tester.pump();
+  await tester.runAsync(
+    () => tester.tap(find.widgetWithText(FilledButton, 'できた！')),
+  );
+
+  for (var i = 0; i < 100; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pump();
+    if (find.byType(GlyphPreview).evaluate().isNotEmpty) return;
+  }
+  fail('字形が出ない');
 }
 
 /// キャンバスの中央を横切る線を引く。

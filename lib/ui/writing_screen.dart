@@ -1,38 +1,37 @@
 import 'package:flutter/material.dart';
 
-import '../export/font_export.dart';
-import '../font/font_builder.dart';
+import '../font/glyph.dart';
 import '../ink/ink_canvas.dart';
 import '../ink/ink_controller.dart';
-import '../trace/contour_tracer.dart';
-import '../trace/stroke_rasterizer.dart';
+import '../model/sample.dart';
+import '../store/sample_store.dart';
+import '../trace/glyph_builder.dart';
 import 'glyph_preview.dart';
 import 'writing_guide.dart';
 
-/// L1 の画面。1 文字書いて、その場でフォントにする。
+/// 1 文字を書く画面。
 ///
-/// 収集の対象はひらがな清音 46 字だが、まずは 1 文字で縦断を通す。
+/// 「できた！」を押した時点で必ず記録する。字の巧拙で採否を決めないのが
+/// この製品の中核であり（SPEC 1）、子供に judge させる導線を作らない。
 class WritingScreen extends StatefulWidget {
-  const WritingScreen({super.key});
+  const WritingScreen({super.key, required this.char, required this.store});
+
+  final String char;
+  final SampleStore store;
 
   @override
   State<WritingScreen> createState() => _WritingScreenState();
 }
 
 class _WritingScreenState extends State<WritingScreen> {
-  /// ラスタトレースの解像度。em 1000 に対して 1 単位あたり 1 ピクセル。
-  static const _rasterSize = 1024;
-  static const _target = 'あ';
-  static const _tracer = ContourTracer();
-
   final _ink = InkController();
-  List<Contour>? _contours;
+  Glyph? _glyph;
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
-    // 書き直したら前のプレビューは無効になる。
+    // 書き直したら前の結果は無効になる。
     _ink.addListener(_onInkChanged);
   }
 
@@ -45,81 +44,66 @@ class _WritingScreenState extends State<WritingScreen> {
   }
 
   void _onInkChanged() {
-    if (_contours != null) setState(() => _contours = null);
+    if (_glyph != null) setState(() => _glyph = null);
   }
 
-  Future<void> _buildGlyph() async {
+  Future<void> _finish() async {
     setState(() => _busy = true);
-    final alpha = await rasterizeStrokes(
-      strokes: _ink.strokes,
-      imageSize: _rasterSize,
+
+    final strokes = _ink.strokes;
+    final glyph = await buildGlyph(char: widget.char, strokes: strokes);
+    await widget.store.add(
+      Sample.now(
+        char: widget.char,
+        // お手本を見て書いている。素材として採用する（SPEC 7.1）。
+        mode: PracticeMode.copy,
+        strokes: strokes,
+      ),
     );
-    final contours = _tracer.trace(alpha: alpha, imageSize: _rasterSize);
+
     if (!mounted) return;
     setState(() {
-      _contours = contours;
+      _glyph = glyph;
       _busy = false;
     });
   }
 
-  Future<void> _export(FontFormat format) async {
-    final contours = _contours;
-    if (contours == null || contours.isEmpty) return;
-
-    final meta = FontMetadata(familyName: 'AsoGlyph', created: DateTime.now());
-    final bytes = buildFont(
-      meta: meta,
-      glyphs: [
-        Glyph(
-          codePoint: _target.runes.first,
-          contours: contours,
-          advanceWidth: meta.unitsPerEm,
-        ),
-      ],
-      format: format,
-    );
-
-    await shareFont(
-      bytes: bytes,
-      fileName: '${sanitizeFileName(meta.familyName)}.${format.name}',
-      format: format,
-      text: '「$_target」からつくったフォント',
-    );
+  void _again() {
+    _ink.clear();
+    setState(() => _glyph = null);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xfffaf7f0),
       appBar: AppBar(
-        title: const Text('あそんでフォント'),
         backgroundColor: const Color(0xfffaf7f0),
+        leading: IconButton(
+          iconSize: 32,
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // タブレットでは書き取り面と結果を横に並べ、スマホでは縦に積む。
+            // タブレットではお手本を横に置き、スマホでは上に置く。
             final wide = constraints.biggest.shortestSide >= 600;
-            final canvas = _buildCanvasArea();
-            final panel = _buildPanel();
-
             return Padding(
               padding: const EdgeInsets.all(16),
               child: wide
                   ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Expanded(flex: 3, child: canvas),
-                        const SizedBox(width: 24),
-                        Expanded(flex: 2, child: panel),
+                        Expanded(child: Center(child: _buildModel())),
+                        Expanded(flex: 2, child: _buildCanvasArea()),
                       ],
                     )
                   : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(child: canvas),
-                        const SizedBox(height: 16),
-                        panel,
+                        _buildModel(),
+                        const SizedBox(height: 12),
+                        Expanded(child: _buildCanvasArea()),
                       ],
                     ),
             );
@@ -129,15 +113,43 @@ class _WritingScreenState extends State<WritingScreen> {
     );
   }
 
+  /// お手本。書けたあとは、そのままフォントの字形に入れ替わる。
+  Widget _buildModel() {
+    final glyph = _glyph;
+
+    return SizedBox(
+      width: 180,
+      height: 180,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xffe4dfd4), width: 2),
+        ),
+        child: _busy
+            ? const Center(child: CircularProgressIndicator())
+            : glyph == null
+            ? Center(
+                child: Text(
+                  widget.char,
+                  style: const TextStyle(
+                    fontSize: 120,
+                    height: 1,
+                    color: Color(0xff6f665c),
+                  ),
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.all(12),
+                child: GlyphPreview(contours: glyph.contours),
+              ),
+      ),
+    );
+  }
+
   Widget _buildCanvasArea() {
     return Column(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          '「$_target」を かいてみよう',
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 12),
         // 書き取り面は必ず正方形に保つ。縦横比が変わると字形が歪む。
         Expanded(
           child: Center(
@@ -156,94 +168,63 @@ class _WritingScreenState extends State<WritingScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        AnimatedBuilder(
-          animation: _ink,
-          builder: (context, _) => Wrap(
-            spacing: 12,
-            alignment: WrapAlignment.center,
-            children: [
-              OutlinedButton.icon(
-                onPressed: _ink.isEmpty ? null : _ink.undo,
-                icon: const Icon(Icons.undo),
-                label: const Text('もどす'),
-              ),
-              OutlinedButton.icon(
-                onPressed: _ink.isEmpty ? null : _ink.clear,
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('けす'),
-              ),
-              FilledButton.icon(
-                onPressed: _ink.isEmpty || _busy ? null : _buildGlyph,
-                icon: const Icon(Icons.auto_awesome),
-                label: const Text('できた！'),
-              ),
-            ],
-          ),
-        ),
+        const SizedBox(height: 16),
+        _buildActions(),
       ],
     );
   }
 
-  Widget _buildPanel() {
-    final contours = _contours;
+  Widget _buildActions() {
+    // タップターゲットは 64dp 以上（SPEC 9）。
+    const size = Size(96, 64);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'フォントの字',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 12),
-        Center(
-          child: SizedBox(
-            width: 200,
-            height: 200,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0xffe4dfd4)),
-              ),
-              child: _busy
-                  ? const Center(child: CircularProgressIndicator())
-                  : contours == null
-                  ? const Center(
-                      child: Text(
-                        'かきおわったら\n「できた！」',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xff9c948a)),
-                      ),
-                    )
-                  : GlyphPreview(contours: contours),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        if (contours != null && contours.isNotEmpty) ...[
-          Text(
-            '輪郭 ${contours.length} 本 / '
-            'セグメント ${contours.fold(0, (n, c) => n + c.segs.length)} 個',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xff9c948a), fontSize: 13),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
+    return AnimatedBuilder(
+      animation: _ink,
+      builder: (context, _) {
+        if (_glyph != null) {
+          return Wrap(
+            spacing: 16,
             alignment: WrapAlignment.center,
             children: [
-              for (final format in FontFormat.values)
-                FilledButton.tonalIcon(
-                  onPressed: () => _export(format),
-                  icon: const Icon(Icons.ios_share),
-                  label: Text(format.name.toUpperCase()),
-                ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(minimumSize: size),
+                onPressed: _again,
+                icon: const Icon(Icons.refresh, size: 32),
+                label: const Text('もういちど'),
+              ),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(minimumSize: size),
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.check, size: 32),
+                label: const Text('おわり'),
+              ),
             ],
-          ),
-        ],
-      ],
+          );
+        }
+
+        return Wrap(
+          spacing: 16,
+          alignment: WrapAlignment.center,
+          children: [
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(minimumSize: const Size(64, 64)),
+              onPressed: _ink.isEmpty ? null : _ink.undo,
+              child: const Icon(Icons.undo, size: 32),
+            ),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(minimumSize: const Size(64, 64)),
+              onPressed: _ink.isEmpty ? null : _ink.clear,
+              child: const Icon(Icons.delete_outline, size: 32),
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(minimumSize: size),
+              onPressed: _ink.isEmpty || _busy ? null : _finish,
+              icon: const Icon(Icons.auto_awesome, size: 32),
+              label: const Text('できた！'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
