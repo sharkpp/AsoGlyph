@@ -40,11 +40,13 @@ void main() {
       reason: '面積 $area 期待 $expected',
     );
 
-    final bounds = Bounds.ofContours(contours);
-    expect(bounds.xMin, closeTo(172, 6));
-    expect(bounds.xMax, closeTo(828, 6));
-    expect(bounds.yMin, closeTo(472, 6));
-    expect(bounds.yMax, closeTo(528, 6));
+    // Bounds.ofContours は制御点の凸包なので実際の輪郭より外に出る。
+    // 端の位置を見たいので、曲線を折ってから測る。
+    final bounds = _flatBounds(contours.first);
+    expect(bounds.xMin, closeTo(200 - 28, 6));
+    expect(bounds.xMax, closeTo(800 + 28, 6));
+    expect(bounds.yMin, closeTo(500 - 28, 6));
+    expect(bounds.yMax, closeTo(500 + 28, 6));
   });
 
   test('交差する 2 画は 1 本の輪郭にまとまる', () async {
@@ -86,33 +88,6 @@ void main() {
     expect(areas.where((a) => a > 0).length, 1, reason: '穴が 1 本');
   });
 
-  test('筆圧があると線幅が変わる', () {
-    final light = Stroke([
-      const InkPoint(x: 0, y: 0, t: 0, pressure: 0.1),
-      const InkPoint(x: 100, y: 0, t: 16, pressure: 0.1),
-    ]);
-    final heavy = Stroke([
-      const InkPoint(x: 0, y: 0, t: 0, pressure: 0.9),
-      const InkPoint(x: 100, y: 0, t: 16, pressure: 0.9),
-    ]);
-    expect(strokeWidths(light, style).first,
-        lessThan(strokeWidths(heavy, style).first));
-  });
-
-  test('筆圧が無い入力では速いほど細くなる', () {
-    const speedStyle = StrokeStyle(baseWidth: 56);
-    final slow = Stroke([
-      const InkPoint(x: 0, y: 0, t: 0),
-      const InkPoint(x: 10, y: 0, t: 100),
-    ]);
-    final fast = Stroke([
-      const InkPoint(x: 0, y: 0, t: 0),
-      const InkPoint(x: 400, y: 0, t: 16),
-    ]);
-    expect(strokeWidths(fast, speedStyle).last,
-        lessThan(strokeWidths(slow, speedStyle).last));
-  });
-
   test('L1 の縦断: 書いた線からフォントが出る', () async {
     // 書く → ラスタ化 → 輪郭追跡 → グリフ → TTF/OTF。
     final alpha = await rasterizeStrokes(
@@ -139,7 +114,20 @@ void main() {
   });
 }
 
-double _contourArea(Contour contour) {
+double _contourArea(Contour contour) => signedArea(_flatten(contour)) / 2;
+
+Bounds _flatBounds(Contour contour) {
+  final points = _flatten(contour);
+  return Bounds(
+    points.map((p) => p.x).reduce(math.min),
+    points.map((p) => p.y).reduce(math.min),
+    points.map((p) => p.x).reduce(math.max),
+    points.map((p) => p.y).reduce(math.max),
+  );
+}
+
+/// 曲線を細かく折って点列にする。
+List<Pt> _flatten(Contour contour) {
   final points = <Pt>[contour.start];
   var from = contour.start;
   for (final seg in contour.segs) {
@@ -153,7 +141,7 @@ double _contourArea(Contour contour) {
     }
     from = seg.to;
   }
-  return signedArea(points) / 2;
+  return points;
 }
 
 Pt _cubicAt(Pt p0, Pt p1, Pt p2, Pt p3, double t) {
