@@ -39,41 +39,15 @@ Future<Uint8List> rasterizeStrokes({
 }) async {
   final recorder = ui.PictureRecorder();
   final canvas = ui.Canvas(recorder);
-  final scale = imageSize / emSize;
 
-  final paint = ui.Paint()
-    ..color = const ui.Color(0xff000000)
-    ..style = ui.PaintingStyle.stroke
-    ..strokeCap = ui.StrokeCap.round
-    ..strokeJoin = ui.StrokeJoin.round
-    ..isAntiAlias = true;
-
-  // em 空間は y が上向き、キャンバスは下向き。
-  ui.Offset toCanvas(InkPoint p) =>
-      ui.Offset(p.x * scale, (emSize - p.y) * scale);
-
-  for (final stroke in strokes) {
-    if (stroke.isEmpty) continue;
-    final widths = strokeWidths(stroke, style);
-
-    if (stroke.points.length == 1) {
-      canvas.drawCircle(
-        toCanvas(stroke.points.first),
-        widths.first * scale / 2,
-        ui.Paint()..color = const ui.Color(0xff000000),
-      );
-      continue;
-    }
-
-    for (var i = 1; i < stroke.points.length; i++) {
-      paint.strokeWidth = (widths[i - 1] + widths[i]) / 2 * scale;
-      canvas.drawLine(
-        toCanvas(stroke.points[i - 1]),
-        toCanvas(stroke.points[i]),
-        paint,
-      );
-    }
-  }
+  paintStrokes(
+    canvas: canvas,
+    strokes: strokes,
+    pixelSize: imageSize.toDouble(),
+    emSize: emSize,
+    style: style,
+    color: const ui.Color(0xff000000),
+  );
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(imageSize, imageSize);
@@ -90,6 +64,58 @@ Future<Uint8List> rasterizeStrokes({
     alpha[i] = rgba[i * 4 + 3];
   }
   return alpha;
+}
+
+/// 運筆をキャンバスへ描く。
+///
+/// 練習画面の表示とフォント生成のラスタ化は、必ずこの 1 つの実装を通す。
+/// 描き方がずれると「子供が見た線とフォントの字形が一致する」という
+/// ラスタトレース方式の利点（SPEC 8.1）が失われるため。
+void paintStrokes({
+  required ui.Canvas canvas,
+  required List<Stroke> strokes,
+  required double pixelSize,
+  required double emSize,
+  required StrokeStyle style,
+  required ui.Color color,
+}) {
+  final scale = pixelSize / emSize;
+  final paint = ui.Paint()
+    ..color = color
+    ..style = ui.PaintingStyle.stroke
+    ..strokeCap = ui.StrokeCap.round
+    ..strokeJoin = ui.StrokeJoin.round
+    ..isAntiAlias = true;
+  final dotPaint = ui.Paint()
+    ..color = color
+    ..isAntiAlias = true;
+
+  // em 空間は y が上向き、キャンバスは下向き。
+  ui.Offset toCanvas(InkPoint p) =>
+      ui.Offset(p.x * scale, (emSize - p.y) * scale);
+
+  for (final stroke in strokes) {
+    if (stroke.isEmpty) continue;
+    final widths = strokeWidths(stroke, style);
+
+    if (stroke.points.length == 1) {
+      canvas.drawCircle(
+        toCanvas(stroke.points.first),
+        widths.first * scale / 2,
+        dotPaint,
+      );
+      continue;
+    }
+
+    for (var i = 1; i < stroke.points.length; i++) {
+      paint.strokeWidth = (widths[i - 1] + widths[i]) / 2 * scale;
+      canvas.drawLine(
+        toCanvas(stroke.points[i - 1]),
+        toCanvas(stroke.points[i]),
+        paint,
+      );
+    }
+  }
 }
 
 /// 各点での線幅を em 単位で求める。
