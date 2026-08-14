@@ -1,30 +1,10 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import '../ink/stroke.dart';
+import '../ink/stroke_geometry.dart';
 
-/// 線幅の決め方。
-class StrokeStyle {
-  const StrokeStyle({
-    this.baseWidth = 56,
-    this.pressureRange = 0.5,
-    this.speedRange = 0.4,
-    this.referenceSpeed = 2.0,
-  });
-
-  /// em 単位の基準線幅。
-  final double baseWidth;
-
-  /// 筆圧で変化させる幅の割合。
-  final double pressureRange;
-
-  /// 速度で変化させる幅の割合。筆圧が取れない入力で使う。
-  final double speedRange;
-
-  /// この速度（em/ミリ秒）で線幅が下限になる。
-  final double referenceSpeed;
-}
+export '../ink/stroke_geometry.dart' show StrokeStyle;
 
 /// ストローク列を描画してアルファ値の場を得る。
 ///
@@ -91,61 +71,25 @@ void paintStrokes({
     ..isAntiAlias = true;
 
   // em 空間は y が上向き、キャンバスは下向き。
-  ui.Offset toCanvas(InkPoint p) =>
+  ui.Offset toCanvas(RenderPoint p) =>
       ui.Offset(p.x * scale, (emSize - p.y) * scale);
 
   for (final stroke in strokes) {
-    if (stroke.isEmpty) continue;
-    final widths = strokeWidths(stroke, style);
+    final points = renderPoints(stroke, style);
+    if (points.isEmpty) continue;
 
-    if (stroke.points.length == 1) {
+    if (points.length == 1) {
       canvas.drawCircle(
-        toCanvas(stroke.points.first),
-        widths.first * scale / 2,
+        toCanvas(points.first),
+        points.first.width * scale / 2,
         dotPaint,
       );
       continue;
     }
 
-    for (var i = 1; i < stroke.points.length; i++) {
-      paint.strokeWidth = (widths[i - 1] + widths[i]) / 2 * scale;
-      canvas.drawLine(
-        toCanvas(stroke.points[i - 1]),
-        toCanvas(stroke.points[i]),
-        paint,
-      );
+    for (var i = 1; i < points.length; i++) {
+      paint.strokeWidth = (points[i - 1].width + points[i].width) / 2 * scale;
+      canvas.drawLine(toCanvas(points[i - 1]), toCanvas(points[i]), paint);
     }
   }
-}
-
-/// 各点での線幅を em 単位で求める。
-///
-/// 筆圧が取れる入力（スタイラス）では筆圧を、取れない入力（指・マウス）では
-/// 速度を使う。速いほど細くするのは、運筆の勢いを字形に残すため。
-List<double> strokeWidths(Stroke stroke, StrokeStyle style) {
-  final points = stroke.points;
-  if (points.isEmpty) return const [];
-
-  if (stroke.hasPressure) {
-    return [
-      for (final point in points)
-        style.baseWidth *
-            (1 - style.pressureRange + style.pressureRange * 2 * point.pressure)
-                .clamp(1 - style.pressureRange, 1 + style.pressureRange),
-    ];
-  }
-
-  final widths = <double>[];
-  for (var i = 0; i < points.length; i++) {
-    final previous = points[i == 0 ? 0 : i - 1];
-    final current = points[i];
-    final dt = (current.t - previous.t).abs();
-    final distance = math.sqrt(
-      math.pow(current.x - previous.x, 2) + math.pow(current.y - previous.y, 2),
-    );
-    final speed = dt == 0 ? 0.0 : distance / dt;
-    final ratio = (speed / style.referenceSpeed).clamp(0.0, 1.0);
-    widths.add(style.baseWidth * (1 - style.speedRange * ratio));
-  }
-  return widths;
 }
