@@ -144,8 +144,52 @@ def validate(path, expect_cff):
     check("OS/2 の日本語コードページ", bool(os2.ulCodePageRange1 & (1 << 17)))
 
 
+def validate_handwriting():
+    """ラスタトレースを通したグリフ。L1 の縦断が実際のフォントになるかを見る。"""
+    print("\n=== build/font_samples/handwriting.{ttf,otf} ===")
+    areas = {}
+    for kind, cff in (("ttf", False), ("otf", True)):
+        path = f"build/font_samples/handwriting.{kind}"
+        font = TTFont(path)
+        check(f"{kind}: 解析できる", ("CFF " in font) == cff)
+
+        out = BytesIO()
+        try:
+            font.save(out)
+            TTFont(BytesIO(out.getvalue()))
+            ok = True
+        except Exception as exc:  # noqa: BLE001
+            ok = False
+            print(f"        save: {exc}")
+        check(f"{kind}: 再保存できる", ok)
+
+        cmap = font.getBestCmap()
+        check(f"{kind}: U+3042 が引ける", 0x3042 in cmap)
+
+        glyphset = font.getGlyphSet()
+        pen = AreaPen(glyphset)
+        glyphset[cmap[0x3042]].draw(pen)
+        areas[kind] = abs(pen.value)
+
+        bpen = BoundsPen(glyphset)
+        glyphset[cmap[0x3042]].draw(bpen)
+        check(f"{kind}: 境界が妥当", bpen.bounds is not None
+              and 150 < bpen.bounds[0] < 200 and 800 < bpen.bounds[2] < 860,
+              f"={bpen.bounds}")
+
+    # 長さ 600・幅 56 の帯に半径 28 の半円が両端。
+    expected = 600 * 56 + math.pi * 28 ** 2
+    for kind, area in areas.items():
+        check(f"{kind}: 面積が運筆と一致", abs(area - expected) / expected < 0.05,
+              f"={area:.0f} 期待={expected:.0f}")
+    check("TTF と OTF の字形が一致",
+          abs(areas["ttf"] - areas["otf"]) / areas["otf"] < 0.005,
+          f"ttf={areas['ttf']:.0f} otf={areas['otf']:.0f}")
+
+
 validate("build/font_samples/sample.ttf", expect_cff=False)
 validate("build/font_samples/sample.otf", expect_cff=True)
+validate_handwriting()
 
 print()
 if FAILURES:
