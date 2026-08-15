@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../audio/speaker.dart';
 import '../export/collected_font.dart';
 import '../export/font_export.dart';
 import '../font/font_builder.dart';
@@ -12,9 +13,14 @@ import 'writing_screen.dart';
 ///
 /// 子供にとっては「どこまで集めたか」の画面、親にとってはフォントの出口になる。
 class CollectionScreen extends StatelessWidget {
-  const CollectionScreen({super.key, required this.store});
+  const CollectionScreen({
+    super.key,
+    required this.store,
+    required this.speaker,
+  });
 
   final SampleStore store;
+  final Speaker speaker;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +44,11 @@ class CollectionScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             children: [
               for (final charSet in CharSet.values)
-                _CharSetSection(charSet: charSet, store: store),
+                _CharSetSection(
+                  charSet: charSet,
+                  store: store,
+                  speaker: speaker,
+                ),
             ],
           ),
         ),
@@ -124,10 +134,15 @@ Future<void> _showProgress(
 }
 
 class _CharSetSection extends StatelessWidget {
-  const _CharSetSection({required this.charSet, required this.store});
+  const _CharSetSection({
+    required this.charSet,
+    required this.store,
+    required this.speaker,
+  });
 
   final CharSet charSet;
   final SampleStore store;
+  final Speaker speaker;
 
   @override
   Widget build(BuildContext context) {
@@ -169,7 +184,7 @@ class _CharSetSection extends StatelessWidget {
             runSpacing: 8,
             children: [
               for (final char in charSet.chars)
-                _CharTile(char: char, store: store),
+                _CharTile(char: char, store: store, speaker: speaker),
             ],
           ),
         ],
@@ -179,10 +194,15 @@ class _CharSetSection extends StatelessWidget {
 }
 
 class _CharTile extends StatelessWidget {
-  const _CharTile({required this.char, required this.store});
+  const _CharTile({
+    required this.char,
+    required this.store,
+    required this.speaker,
+  });
 
   final String char;
   final SampleStore store;
+  final Speaker speaker;
 
   @override
   Widget build(BuildContext context) {
@@ -206,7 +226,8 @@ class _CharTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (context) => WritingScreen(char: char, store: store),
+              builder: (context) =>
+                  WritingScreen(char: char, store: store, speaker: speaker),
             ),
           ),
           child: Stack(

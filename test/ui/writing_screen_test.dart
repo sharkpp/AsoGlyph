@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/memory_store.dart';
+import '../support/recording_speaker.dart';
 
 void main() {
   group('InkController', () {
@@ -52,12 +53,18 @@ void main() {
 
   group('WritingScreen', () {
     late SampleStore store;
+    late RecordingSpeaker speaker;
 
-    setUp(() async => store = await openMemoryStore());
+    setUp(() async {
+      store = await openMemoryStore();
+      speaker = RecordingSpeaker();
+    });
 
     Future<void> pumpScreen(WidgetTester tester, {String char = 'あ'}) async {
       await tester.pumpWidget(
-        MaterialApp(home: WritingScreen(char: char, store: store)),
+        MaterialApp(
+          home: WritingScreen(char: char, store: store, speaker: speaker),
+        ),
       );
     }
 
@@ -116,6 +123,56 @@ void main() {
       }
       final done = find.widgetWithText(FilledButton, 'できた！');
       expect(tester.widget<FilledButton>(done).onPressed, isNull);
+    });
+
+    testWidgets('画面を開いた時点で何を書くかを読み上げる', (tester) async {
+      await pumpScreen(tester, char: '3');
+
+      expect(speaker.spoken, ['さん、かいてね'], reason: '数字は読みで言う');
+    });
+
+    testWidgets('お手本を押すともう一度読み上げる', (tester) async {
+      await pumpScreen(tester);
+      speaker.spoken.clear();
+
+      await tester.tap(find.byIcon(Icons.volume_up));
+      await tester.pump();
+
+      expect(speaker.spoken, ['あ、かいてね']);
+    });
+
+    testWidgets('書き上げるとほめて、読み上げの導線を閉じる', (tester) async {
+      await pumpScreen(tester);
+      speaker.spoken.clear();
+
+      await _drawLine(tester);
+      await _tapDone(tester);
+
+      expect(speaker.spoken, ['できたね！']);
+      expect(
+        find.byIcon(Icons.volume_up),
+        findsNothing,
+        reason: '字形が出たあとはお手本を押しても何も起きない',
+      );
+    });
+
+    testWidgets('もういちどで書き直すとき、また読み上げる', (tester) async {
+      await pumpScreen(tester);
+      await _drawLine(tester);
+      await _tapDone(tester);
+      speaker.spoken.clear();
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'もういちど'));
+      await tester.pump();
+
+      expect(speaker.spoken, ['あ、かいてね']);
+    });
+
+    testWidgets('画面を出るときは読み上げを止める', (tester) async {
+      await pumpScreen(tester);
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+
+      expect(speaker.stopped, 1);
     });
 
     testWidgets('スタイラス使用中はタッチを無視する', (tester) async {

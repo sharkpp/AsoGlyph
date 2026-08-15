@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../audio/speaker.dart';
 import '../font/glyph.dart';
 import '../ink/ink_canvas.dart';
 import '../ink/ink_controller.dart';
+import '../model/char_set.dart';
 import '../model/sample.dart';
 import '../store/sample_store.dart';
 import '../trace/glyph_builder.dart';
@@ -14,10 +16,16 @@ import 'writing_guide.dart';
 /// 「できた！」を押した時点で必ず記録する。字の巧拙で採否を決めないのが
 /// この製品の中核であり（SPEC 1）、子供に judge させる導線を作らない。
 class WritingScreen extends StatefulWidget {
-  const WritingScreen({super.key, required this.char, required this.store});
+  const WritingScreen({
+    super.key,
+    required this.char,
+    required this.store,
+    required this.speaker,
+  });
 
   final String char;
   final SampleStore store;
+  final Speaker speaker;
 
   @override
   State<WritingScreen> createState() => _WritingScreenState();
@@ -33,10 +41,12 @@ class _WritingScreenState extends State<WritingScreen> {
     super.initState();
     // 書き直したら前の結果は無効になる。
     _ink.addListener(_onInkChanged);
+    _speakPrompt();
   }
 
   @override
   void dispose() {
+    widget.speaker.stop();
     _ink
       ..removeListener(_onInkChanged)
       ..dispose();
@@ -45,6 +55,11 @@ class _WritingScreenState extends State<WritingScreen> {
 
   void _onInkChanged() {
     if (_glyph != null) setState(() => _glyph = null);
+  }
+
+  /// 何を書けばいいかを声で伝える。字が読めなくても始められる（SPEC 2）。
+  void _speakPrompt() {
+    widget.speaker.speak('${readingOf(widget.char)}、かいてね');
   }
 
   Future<void> _finish() async {
@@ -66,11 +81,13 @@ class _WritingScreenState extends State<WritingScreen> {
       _glyph = glyph;
       _busy = false;
     });
+    widget.speaker.speak('できたね！');
   }
 
   void _again() {
     _ink.clear();
     setState(() => _glyph = null);
+    _speakPrompt();
   }
 
   @override
@@ -114,35 +131,59 @@ class _WritingScreenState extends State<WritingScreen> {
   }
 
   /// お手本。書けたあとは、そのままフォントの字形に入れ替わる。
+  ///
+  /// 書いているあいだは、押すと読みをもう一度言う。子供向け画面はタップだけで
+  /// 完結させるため（SPEC 9）、読み上げボタンを別に置かずお手本そのものを押させる。
   Widget _buildModel() {
     final glyph = _glyph;
+    final canReplay = !_busy && glyph == null;
 
     return SizedBox(
       width: 180,
       height: 180,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white,
+      child: Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xffe4dfd4), width: 2),
+          side: const BorderSide(color: Color(0xffe4dfd4), width: 2),
         ),
-        child: _busy
-            ? const Center(child: CircularProgressIndicator())
-            : glyph == null
-            ? Center(
-                child: Text(
-                  widget.char,
-                  style: const TextStyle(
-                    fontSize: 120,
-                    height: 1,
-                    color: Color(0xff6f665c),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: canReplay ? _speakPrompt : null,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_busy)
+                const Center(child: CircularProgressIndicator())
+              else if (glyph == null)
+                Center(
+                  child: Text(
+                    widget.char,
+                    style: const TextStyle(
+                      fontSize: 120,
+                      height: 1,
+                      color: Color(0xff6f665c),
+                    ),
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: GlyphPreview(contours: glyph.contours),
+                ),
+              if (canReplay)
+                const Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: Icon(
+                    Icons.volume_up,
+                    size: 28,
+                    color: Color(0xffbdb4a6),
                   ),
                 ),
-              )
-            : Padding(
-                padding: const EdgeInsets.all(12),
-                child: GlyphPreview(contours: glyph.contours),
-              ),
+            ],
+          ),
+        ),
       ),
     );
   }

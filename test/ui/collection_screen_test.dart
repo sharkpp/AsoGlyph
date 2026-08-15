@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/memory_store.dart';
+import '../support/recording_speaker.dart';
 
 Sample _written(String char) => Sample.now(
   char: char,
@@ -37,7 +38,11 @@ void main() {
       ..physicalSize = const Size(1200, 2400)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(home: CollectionScreen(store: store)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CollectionScreen(store: store, speaker: RecordingSpeaker()),
+      ),
+    );
   }
 
   testWidgets('文字種ごとに充足率を出す', (tester) async {
