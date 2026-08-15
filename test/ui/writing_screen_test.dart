@@ -1,8 +1,10 @@
 import 'package:asoglyph/ink/ink_canvas.dart';
 import 'package:asoglyph/ink/ink_controller.dart';
+import 'package:asoglyph/kanjivg/stroke_order.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/ui/glyph_preview.dart';
+import 'package:asoglyph/ui/stroke_order_view.dart';
 import 'package:asoglyph/ui/writing_screen.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -54,6 +56,12 @@ void main() {
   group('WritingScreen', () {
     late SampleStore store;
     late RecordingSpeaker speaker;
+    late StrokeOrderLibrary strokeOrders;
+
+    setUpAll(() async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      strokeOrders = await StrokeOrderLibrary.load();
+    });
 
     setUp(() async {
       store = await openMemoryStore();
@@ -64,6 +72,7 @@ void main() {
       WidgetTester tester, {
       String char = 'あ',
       PracticeMode mode = PracticeMode.copy,
+      bool withStrokeOrder = true,
     }) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -72,6 +81,7 @@ void main() {
             mode: mode,
             store: store,
             speaker: speaker,
+            strokeOrder: withStrokeOrder ? strokeOrders[char] : null,
           ),
         ),
       );
@@ -80,16 +90,49 @@ void main() {
     testWidgets('お手本が出て、書き上げるとフォントの字に入れ替わる', (tester) async {
       await pumpScreen(tester);
 
-      expect(find.text('あ'), findsOneWidget, reason: 'お手本');
+      expect(find.byType(StrokeOrderView), findsOneWidget, reason: 'お手本');
       expect(find.byType(GlyphPreview), findsNothing);
 
       await _drawLine(tester);
       await tester.pump();
       await _tapDone(tester);
 
-      expect(find.text('あ'), findsNothing, reason: 'お手本が字形に置き換わる');
+      expect(find.byType(StrokeOrderView), findsNothing, reason: 'お手本が字形に置き換わる');
       final preview = tester.widget<GlyphPreview>(find.byType(GlyphPreview));
       expect(preview.contours, isNotEmpty, reason: '輪郭が起こせていない');
+    });
+
+    testWidgets('お手本は書き順どおりに引かれる', (tester) async {
+      await pumpScreen(tester);
+      final view = tester.widget<StrokeOrderView>(find.byType(StrokeOrderView));
+
+      expect(view.order.strokeCount, 3, reason: 'あ は 3 画');
+      expect(view.progress.value, 0, reason: '開いた直後は 1 画目の書き始め');
+
+      await tester.pump(StrokeOrderView.perStroke);
+      expect(view.progress.value, closeTo(1 / 3, 0.05), reason: '1 画ぶん進む');
+
+      await tester.pumpAndSettle();
+      expect(view.progress.value, 1, reason: '最後まで引き終わる');
+    });
+
+    testWidgets('お手本を押すと書き順を引き直す', (tester) async {
+      await pumpScreen(tester);
+      await tester.pumpAndSettle();
+      final view = tester.widget<StrokeOrderView>(find.byType(StrokeOrderView));
+      expect(view.progress.value, 1);
+
+      await tester.tap(find.byIcon(Icons.volume_up));
+      await tester.pump();
+
+      expect(view.progress.value, 0, reason: '頭から引き直す');
+    });
+
+    testWidgets('書き順を持たない字はシステムの字で見せる', (tester) async {
+      await pumpScreen(tester, withStrokeOrder: false);
+
+      expect(find.byType(StrokeOrderView), findsNothing);
+      expect(find.text('あ'), findsOneWidget);
     });
 
     testWidgets('できた！を押した時点で記録される', (tester) async {
@@ -187,6 +230,7 @@ void main() {
     testWidgets('何も見ずに書くモードでは字を出さない', (tester) async {
       await pumpScreen(tester, mode: PracticeMode.free);
 
+      expect(find.byType(StrokeOrderView), findsNothing, reason: '書き順も見せない');
       expect(find.text('あ'), findsNothing, reason: 'お手本を出しては意味がない');
       expect(speaker.spoken, ['あ、かいてね'], reason: '頼れるのは音だけ');
 

@@ -4,11 +4,13 @@ import '../audio/speaker.dart';
 import '../font/glyph.dart';
 import '../ink/ink_canvas.dart';
 import '../ink/ink_controller.dart';
+import '../kanjivg/stroke_order.dart';
 import '../model/char_set.dart';
 import '../model/sample.dart';
 import '../store/sample_store.dart';
 import '../trace/glyph_builder.dart';
 import 'glyph_preview.dart';
+import 'stroke_order_view.dart';
 import 'writing_guide.dart';
 
 /// 1 文字を書く画面。
@@ -22,6 +24,7 @@ class WritingScreen extends StatefulWidget {
     required this.mode,
     required this.store,
     required this.speaker,
+    this.strokeOrder,
   });
 
   final String char;
@@ -32,26 +35,42 @@ class WritingScreen extends StatefulWidget {
   final SampleStore store;
   final Speaker speaker;
 
+  /// この字の書き順。KanjiVG に無い字では null になる。
+  final StrokeOrder? strokeOrder;
+
   @override
   State<WritingScreen> createState() => _WritingScreenState();
 }
 
-class _WritingScreenState extends State<WritingScreen> {
+class _WritingScreenState extends State<WritingScreen>
+    with SingleTickerProviderStateMixin {
   final _ink = InkController();
+  late final AnimationController _playback;
   Glyph? _glyph;
   bool _busy = false;
+
+  /// お手本を出すモードで、書き順のデータもある。
+  bool get _showsStrokeOrder =>
+      widget.mode != PracticeMode.free && widget.strokeOrder != null;
 
   @override
   void initState() {
     super.initState();
     // 書き直したら前の結果は無効になる。
     _ink.addListener(_onInkChanged);
-    _speakPrompt();
+    _playback = AnimationController(
+      vsync: this,
+      duration: widget.strokeOrder == null
+          ? Duration.zero
+          : StrokeOrderView.playbackOf(widget.strokeOrder!),
+    );
+    _prompt();
   }
 
   @override
   void dispose() {
     widget.speaker.stop();
+    _playback.dispose();
     _ink
       ..removeListener(_onInkChanged)
       ..dispose();
@@ -62,9 +81,11 @@ class _WritingScreenState extends State<WritingScreen> {
     if (_glyph != null) setState(() => _glyph = null);
   }
 
-  /// 何を書けばいいかを声で伝える。字が読めなくても始められる（SPEC 2）。
-  void _speakPrompt() {
+  /// 何を書けばいいかを伝える。字が読めなくても始められるように、
+  /// 声で読みを言い、同時に書き順を頭から見せる（SPEC 2 / 7.1）。
+  void _prompt() {
     widget.speaker.speak('${readingOf(widget.char)}、かいてね');
+    if (_showsStrokeOrder) _playback.forward(from: 0);
   }
 
   Future<void> _finish() async {
@@ -87,7 +108,7 @@ class _WritingScreenState extends State<WritingScreen> {
   void _again() {
     _ink.clear();
     setState(() => _glyph = null);
-    _speakPrompt();
+    _prompt();
   }
 
   @override
@@ -149,14 +170,14 @@ class _WritingScreenState extends State<WritingScreen> {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: canReplay ? _speakPrompt : null,
+          onTap: canReplay ? _prompt : null,
           child: Stack(
             fit: StackFit.expand,
             children: [
               if (_busy)
                 const Center(child: CircularProgressIndicator())
               else if (glyph == null)
-                Center(child: _buildPrompt())
+                _buildPrompt()
               else
                 Padding(
                   padding: const EdgeInsets.all(12),
@@ -185,11 +206,27 @@ class _WritingScreenState extends State<WritingScreen> {
   /// 何も見ずに書くモードでは字を出さない。頼れるのは音だけになる（SPEC 7.1）。
   Widget _buildPrompt() {
     if (widget.mode == PracticeMode.free) {
-      return const Icon(Icons.volume_up, size: 96, color: Color(0xff9c948a));
+      return const Center(
+        child: Icon(Icons.volume_up, size: 96, color: Color(0xff9c948a)),
+      );
     }
-    return Text(
-      widget.char,
-      style: const TextStyle(fontSize: 120, height: 1, color: Color(0xff6f665c)),
+    final order = widget.strokeOrder;
+    if (order == null) {
+      // 書き順を持たない字は、システムのフォントで見せるほかない。
+      return Center(
+        child: Text(
+          widget.char,
+          style: const TextStyle(
+            fontSize: 120,
+            height: 1,
+            color: Color(0xff6f665c),
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: StrokeOrderView(order: order, progress: _playback),
     );
   }
 

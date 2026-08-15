@@ -5,9 +5,11 @@ import '../audio/speaker.dart';
 import '../export/collected_font.dart';
 import '../export/font_export.dart';
 import '../font/font_builder.dart';
+import '../kanjivg/stroke_order.dart';
 import '../model/char_set.dart';
 import '../model/sample.dart';
 import '../store/sample_store.dart';
+import 'about.dart';
 import 'writing_screen.dart';
 
 /// 集めた字の一覧。アプリの入口。
@@ -18,10 +20,12 @@ class CollectionScreen extends StatefulWidget {
     super.key,
     required this.store,
     required this.speaker,
+    required this.strokeOrders,
   });
 
   final SampleStore store;
   final Speaker speaker;
+  final StrokeOrderLibrary strokeOrders;
 
   @override
   State<CollectionScreen> createState() => _CollectionScreenState();
@@ -35,6 +39,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
 
   SampleStore get store => widget.store;
   Speaker get speaker => widget.speaker;
+  StrokeOrderLibrary get strokeOrders => widget.strokeOrders;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +53,12 @@ class _CollectionScreenState extends State<CollectionScreen> {
             icon: const Icon(Icons.ios_share),
             tooltip: 'フォントをつくる',
             onPressed: () => _export(context),
+          ),
+          IconButton(
+            iconSize: 28,
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'このアプリについて',
+            onPressed: () => showAboutAsoGlyph(context),
           ),
         ],
       ),
@@ -64,6 +75,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
                   charSet: charSet,
                   store: store,
                   speaker: speaker,
+                  strokeOrders: strokeOrders,
                   mode: _mode,
                 ),
             ],
@@ -200,12 +212,14 @@ class _CharSetSection extends StatelessWidget {
     required this.charSet,
     required this.store,
     required this.speaker,
+    required this.strokeOrders,
     required this.mode,
   });
 
   final CharSet charSet;
   final SampleStore store;
   final Speaker speaker;
+  final StrokeOrderLibrary strokeOrders;
   final PracticeMode mode;
 
   @override
@@ -252,6 +266,7 @@ class _CharSetSection extends StatelessWidget {
                   char: char,
                   store: store,
                   speaker: speaker,
+                  strokeOrders: strokeOrders,
                   mode: mode,
                 ),
             ],
@@ -267,12 +282,14 @@ class _CharTile extends StatelessWidget {
     required this.char,
     required this.store,
     required this.speaker,
+    required this.strokeOrders,
     required this.mode,
   });
 
   final String char;
   final SampleStore store;
   final Speaker speaker;
+  final StrokeOrderLibrary strokeOrders;
   final PracticeMode mode;
 
   @override
@@ -302,6 +319,7 @@ class _CharTile extends StatelessWidget {
                 mode: mode,
                 store: store,
                 speaker: speaker,
+                strokeOrder: strokeOrders[char],
               ),
             ),
           ),

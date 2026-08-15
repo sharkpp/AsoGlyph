@@ -1,24 +1,34 @@
 import 'package:flutter/material.dart';
 
 import 'audio/speaker.dart';
+import 'kanjivg/stroke_order.dart';
 import 'store/sample_store.dart';
+import 'ui/about.dart';
 import 'ui/collection_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerKanjiVgLicense();
   runApp(
     AsoGlyphApp(
       store: await SampleStore.open(),
       speaker: await TtsSpeaker.open(),
+      strokeOrders: await StrokeOrderLibrary.load(),
     ),
   );
 }
 
 class AsoGlyphApp extends StatelessWidget {
-  const AsoGlyphApp({super.key, required this.store, required this.speaker});
+  const AsoGlyphApp({
+    super.key,
+    required this.store,
+    required this.speaker,
+    required this.strokeOrders,
+  });
 
   final SampleStore store;
   final Speaker speaker;
+  final StrokeOrderLibrary strokeOrders;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +40,11 @@ class AsoGlyphApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xfffaf7f0),
         useMaterial3: true,
       ),
-      home: CollectionScreen(store: store, speaker: speaker),
+      home: CollectionScreen(
+        store: store,
+        speaker: speaker,
+        strokeOrders: strokeOrders,
+      ),
     );
   }
 }

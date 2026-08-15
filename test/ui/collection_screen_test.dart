@@ -1,5 +1,6 @@
 import 'package:asoglyph/audio/speaker.dart';
 import 'package:asoglyph/ink/stroke.dart';
+import 'package:asoglyph/kanjivg/stroke_order.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/store/sample_store.dart';
@@ -24,6 +25,12 @@ Sample _written(String char) => Sample.now(
 
 void main() {
   late SampleStore store;
+  late StrokeOrderLibrary strokeOrders;
+
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    strokeOrders = await StrokeOrderLibrary.load();
+  });
 
   setUp(() async {
     store = await openMemoryStore();
@@ -44,6 +51,7 @@ void main() {
         home: CollectionScreen(
           store: store,
           speaker: speaker ?? RecordingSpeaker(),
+          strokeOrders: strokeOrders,
         ),
       ),
     );
@@ -102,6 +110,19 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(speaker.spoken, ['じぶんで かいてみよう']);
+  });
+
+  testWidgets('KanjiVG のクレジットをアプリの中で読める', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+
+    // SPEC 6.3 の要求。KanjiVG・作者・ライセンスの 3 つが要る。
+    final notice = tester.widget<SelectableText>(find.byType(SelectableText));
+    expect(notice.data, contains('KanjiVG'));
+    expect(notice.data, contains('Ulrich Apel'));
+    expect(notice.data, contains('creativecommons.org/licenses/by-sa/3.0/'));
   });
 
   testWidgets('集めた字が無いうちはフォントを作らない', (tester) async {
