@@ -32,9 +32,9 @@ class CollectionScreen extends StatefulWidget {
 }
 
 class _CollectionScreenState extends State<CollectionScreen> {
-  /// お手本を見て書く／何も見ずに書く の別。書く前に選ばせる（SPEC 7.1）。
+  /// 3 つの練習モードのどれで書くか。書く前に選ばせる（SPEC 7.1）。
   ///
-  /// なぞり書きは字形データが要るためまだ出せない。
+  /// 既定はお手本あり。いちばん多くの子が始められるところに置く。
   var _mode = PracticeMode.copy;
 
   SampleStore get store => widget.store;
@@ -172,10 +172,13 @@ Future<void> _showProgress(
   );
 }
 
-/// 書く前に、お手本を見るかどうかを選ばせる。
+/// 書く前に、どこまで見せてもらうかを選ばせる。
 ///
+/// なぞる → お手本を見る → 何も見ない、と難しくなる並びにしてある。
 /// 「お手本なしで書けた」は子供にとって手応えのある目標で、親にとっては
-/// より素の字が集まる手段になる。どちらもフォントの素材として採る（SPEC 7.1）。
+/// より素の字が集まる手段になる。
+///
+/// なぞり書きだけは、字形をなぞっただけなのでフォントの素材に採らない（SPEC 7.1）。
 class _ModeChoice extends StatelessWidget {
   const _ModeChoice({required this.mode, required this.onChanged});
 
@@ -190,6 +193,11 @@ class _ModeChoice extends StatelessWidget {
       // 選んだ側もアイコンのままにする。字が読めなくても違いが分かるように。
       showSelectedIcon: false,
       segments: const [
+        ButtonSegment(
+          value: PracticeMode.trace,
+          icon: Icon(Icons.gesture, size: 28),
+          label: Text('なぞる'),
+        ),
         ButtonSegment(
           value: PracticeMode.copy,
           icon: Icon(Icons.visibility, size: 28),

@@ -253,6 +253,33 @@ void main() {
       expect(sample.mode, PracticeMode.free);
     });
 
+    testWidgets('なぞり書きでは字形を薄く敷く', (tester) async {
+      await pumpScreen(tester, mode: PracticeMode.trace);
+
+      // 枠のお手本と、なぞる下敷きの 2 つ。
+      final views = tester.widgetList<StrokeOrderView>(
+        find.byType(StrokeOrderView),
+      );
+      expect(views, hasLength(2));
+
+      final guide = views.last;
+      expect(guide.progress.value, 1, reason: '全部見えていないとなぞれない');
+      expect(guide.color, isNot(views.first.color), reason: '下敷きは薄い色');
+    });
+
+    testWidgets('なぞり書きはフォントの素材にしない', (tester) async {
+      await pumpScreen(tester, char: 'き', mode: PracticeMode.trace);
+      await _drawLine(tester);
+      await _tapDone(tester);
+
+      expect(store.attemptCount('き'), 1, reason: '書いた事実は残す');
+      expect(
+        store.latestMaterialId('き'),
+        isNull,
+        reason: 'なぞっただけの字はフォントに入れない',
+      );
+    });
+
     testWidgets('スタイラス使用中はタッチを無視する', (tester) async {
       await pumpScreen(tester);
       final center = tester.getCenter(find.byType(InkCanvas));

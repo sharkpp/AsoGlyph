@@ -244,6 +244,14 @@ class _WritingScreenState extends State<WritingScreen>
                   fit: StackFit.expand,
                   children: [
                     const WritingGuide(),
+                    // なぞり書きは、字形を薄く敷いてその上をなぞらせる。
+                    if (widget.mode == PracticeMode.trace &&
+                        widget.strokeOrder != null)
+                      StrokeOrderView(
+                        order: widget.strokeOrder!,
+                        progress: kAlwaysCompleteAnimation,
+                        color: const Color(0xffddd6c9),
+                      ),
                     InkCanvas(controller: _ink),
                   ],
                 ),

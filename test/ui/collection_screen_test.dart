@@ -102,6 +102,15 @@ void main() {
     expect((await openWriting(tester, 'か')).mode, PracticeMode.free);
   });
 
+  testWidgets('なぞり書きも選べる', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.tap(find.text('なぞる'));
+    await tester.pumpAndSettle();
+
+    expect((await openWriting(tester, 'か')).mode, PracticeMode.trace);
+  });
+
   testWidgets('モードを選ぶと声でも伝える', (tester) async {
     final speaker = RecordingSpeaker();
     await pumpScreen(tester, speaker: speaker);
