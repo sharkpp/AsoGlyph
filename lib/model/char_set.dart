@@ -3,9 +3,25 @@
 /// 文字種ごとに収集の開始時期も字幅も異なるため、字の集合は必ずこの単位で扱う。
 enum CharSet {
   digits('すうじ', _digits, advanceWidth: 500),
-  hiraganaBasic('ひらがな', _hiraganaBasic, advanceWidth: 1000);
+  hiraganaBasic('ひらがな', _hiraganaBasic, advanceWidth: 1000),
+  soundMarks('だくてん', _soundMarks, advanceWidth: 1000),
 
-  const CharSet(this.label, this.chars, {required this.advanceWidth});
+  /// 清音に濁点を重ねて作る。書かせない（SPEC 5.1）。
+  ///
+  /// 全部書かせるとひらがなだけで 80 字になり、5〜6 歳には重い。
+  hiraganaVoiced(
+    'だくおん',
+    _hiraganaVoiced,
+    advanceWidth: 1000,
+    collect: false,
+  );
+
+  const CharSet(
+    this.label,
+    this.chars, {
+    required this.advanceWidth,
+    this.collect = true,
+  });
 
   /// 子供向け画面にも出す名前。
   final String label;
@@ -15,6 +31,11 @@ enum CharSet {
 
   /// 字送り幅（em 1000 基準）。和文は全角、数字・ラテンは半角に固定する（SPEC 5.2）。
   final int advanceWidth;
+
+  /// 書かせて集める文字種か。
+  ///
+  /// 収集対象と出力対象は一致しない（SPEC 5）。合成で作る字は出力にだけ現れる。
+  final bool collect;
 }
 
 const _digits = [
@@ -35,6 +56,18 @@ const _hiraganaBasic = [
   'わ', 'を', 'ん', //
 ];
 
+/// 濁点と半濁点。清音 46 字にこの 2 字を足した 48 字を集める（SPEC 5.1）。
+const _soundMarks = ['゛', '゜'];
+
+/// 清音＋濁点から合成する 25 字。清音と同じ並び順にする。
+const _hiraganaVoiced = [
+  'が', 'ぎ', 'ぐ', 'げ', 'ご', //
+  'ざ', 'じ', 'ず', 'ぜ', 'ぞ', //
+  'だ', 'ぢ', 'づ', 'で', 'ど', //
+  'ば', 'び', 'ぶ', 'べ', 'ぼ', //
+  'ぱ', 'ぴ', 'ぷ', 'ぺ', 'ぽ', //
+];
+
 /// 文字から所属する CharSet を引く。どこにも属さない文字は null。
 CharSet? charSetOf(String char) {
   for (final set in CharSet.values) {
@@ -45,11 +78,12 @@ CharSet? charSetOf(String char) {
 
 /// 読み上げるときの読み。かなは字面がそのまま読みになる。
 ///
-/// 数字だけは読みを持たないため明示する。「0」を「れい」と読む
-/// エンジンがあるが、幼児に通じるのは「ゼロ」のほう。
+/// 字面のままでは読めない字だけ明示する。「0」を「れい」と読むエンジンが
+/// あるが、幼児に通じるのは「ゼロ」のほう。濁点・半濁点も名前で呼ぶ。
 String readingOf(String char) => _readings[char] ?? char;
 
 const _readings = {
   '0': 'ゼロ', '1': 'いち', '2': 'に', '3': 'さん', '4': 'よん', //
   '5': 'ご', '6': 'ろく', '7': 'なな', '8': 'はち', '9': 'きゅう', //
+  '゛': 'てんてん', '゜': 'まる', //
 };

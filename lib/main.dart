@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'audio/speaker.dart';
+import 'kanjivg/dakuten_placement.dart';
 import 'kanjivg/stroke_order.dart';
 import 'store/sample_store.dart';
 import 'ui/about.dart';
@@ -14,6 +15,7 @@ Future<void> main() async {
       store: await SampleStore.open(),
       speaker: await TtsSpeaker.open(),
       strokeOrders: await StrokeOrderLibrary.load(),
+      placements: await DakutenPlacements.load(),
     ),
   );
 }
@@ -24,11 +26,13 @@ class AsoGlyphApp extends StatelessWidget {
     required this.store,
     required this.speaker,
     required this.strokeOrders,
+    required this.placements,
   });
 
   final SampleStore store;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
+  final DakutenPlacements placements;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +48,7 @@ class AsoGlyphApp extends StatelessWidget {
         store: store,
         speaker: speaker,
         strokeOrders: strokeOrders,
+        placements: placements,
       ),
     );
   }

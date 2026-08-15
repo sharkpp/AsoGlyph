@@ -13,9 +13,16 @@ void main() {
       expect(readingOf('7'), 'なな');
     });
 
-    test('数字は 1 字も読みを落としていない', () {
-      for (final char in CharSet.digits.chars) {
-        expect(readingOf(char), isNot(char), reason: '$char の読みが無い');
+    test('濁点は名前で呼ぶ', () {
+      expect(readingOf('゛'), 'てんてん');
+      expect(readingOf('゜'), 'まる');
+    });
+
+    test('字面のままでは読めない字に読みが付いている', () {
+      for (final charSet in [CharSet.digits, CharSet.soundMarks]) {
+        for (final char in charSet.chars) {
+          expect(readingOf(char), isNot(char), reason: '$char の読みが無い');
+        }
       }
     });
   });

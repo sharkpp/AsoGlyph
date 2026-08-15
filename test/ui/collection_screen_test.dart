@@ -1,5 +1,6 @@
 import 'package:asoglyph/audio/speaker.dart';
 import 'package:asoglyph/ink/stroke.dart';
+import 'package:asoglyph/kanjivg/dakuten_placement.dart';
 import 'package:asoglyph/kanjivg/stroke_order.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
@@ -26,10 +27,12 @@ Sample _written(String char) => Sample.now(
 void main() {
   late SampleStore store;
   late StrokeOrderLibrary strokeOrders;
+  late DakutenPlacements placements;
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     strokeOrders = await StrokeOrderLibrary.load();
+    placements = await DakutenPlacements.load();
   });
 
   setUp(() async {
@@ -52,6 +55,7 @@ void main() {
           store: store,
           speaker: speaker ?? RecordingSpeaker(),
           strokeOrders: strokeOrders,
+          placements: placements,
         ),
       ),
     );

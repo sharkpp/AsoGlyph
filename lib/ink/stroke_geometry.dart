@@ -33,6 +33,18 @@ class StrokeStyle {
 
   /// 線幅を均す移動平均の窓幅（入力点の個数）。
   final int smoothingWindow;
+
+  /// 線幅だけを [factor] 倍した設定。
+  ///
+  /// 濁点は清音より小さく置く。同じ太さのまま描くと潰れる（SPEC 5.1）。
+  StrokeStyle scaleWidth(double factor) => StrokeStyle(
+    baseWidth: baseWidth * factor,
+    pressureRange: pressureRange,
+    speedRange: speedRange,
+    referenceSpeed: referenceSpeed,
+    resampleSpacing: resampleSpacing,
+    smoothingWindow: smoothingWindow,
+  );
 }
 
 /// 描画に使う 1 点。位置と、その点での線幅を持つ。

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../font/glyph.dart';
 import '../ink/stroke.dart';
 import '../model/char_set.dart';
@@ -18,16 +20,50 @@ Future<Glyph> buildGlyph({
   required List<Stroke> strokes,
   StrokeStyle style = const StrokeStyle(),
 }) async {
-  final charSet = charSetOf(char);
-  if (charSet == null) {
-    throw ArgumentError.value(char, 'char', '収集対象の文字ではない');
-  }
+  return _glyphOf(
+    char,
+    await rasterizeStrokes(
+      strokes: strokes,
+      imageSize: rasterSize,
+      style: style,
+    ),
+  );
+}
 
+/// 清音の上に濁点を重ねて 1 つのグリフにする（SPEC 5.1）。
+///
+/// 2 つを別々に描いてから重ねるのは、線の太さを分けたいため。濁点は小さく
+/// 置くので、清音と同じ太さで描くと塗り潰れてしまう。
+Future<Glyph> buildComposedGlyph({
+  required String char,
+  required List<Stroke> base,
+  required List<Stroke> mark,
+  required double markScale,
+  StrokeStyle style = const StrokeStyle(),
+}) async {
   final alpha = await rasterizeStrokes(
-    strokes: strokes,
+    strokes: base,
     imageSize: rasterSize,
     style: style,
   );
+  final markAlpha = await rasterizeStrokes(
+    strokes: mark,
+    imageSize: rasterSize,
+    style: style.scaleWidth(markScale),
+  );
+
+  for (var i = 0; i < alpha.length; i++) {
+    if (markAlpha[i] > alpha[i]) alpha[i] = markAlpha[i];
+  }
+
+  return _glyphOf(char, alpha);
+}
+
+Glyph _glyphOf(String char, Uint8List alpha) {
+  final charSet = charSetOf(char);
+  if (charSet == null) {
+    throw ArgumentError.value(char, 'char', '文字種に属していない');
+  }
 
   return Glyph(
     codePoint: char.runes.first,

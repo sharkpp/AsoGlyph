@@ -5,6 +5,7 @@ import '../audio/speaker.dart';
 import '../export/collected_font.dart';
 import '../export/font_export.dart';
 import '../font/font_builder.dart';
+import '../kanjivg/dakuten_placement.dart';
 import '../kanjivg/stroke_order.dart';
 import '../model/char_set.dart';
 import '../model/sample.dart';
@@ -21,11 +22,13 @@ class CollectionScreen extends StatefulWidget {
     required this.store,
     required this.speaker,
     required this.strokeOrders,
+    required this.placements,
   });
 
   final SampleStore store;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
+  final DakutenPlacements placements;
 
   @override
   State<CollectionScreen> createState() => _CollectionScreenState();
@@ -70,7 +73,8 @@ class _CollectionScreenState extends State<CollectionScreen> {
             children: [
               _ModeChoice(mode: _mode, onChanged: _chooseMode),
               const SizedBox(height: 24),
-              for (final charSet in CharSet.values)
+              // 合成で作る字は書かせない。一覧にも出さない（SPEC 5.1）。
+              for (final charSet in CharSet.values.where((s) => s.collect))
                 _CharSetSection(
                   charSet: charSet,
                   store: store,
@@ -127,6 +131,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
     final meta = FontMetadata(familyName: 'AsoGlyph', created: DateTime.now());
     final bytes = await buildCollectedFont(
       store: store,
+      placements: widget.placements,
       meta: meta,
       format: format,
       onProgress: (done, total) => progress.value = (done, total),

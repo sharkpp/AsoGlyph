@@ -11,7 +11,7 @@ void main() {
   });
 
   test('収集対象の字は全部そろっている', () {
-    for (final charSet in CharSet.values) {
+    for (final charSet in CharSet.values.where((s) => s.collect)) {
       for (final char in charSet.chars) {
         expect(library[char], isNotNull, reason: '$char の書き順が無い');
       }
@@ -26,7 +26,7 @@ void main() {
   });
 
   test('字は KanjiVG の座標系に収まる', () {
-    for (final charSet in CharSet.values) {
+    for (final charSet in CharSet.values.where((s) => s.collect)) {
       for (final char in charSet.chars) {
         for (final stroke in library[char]!.strokes) {
           final bounds = stroke.getBounds();
@@ -61,5 +61,12 @@ void main() {
   test('持っていない字は null を返す', () {
     // 「」？ は KanjiVG に無い（SPEC 6.1）。字形で埋めず、無いと答える。
     expect(library['「'], isNull);
+  });
+
+  test('書かせない字は同梱しない', () {
+    // 濁音は清音＋濁点で合成する。KanjiVG の が を持ち歩く理由がない（SPEC 5.1）。
+    for (final char in CharSet.hiraganaVoiced.chars) {
+      expect(library[char], isNull, reason: char);
+    }
   });
 }
