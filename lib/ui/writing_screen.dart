@@ -19,11 +19,16 @@ class WritingScreen extends StatefulWidget {
   const WritingScreen({
     super.key,
     required this.char,
+    required this.mode,
     required this.store,
     required this.speaker,
   });
 
   final String char;
+
+  /// お手本を出すか、音だけで書かせるか（SPEC 7.1）。
+  final PracticeMode mode;
+
   final SampleStore store;
   final Speaker speaker;
 
@@ -68,12 +73,7 @@ class _WritingScreenState extends State<WritingScreen> {
     final strokes = _ink.strokes;
     final glyph = await buildGlyph(char: widget.char, strokes: strokes);
     await widget.store.add(
-      Sample.now(
-        char: widget.char,
-        // お手本を見て書いている。素材として採用する（SPEC 7.1）。
-        mode: PracticeMode.copy,
-        strokes: strokes,
-      ),
+      Sample.now(char: widget.char, mode: widget.mode, strokes: strokes),
     );
 
     if (!mounted) return;
@@ -130,10 +130,10 @@ class _WritingScreenState extends State<WritingScreen> {
     );
   }
 
-  /// お手本。書けたあとは、そのままフォントの字形に入れ替わる。
+  /// お手本の枠。書けたあとは、そのままフォントの字形に入れ替わる。
   ///
   /// 書いているあいだは、押すと読みをもう一度言う。子供向け画面はタップだけで
-  /// 完結させるため（SPEC 9）、読み上げボタンを別に置かずお手本そのものを押させる。
+  /// 完結させるため（SPEC 9）、読み上げボタンを別に置かず枠そのものを押させる。
   Widget _buildModel() {
     final glyph = _glyph;
     final canReplay = !_busy && glyph == null;
@@ -156,22 +156,14 @@ class _WritingScreenState extends State<WritingScreen> {
               if (_busy)
                 const Center(child: CircularProgressIndicator())
               else if (glyph == null)
-                Center(
-                  child: Text(
-                    widget.char,
-                    style: const TextStyle(
-                      fontSize: 120,
-                      height: 1,
-                      color: Color(0xff6f665c),
-                    ),
-                  ),
-                )
+                Center(child: _buildPrompt())
               else
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: GlyphPreview(contours: glyph.contours),
                 ),
-              if (canReplay)
+              // 何も見ずに書くモードでは、枠そのものが読み上げボタンになっている。
+              if (canReplay && widget.mode != PracticeMode.free)
                 const Positioned(
                   right: 8,
                   bottom: 8,
@@ -185,6 +177,19 @@ class _WritingScreenState extends State<WritingScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  /// まだ書き上げていないあいだ、枠に出すもの。
+  ///
+  /// 何も見ずに書くモードでは字を出さない。頼れるのは音だけになる（SPEC 7.1）。
+  Widget _buildPrompt() {
+    if (widget.mode == PracticeMode.free) {
+      return const Icon(Icons.volume_up, size: 96, color: Color(0xff9c948a));
+    }
+    return Text(
+      widget.char,
+      style: const TextStyle(fontSize: 120, height: 1, color: Color(0xff6f665c)),
     );
   }
 

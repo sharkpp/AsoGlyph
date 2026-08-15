@@ -60,10 +60,19 @@ void main() {
       speaker = RecordingSpeaker();
     });
 
-    Future<void> pumpScreen(WidgetTester tester, {String char = 'あ'}) async {
+    Future<void> pumpScreen(
+      WidgetTester tester, {
+      String char = 'あ',
+      PracticeMode mode = PracticeMode.copy,
+    }) async {
       await tester.pumpWidget(
         MaterialApp(
-          home: WritingScreen(char: char, store: store, speaker: speaker),
+          home: WritingScreen(
+            char: char,
+            mode: mode,
+            store: store,
+            speaker: speaker,
+          ),
         ),
       );
     }
@@ -173,6 +182,31 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: SizedBox()));
 
       expect(speaker.stopped, 1);
+    });
+
+    testWidgets('何も見ずに書くモードでは字を出さない', (tester) async {
+      await pumpScreen(tester, mode: PracticeMode.free);
+
+      expect(find.text('あ'), findsNothing, reason: 'お手本を出しては意味がない');
+      expect(speaker.spoken, ['あ、かいてね'], reason: '頼れるのは音だけ');
+
+      await _drawLine(tester);
+      await _tapDone(tester);
+
+      // 書き上げたあとの字形は、お手本ではなく結果なので出してよい。
+      expect(find.byType(GlyphPreview), findsOneWidget);
+    });
+
+    testWidgets('書いたときのモードがそのまま記録される', (tester) async {
+      await pumpScreen(tester, char: 'き', mode: PracticeMode.free);
+      await _drawLine(tester);
+      await _tapDone(tester);
+
+      late Sample sample;
+      await tester.runAsync(
+        () async => sample = await store.read(store.latestMaterialId('き')!),
+      );
+      expect(sample.mode, PracticeMode.free);
     });
 
     testWidgets('スタイラス使用中はタッチを無視する', (tester) async {

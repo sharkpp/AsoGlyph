@@ -1,3 +1,4 @@
+import 'package:asoglyph/audio/speaker.dart';
 import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
@@ -33,16 +34,26 @@ void main() {
   Future<void> collect(WidgetTester tester, String char) =>
       tester.runAsync(() => store.add(_written(char)));
 
-  Future<void> pumpScreen(WidgetTester tester) async {
+  Future<void> pumpScreen(WidgetTester tester, {Speaker? speaker}) async {
     tester.view
       ..physicalSize = const Size(1200, 2400)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        home: CollectionScreen(store: store, speaker: RecordingSpeaker()),
+        home: CollectionScreen(
+          store: store,
+          speaker: speaker ?? RecordingSpeaker(),
+        ),
       ),
     );
+  }
+
+  /// 字をタップして入った書き取り画面。
+  Future<WritingScreen> openWriting(WidgetTester tester, String char) async {
+    await tester.tap(find.text(char));
+    await tester.pumpAndSettle();
+    return tester.widget<WritingScreen>(find.byType(WritingScreen));
   }
 
   testWidgets('文字種ごとに充足率を出す', (tester) async {
@@ -65,11 +76,32 @@ void main() {
   testWidgets('字をタップするとその字の書き取りに入る', (tester) async {
     await pumpScreen(tester);
 
-    await tester.tap(find.text('か'));
+    expect((await openWriting(tester, 'か')).char, 'か');
+  });
+
+  testWidgets('既定はお手本を見て書く', (tester) async {
+    await pumpScreen(tester);
+
+    expect((await openWriting(tester, 'か')).mode, PracticeMode.copy);
+  });
+
+  testWidgets('じぶんでを選ぶと、その字は何も見ずに書く', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.tap(find.text('じぶんで'));
     await tester.pumpAndSettle();
 
-    final screen = tester.widget<WritingScreen>(find.byType(WritingScreen));
-    expect(screen.char, 'か');
+    expect((await openWriting(tester, 'か')).mode, PracticeMode.free);
+  });
+
+  testWidgets('モードを選ぶと声でも伝える', (tester) async {
+    final speaker = RecordingSpeaker();
+    await pumpScreen(tester, speaker: speaker);
+
+    await tester.tap(find.text('じぶんで'));
+    await tester.pumpAndSettle();
+
+    expect(speaker.spoken, ['じぶんで かいてみよう']);
   });
 
   testWidgets('集めた字が無いうちはフォントを作らない', (tester) async {
