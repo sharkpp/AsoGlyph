@@ -195,27 +195,48 @@ class _ModeChoice extends StatelessWidget {
     return SegmentedButton<PracticeMode>(
       // タップターゲットは 64dp 以上（SPEC 9）。
       style: SegmentedButton.styleFrom(minimumSize: const Size(0, 64)),
-      // 選んだ側もアイコンのままにする。字が読めなくても違いが分かるように。
+      // 選んだ印にチェックを足さない。色が変わればじゅうぶんで、
+      // チェックが入るとアイコンの位置がずれて何を選んだか分かりにくい。
       showSelectedIcon: false,
       segments: const [
         ButtonSegment(
           value: PracticeMode.trace,
-          icon: Icon(Icons.gesture, size: 28),
-          label: Text('なぞる'),
+          label: _ModeLabel(icon: Icons.gesture, text: 'なぞる'),
         ),
         ButtonSegment(
           value: PracticeMode.copy,
-          icon: Icon(Icons.visibility, size: 28),
-          label: Text('おてほん'),
+          label: _ModeLabel(icon: Icons.visibility, text: 'おてほん'),
         ),
         ButtonSegment(
           value: PracticeMode.free,
-          icon: Icon(Icons.volume_up, size: 28),
-          label: Text('じぶんで'),
+          label: _ModeLabel(icon: Icons.volume_up, text: 'じぶんで'),
         ),
       ],
       selected: {mode},
       onSelectionChanged: (selected) => onChanged(selected.single),
+    );
+  }
+}
+
+/// アイコンの下に文字。
+///
+/// `ButtonSegment.icon` は文字の横に並ぶため、スマホ幅では 3 つ入らず
+/// 文字が折り返して見切れる。字が読めない子には上のアイコンだけで足りる。
+class _ModeLabel extends StatelessWidget {
+  const _ModeLabel({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 28),
+        const SizedBox(height: 2),
+        Text(text, style: const TextStyle(fontSize: 13)),
+      ],
     );
   }
 }
