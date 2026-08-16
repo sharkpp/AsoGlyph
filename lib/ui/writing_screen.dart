@@ -179,15 +179,23 @@ class _WritingScreenState extends State<WritingScreen>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (_busy)
-                const Center(child: CircularProgressIndicator())
-              else if (glyph == null)
-                _buildPrompt()
-              else
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: GlyphPreview(contours: glyph.contours),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // 書き取り枠と同じ十字を敷く。お手本と自分の字を、
+                    // 同じ物差しで見比べられるようにする（SPEC 7.1）。
+                    const WritingGuide(border: false),
+                    if (_busy)
+                      const Center(child: CircularProgressIndicator())
+                    else if (glyph == null)
+                      _buildPrompt()
+                    else
+                      GlyphPreview(contours: glyph.contours),
+                  ],
                 ),
+              ),
               // 何も見ずに書くモードでは、枠そのものが読み上げボタンになっている。
               if (canReplay && widget.mode != PracticeMode.free)
                 const Positioned(
@@ -229,13 +237,10 @@ class _WritingScreenState extends State<WritingScreen>
         ),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: StrokeOrderView(
-        order: order,
-        progress: _playback,
-        showNumbers: true,
-      ),
+    return StrokeOrderView(
+      order: order,
+      progress: _playback,
+      showNumbers: true,
     );
   }
 

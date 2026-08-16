@@ -5,31 +5,46 @@ import 'package:flutter/material.dart';
 /// 字の大きさと位置が揃わないとフォントとして破綻するため、収集の質を
 /// 左右する要素（SPEC 7.1）。漢字・かな用の正方枠。
 class WritingGuide extends StatelessWidget {
-  const WritingGuide({super.key, this.color = const Color(0xffd8d3c8)});
+  const WritingGuide({
+    super.key,
+    this.color = const Color(0xffd8d3c8),
+    this.border = true,
+  });
 
   final Color color;
+
+  /// 外枠を引くか。すでに枠を持つ面へ敷くときは切る。
+  final bool border;
 
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: CustomPaint(painter: _GuidePainter(color), size: Size.infinite),
+      child: CustomPaint(
+        painter: _GuidePainter(color, border),
+        size: Size.infinite,
+      ),
     );
   }
 }
 
 class _GuidePainter extends CustomPainter {
-  const _GuidePainter(this.color);
+  const _GuidePainter(this.color, this.border);
 
   final Color color;
+  final bool border;
 
   @override
   void paint(Canvas canvas, Size size) {
     final side = size.shortestSide;
-    final border = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawRect(Rect.fromLTWH(0, 0, side, side), border);
+    if (border) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, side, side),
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+    }
 
     final guide = Paint()
       ..color = color
@@ -57,5 +72,6 @@ class _GuidePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_GuidePainter old) => old.color != color;
+  bool shouldRepaint(_GuidePainter old) =>
+      old.color != color || old.border != border;
 }
