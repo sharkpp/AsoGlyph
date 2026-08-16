@@ -89,9 +89,14 @@ class _WritingScreenState extends State<WritingScreen>
   }
 
   Future<void> _finish() async {
+    // 指を置いたままでも押せるボタンなので、書きかけの画をここで確定させる。
+    // 「できた！」が押せる状態と、記録に残る画がずれてはいけない。
+    _ink.end();
+    final strokes = _ink.strokes;
+    if (strokes.isEmpty) return;
+
     setState(() => _busy = true);
 
-    final strokes = _ink.strokes;
     final glyph = await buildGlyph(char: widget.char, strokes: strokes);
     await widget.store.add(
       Sample.now(char: widget.char, mode: widget.mode, strokes: strokes),

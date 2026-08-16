@@ -19,6 +19,9 @@ class InkController extends ChangeNotifier {
 
   bool get isEmpty => _strokes.isEmpty && _active.isEmpty;
 
+  /// 描いている最中の画が、置かれたあと実際に動いたか。
+  bool get activeHasMoved => _active.length > 1;
+
   /// 確定した画とその時点の描画中の画を合わせたもの。
   List<Stroke> get allStrokes => [
     ..._strokes,

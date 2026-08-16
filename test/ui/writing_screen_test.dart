@@ -301,6 +301,50 @@ void main() {
       );
     });
 
+    testWidgets('指を離さずできた！を押しても書きかけの画が残る', (tester) async {
+      await pumpScreen(tester, char: 'き');
+
+      // 1 画だけ書いて、指を置いたまま「できた！」を押す。
+      final rect = tester.getRect(find.byType(InkCanvas));
+      final gesture = await tester.startGesture(rect.center);
+      await gesture.moveBy(const Offset(0, 60));
+      await tester.pump();
+
+      await _tapDone(tester);
+
+      late Sample sample;
+      await tester.runAsync(
+        () async => sample = await store.read(store.latestMaterialId('き')!),
+      );
+      expect(sample.strokes, hasLength(1), reason: '書きかけの画を捨てない');
+      await gesture.up();
+    });
+
+    testWidgets('画面に置いたままの指が、あとから書く指を邪魔しない', (tester) async {
+      await pumpScreen(tester);
+      final rect = tester.getRect(find.byType(InkCanvas));
+
+      // 端末を持つ手が画面に触れている。動かないまま。
+      final resting = await tester.startGesture(rect.topLeft + const Offset(8, 8));
+      await tester.pump();
+
+      // もう一方の手で書く。
+      final writing = await tester.startGesture(rect.center);
+      await writing.moveBy(const Offset(80, 0));
+      await writing.up();
+      await tester.pump();
+      await resting.up();
+      await tester.pump();
+
+      final canvas = tester.widget<InkCanvas>(find.byType(InkCanvas));
+      expect(canvas.controller.strokes, hasLength(1), reason: '書いた 1 画が残る');
+
+      // 隅に置いたままの指ではなく、真ん中から引いた線が残る。
+      final points = canvas.controller.strokes.single.points;
+      expect(points.first.x, closeTo(500, 50));
+      expect(points.last.x, greaterThan(points.first.x + 100));
+    });
+
     testWidgets('スタイラス使用中はタッチを無視する', (tester) async {
       await pumpScreen(tester);
       final center = tester.getCenter(find.byType(InkCanvas));

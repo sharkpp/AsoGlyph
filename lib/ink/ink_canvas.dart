@@ -57,7 +57,13 @@ class _InkCanvasState extends State<InkCanvas> {
         return Listener(
           behavior: HitTestBehavior.opaque,
           onPointerDown: (event) {
-            if (_activePointer != null || _shouldIgnore(event)) return;
+            if (_shouldIgnore(event)) return;
+            // 置かれたまま動いていない指は、あとから触れた指に譲る。
+            // 画面に手を置いたまま書き始める子がいて、譲らないと以降の入力が
+            // すべて無視され、書いたものが 1 画も残らない。
+            if (_activePointer != null && widget.controller.activeHasMoved) {
+              return;
+            }
             if (event.kind == PointerDeviceKind.stylus) _stylusInUse = true;
             _activePointer = event.pointer;
             widget.controller.begin(
