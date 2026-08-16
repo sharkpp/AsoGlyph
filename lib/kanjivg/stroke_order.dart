@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/services.dart';
@@ -31,21 +32,71 @@ class StrokeOrder {
 
   /// [index] 画目の番号を置く点。座標系は [viewBox] 四方のまま。
   ///
-  /// KanjiVG の main.xml は画数ラベルの座標を持たないため、書き始めから
-  /// 進む向きと逆へ少し逃がした位置を使う。線に重ならず、どの画の番号かも
-  /// 取り違えにくい。
+  /// KanjiVG の main.xml は画数ラベルの座標を持たないため自分で決める。
+  /// 書き始めのまわりを一周して、**どの画からもいちばん離れた向き**を選ぶ。
+  /// 向きを決め打ちすると、別の画の上に乗ってその線を隠してしまう
+  /// （あ の 3 画目は、手前へ逃がすと 1 画目の横棒に乗る）。
   Offset numberAnchor(int index) {
     final start = _metrics[index].getTangentForOffset(0)!;
-    final anchor = start.position - start.vector * _numberOffset;
-    // 端で書き始める画があるので、枠の外へ出さない。
-    return Offset(
-      anchor.dx.clamp(_numberMargin, viewBox - _numberMargin),
-      anchor.dy.clamp(_numberMargin, viewBox - _numberMargin),
-    );
+    const center = Offset(viewBox / 2, viewBox / 2);
+    final outward = start.position - center;
+    final away = outward.distance < 1 ? Offset.zero : outward / outward.distance;
+
+    Offset? best;
+    var bestScore = double.negativeInfinity;
+    for (var i = 0; i < _numberDirections; i++) {
+      final angle = 2 * pi * i / _numberDirections;
+      final direction = Offset(cos(angle), sin(angle));
+      final at = Offset(
+        (start.position.dx + direction.dx * _numberRadius)
+            .clamp(_margin, viewBox - _margin),
+        (start.position.dy + direction.dy * _numberRadius)
+            .clamp(_margin, viewBox - _margin),
+      );
+
+      // 線から遠いほど良い。同じくらいなら字の外側を選ぶ。
+      final score =
+          _distanceToInk(at) + (direction.dx * away.dx + direction.dy * away.dy);
+      if (score > bestScore) {
+        bestScore = score;
+        best = at;
+      }
+    }
+    return best!;
   }
 
-  static const _numberOffset = 7.0;
-  static const _numberMargin = 6.0;
+  /// [index] 画目の、進む向きを示す点。矢印を置くのに使う。
+  ///
+  /// 書き終わりではなく書き始めの少し先に置く。0 のように始点と終点が
+  /// 重なる画は、終わりに矢印を立てても左回りか右回りか決まらない。
+  Tangent directionMark(int index) {
+    final metric = _metrics[index];
+    return metric.getTangentForOffset(
+      min(_markOffset, metric.length * 0.35),
+    )!;
+  }
+
+  /// 全部の画を粗く点に開いたもの。番号の置き場所を選ぶのに使う。
+  late final List<Offset> _ink = [
+    for (final metric in _metrics)
+      for (var d = 0.0; d <= metric.length; d += _inkSpacing)
+        metric.getTangentForOffset(d)!.position,
+  ];
+
+  double _distanceToInk(Offset at) {
+    var nearest = double.infinity;
+    for (final point in _ink) {
+      final d = (point - at).distanceSquared;
+      if (d < nearest) nearest = d;
+    }
+    return sqrt(nearest);
+  }
+
+  static const _markOffset = 13.0;
+  static const _numberDirections = 16;
+  static const _numberRadius = 12.0;
+  static const _inkSpacing = 2.0;
+  static const _margin = 7.0;
 }
 
 /// 書き順データの置き場。

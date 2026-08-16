@@ -70,8 +70,41 @@ void main() {
       final start = order.strokes[i].computeMetrics().single
           .getTangentForOffset(0)!
           .position;
-      expect((anchor - start).distance, lessThan(10));
+      expect((anchor - start).distance, lessThan(14));
     }
+  });
+
+  test('番号は字の外側へ逃げる', () {
+    // 手前に逃がすだけだと別の画に乗る。中心から遠ざける向きにも動かす。
+    const center = Offset(StrokeOrder.viewBox / 2, StrokeOrder.viewBox / 2);
+    for (final char in ['あ', 'ぬ', 'ほ', 'ま']) {
+      final order = library[char]!;
+      for (var i = 0; i < order.strokeCount; i++) {
+        final start = order.strokes[i].computeMetrics().single
+            .getTangentForOffset(0)!
+            .position;
+        // 枠へ寄せる clamp が効く画もあるので、遠ざかることだけを見る。
+        expect(
+          (order.numberAnchor(i) - center).distance,
+          greaterThan((start - center).distance - 8),
+          reason: '$char の $i 画目',
+        );
+      }
+    }
+  });
+
+  test('矢印は書き始めの少し先に立つ', () {
+    // 0 は始点と終点がほぼ重なる。終わりに矢印を立てても向きが決まらない。
+    final order = library['0']!;
+    final metric = order.strokes[0].computeMetrics().single;
+    final start = metric.getTangentForOffset(0)!.position;
+    final end = metric.getTangentForOffset(metric.length)!.position;
+    expect((end - start).distance, lessThan(15), reason: '始点と終点が近い');
+
+    final mark = order.directionMark(0);
+    final distance = (mark.position - start).distance;
+    expect(distance, greaterThan(5), reason: '書き始めから離れている');
+    expect(distance, lessThan(20), reason: 'それでも書き始めのそば');
   });
 
   test('画ごとに別の場所へ置く', () {

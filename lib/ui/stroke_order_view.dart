@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../kanjivg/stroke_order.dart';
@@ -14,6 +16,7 @@ class StrokeOrderView extends StatelessWidget {
     this.color = const Color(0xff6f665c),
     this.showNumbers = false,
     this.surface = const Color(0xffffffff),
+    this.arrowColor = const Color(0xffe8863c),
   });
 
   final StrokeOrder order;
@@ -22,6 +25,9 @@ class StrokeOrderView extends StatelessWidget {
 
   /// 番号の下に敷く色。これを描く面と同じ色にする。
   final Color surface;
+
+  /// 矢印の色。字と別の色にする。線と同じ色だと端の跳ねに紛れる。
+  final Color arrowColor;
 
   /// 引き終わったあと、画ごとの番号を出すか。
   ///
@@ -44,6 +50,7 @@ class StrokeOrderView extends StatelessWidget {
         color: color,
         showNumbers: showNumbers,
         surface: surface,
+        arrowColor: arrowColor,
       ),
     );
   }
@@ -56,6 +63,7 @@ class _StrokeOrderPainter extends CustomPainter {
     required this.color,
     required this.showNumbers,
     required this.surface,
+    required this.arrowColor,
   }) : super(repaint: progress);
 
   final StrokeOrder order;
@@ -63,6 +71,7 @@ class _StrokeOrderPainter extends CustomPainter {
   final Color color;
   final bool showNumbers;
   final Color surface;
+  final Color arrowColor;
 
   /// KanjiVG の座標系での線幅。太めのほうが幼児には見やすい。
   static const _strokeWidth = 5.5;
@@ -92,9 +101,46 @@ class _StrokeOrderPainter extends CustomPainter {
       );
     }
 
+    if (showNumbers && progress.value >= 1) _paintArrows(canvas);
+
     canvas.restore();
 
     if (showNumbers && progress.value >= 1) _paintNumbers(canvas, scale);
+  }
+
+  /// 書き始めの少し先に、進む向きの矢印を置く。
+  ///
+  /// 番号だけでは、どちらへ引くのか分からない画がある。0 は始点と終点が
+  /// 重なるので、番号を見ても左回りか右回りか決まらない。
+  void _paintArrows(Canvas canvas) {
+    const length = 8.0;
+    const spread = 0.55;
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = arrowColor;
+
+    for (var i = 0; i < order.strokeCount; i++) {
+      final mark = order.directionMark(i);
+      // 進む向きの逆へ、左右に開いた 2 本を引く。
+      final back = mark.angle + math.pi;
+      canvas.drawPath(
+        Path()
+          ..moveTo(
+            mark.position.dx + math.cos(back - spread) * length,
+            mark.position.dy + math.sin(back - spread) * length,
+          )
+          ..lineTo(mark.position.dx, mark.position.dy)
+          ..lineTo(
+            mark.position.dx + math.cos(back + spread) * length,
+            mark.position.dy + math.sin(back + spread) * length,
+          ),
+        paint,
+      );
+    }
   }
 
   /// 番号は拡大せず、画面の解像度で描く。字形と一緒に引き伸ばすと潰れる。
@@ -130,5 +176,6 @@ class _StrokeOrderPainter extends CustomPainter {
       old.progress != progress ||
       old.color != color ||
       old.showNumbers != showNumbers ||
-      old.surface != surface;
+      old.surface != surface ||
+      old.arrowColor != arrowColor;
 }
