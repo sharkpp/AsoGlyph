@@ -106,9 +106,16 @@ List<Pt> _generateBezier(
   var alphaRight = detC.abs() < 1e-12 ? 0.0 : detX1 / detC;
 
   // 解が退化した場合は弦長の 1/3 という定石に落とす。
+  //
+  // 小さすぎる解だけでなく、大きすぎる解も退化とみなす。制御点の腕が弦より
+  // 長い曲線は自分の端点を追い越し、字形に細いヒゲとして出る。落としたあと
+  // 誤差が残れば、呼び出し元が分割して当てはめ直す。
   final chord = (last - first).length;
   final epsilon = 1e-6 * chord;
-  if (alphaLeft < epsilon || alphaRight < epsilon) {
+  if (alphaLeft < epsilon ||
+      alphaRight < epsilon ||
+      alphaLeft > chord ||
+      alphaRight > chord) {
     alphaLeft = chord / 3;
     alphaRight = chord / 3;
   }
