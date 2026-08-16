@@ -28,6 +28,24 @@ class StrokeOrder {
     final metric = _metrics[index];
     return metric.extractPath(0, metric.length * fraction);
   }
+
+  /// [index] 画目の番号を置く点。座標系は [viewBox] 四方のまま。
+  ///
+  /// KanjiVG の main.xml は画数ラベルの座標を持たないため、書き始めから
+  /// 進む向きと逆へ少し逃がした位置を使う。線に重ならず、どの画の番号かも
+  /// 取り違えにくい。
+  Offset numberAnchor(int index) {
+    final start = _metrics[index].getTangentForOffset(0)!;
+    final anchor = start.position - start.vector * _numberOffset;
+    // 端で書き始める画があるので、枠の外へ出さない。
+    return Offset(
+      anchor.dx.clamp(_numberMargin, viewBox - _numberMargin),
+      anchor.dy.clamp(_numberMargin, viewBox - _numberMargin),
+    );
+  }
+
+  static const _numberOffset = 7.0;
+  static const _numberMargin = 6.0;
 }
 
 /// 書き順データの置き場。

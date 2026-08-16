@@ -58,6 +58,35 @@ void main() {
     expect(half.width, lessThan(whole.width), reason: '途中はまだ短い');
   });
 
+  test('番号は画の書き始めに、枠の中へ置く', () {
+    final order = library['あ']!;
+
+    for (var i = 0; i < order.strokeCount; i++) {
+      final anchor = order.numberAnchor(i);
+      expect(anchor.dx, inInclusiveRange(0, StrokeOrder.viewBox));
+      expect(anchor.dy, inInclusiveRange(0, StrokeOrder.viewBox));
+
+      // 書き始めのそば。別の画の番号と取り違える距離ではない。
+      final start = order.strokes[i].computeMetrics().single
+          .getTangentForOffset(0)!
+          .position;
+      expect((anchor - start).distance, lessThan(10));
+    }
+  });
+
+  test('画ごとに別の場所へ置く', () {
+    final order = library['あ']!;
+    final anchors = [
+      for (var i = 0; i < order.strokeCount; i++) order.numberAnchor(i),
+    ];
+
+    for (var i = 0; i < anchors.length; i++) {
+      for (var j = i + 1; j < anchors.length; j++) {
+        expect((anchors[i] - anchors[j]).distance, greaterThan(5));
+      }
+    }
+  });
+
   test('持っていない字は null を返す', () {
     // 「」？ は KanjiVG に無い（SPEC 6.1）。字形で埋めず、無いと答える。
     expect(library['「'], isNull);

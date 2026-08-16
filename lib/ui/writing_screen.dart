@@ -226,7 +226,11 @@ class _WritingScreenState extends State<WritingScreen>
     }
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: StrokeOrderView(order: order, progress: _playback),
+      child: StrokeOrderView(
+        order: order,
+        progress: _playback,
+        showNumbers: true,
+      ),
     );
   }
 

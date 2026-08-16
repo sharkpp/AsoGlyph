@@ -116,6 +116,27 @@ void main() {
       expect(view.progress.value, 1, reason: '最後まで引き終わる');
     });
 
+    testWidgets('引き終わったら画の番号に引き継ぐ', (tester) async {
+      await pumpScreen(tester);
+      final view = tester.widget<StrokeOrderView>(find.byType(StrokeOrderView));
+
+      expect(view.showNumbers, isTrue);
+      expect(view.progress.value, 0, reason: '動いているあいだは順番が目で追える');
+
+      await tester.pumpAndSettle();
+      expect(view.progress.value, 1, reason: '止まった字は番号でしか順番が分からない');
+    });
+
+    testWidgets('なぞる下敷きには番号を出さない', (tester) async {
+      await pumpScreen(tester, mode: PracticeMode.trace);
+
+      final views = tester
+          .widgetList<StrokeOrderView>(find.byType(StrokeOrderView))
+          .toList();
+      // 書き取り面に番号を出すと、幼児がそれごとなぞってしまう。
+      expect(views.last.showNumbers, isFalse);
+    });
+
     testWidgets('お手本を押すと書き順を引き直す', (tester) async {
       await pumpScreen(tester);
       await tester.pumpAndSettle();
