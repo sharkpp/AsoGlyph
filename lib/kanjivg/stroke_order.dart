@@ -36,7 +36,18 @@ class StrokeOrder {
   /// 書き始めのまわりを一周して、**どの画からもいちばん離れた向き**を選ぶ。
   /// 向きを決め打ちすると、別の画の上に乗ってその線を隠してしまう
   /// （あ の 3 画目は、手前へ逃がすと 1 画目の横棒に乗る）。
-  Offset numberAnchor(int index) {
+  Offset numberAnchor(int index) => _anchors[index];
+
+  /// 画順に決めていく。あとの番号は、先に置いた番号からも離れるようにする。
+  late final List<Offset> _anchors = () {
+    final placed = <Offset>[];
+    for (var i = 0; i < strokeCount; i++) {
+      placed.add(_chooseAnchor(i, placed));
+    }
+    return placed;
+  }();
+
+  Offset _chooseAnchor(int index, List<Offset> placed) {
     final start = _metrics[index].getTangentForOffset(0)!;
     const center = Offset(viewBox / 2, viewBox / 2);
     final outward = start.position - center;
@@ -54,9 +65,17 @@ class StrokeOrder {
             .clamp(_margin, viewBox - _margin),
       );
 
-      // 線から遠いほど良い。同じくらいなら字の外側を選ぶ。
-      final score =
-          _distanceToInk(at) + (direction.dx * away.dx + direction.dy * away.dy);
+      // 線から遠いほど良い。同じくらいなら、書き始めの手前で字の外側を選ぶ。
+      // 手前に置くと、番号に添えた矢印がそのまま書き始めを指す。
+      final back =
+          -(direction.dx * start.vector.dx + direction.dy * start.vector.dy);
+      final out = direction.dx * away.dx + direction.dy * away.dy;
+      var crowd = 0.0;
+      for (final other in placed) {
+        final gap = (other - at).distance;
+        if (gap < _numberRadius) crowd += _numberRadius - gap;
+      }
+      final score = _distanceToInk(at) + back * 1.5 + out - crowd;
       if (score > bestScore) {
         bestScore = score;
         best = at;
@@ -65,37 +84,26 @@ class StrokeOrder {
     return best!;
   }
 
-  /// [index] 画目の、進む向きを示す矢印を置く場所と向き。
+  /// [index] 画目を書き始める向き。長さ 1 のベクトルで返す。
   ///
-  /// 位置は書き終わりではなく書き始めの少し先。0 のように始点と終点が
-  /// 重なる画は、終わりに矢印を立てても左回りか右回りか決まらない。
+  /// 接線ではなく、書き出しから少し進んだ点までを結んだ向き。あ の 3 画目は
+  /// 出だしだけ下へ向かってから左へ払うので、接線を取ると「下」に見えてしまう。
+  /// 人が「どちらへ書くか」と見るのは、この区間の流れのほう。
   ///
-  /// さらに線から横へ逃がす。線の上に描くと字形の一部に見えてしまい、
-  /// なぞる子がその形ごと書いてしまう。
-  ({Offset at, double angle}) directionMark(int index) {
+  /// [Tangent.angle] は y を反転した角度（`-atan2(dy, dx)`）を返すため使わない。
+  /// この座標系は y が下向きで、そのまま描画に渡せるのはベクトルのほう。
+  Offset startDirection(int index) {
     final metric = _metrics[index];
-    final on = metric.getTangentForOffset(
-      min(_markOffset, metric.length * 0.35),
-    )!;
+    final from = metric.getTangentForOffset(0)!.position;
+    final to = metric
+        .getTangentForOffset(min(_lookAhead, metric.length * 0.3))!
+        .position;
 
-    // 進む向きの左右どちらへ逃がすか。他の画から遠いほうを選ぶ。
-    final normal = Offset(-on.vector.dy, on.vector.dx);
-    var best = on.position;
-    var bestScore = double.negativeInfinity;
-    for (final side in [1.0, -1.0]) {
-      final at = Offset(
-        (on.position.dx + normal.dx * side * _markGap)
-            .clamp(_margin, viewBox - _margin),
-        (on.position.dy + normal.dy * side * _markGap)
-            .clamp(_margin, viewBox - _margin),
-      );
-      final score = _distanceToInk(at);
-      if (score > bestScore) {
-        bestScore = score;
-        best = at;
-      }
+    final along = to - from;
+    if (along.distance < 0.01) {
+      return metric.getTangentForOffset(0)!.vector;
     }
-    return (at: best, angle: on.angle);
+    return along / along.distance;
   }
 
   /// 全部の画を粗く点に開いたもの。番号の置き場所を選ぶのに使う。
@@ -114,8 +122,7 @@ class StrokeOrder {
     return sqrt(nearest);
   }
 
-  static const _markOffset = 13.0;
-  static const _markGap = 9.0;
+  static const _lookAhead = 22.0;
   static const _numberDirections = 16;
   static const _numberRadius = 12.0;
   static const _inkSpacing = 2.0;

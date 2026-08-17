@@ -105,32 +105,34 @@ void main() {
     }
   });
 
-  test('矢印は書き始めの少し先に立つ', () {
-    // 0 は始点と終点がほぼ重なる。終わりに矢印を立てても向きが決まらない。
+  test('矢印は書き始める向きを指す', () {
+    // 0 は始点と終点がほぼ重なる。終わりに矢印を立てても向きが決まらないので、
+    // 書き始めの向きで示す。
     final order = library['0']!;
     final metric = order.strokes[0].computeMetrics().single;
     final start = metric.getTangentForOffset(0)!.position;
     final end = metric.getTangentForOffset(metric.length)!.position;
     expect((end - start).distance, lessThan(15), reason: '始点と終点が近い');
 
-    final mark = order.directionMark(0);
-    final distance = (mark.at - start).distance;
-    expect(distance, greaterThan(5), reason: '書き始めから離れている');
-    expect(distance, lessThan(25), reason: 'それでも書き始めのそば');
+    // 0 は上から左回り。書き始めは左へ向かう。
+    final direction = order.startDirection(0);
+    expect(direction.dx, lessThan(0), reason: '左へ');
+    expect(direction.distance, closeTo(1, 0.001), reason: '長さ 1');
   });
 
-  test('矢印は線の外に出す', () {
-    // 線の上に描くと字形の一部に見え、なぞる子がその形ごと書いてしまう。
-    for (final char in ['0', 'あ', 'し', 'ぽ']) {
+  test('番号は書き始めの手前に来る', () {
+    // 矢印は番号に添えるので、番号が書き始めより手前にないと外を指してしまう。
+    for (final char in ['0', 'あ', 'ぽ', 'ぬ']) {
       final order = library[char]!;
       for (var i = 0; i < order.strokeCount; i++) {
-        final at = order.directionMark(i).at;
-        final onLine = order.strokes[i]
-            .computeMetrics()
-            .single
-            .getTangentForOffset(0)!
-            .position;
-        expect(at, isNot(onLine), reason: char);
+        final metric = order.strokes[i].computeMetrics().single;
+        final start = metric.getTangentForOffset(0)!;
+        final toStart = start.position - order.numberAnchor(i);
+        if (toStart.distance < 1) continue;
+        final along =
+            (toStart.dx * start.vector.dx + toStart.dy * start.vector.dy) /
+            toStart.distance;
+        expect(along, greaterThan(-0.6), reason: '$char の ${i + 1} 画目');
       }
     }
   });

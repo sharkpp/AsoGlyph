@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../kanjivg/stroke_order.dart';
@@ -101,50 +99,21 @@ class _StrokeOrderPainter extends CustomPainter {
       );
     }
 
-    if (showNumbers && progress.value >= 1) _paintArrows(canvas);
-
     canvas.restore();
 
-    if (showNumbers && progress.value >= 1) _paintNumbers(canvas, scale);
+    if (showNumbers && progress.value >= 1) _paintOrderMarks(canvas, scale);
   }
 
-  /// 書き始めの少し先の、線の外側に、進む向きの矢印を置く。
+  /// 画ごとの番号と、書き始める向きの矢印。
   ///
   /// 番号だけでは、どちらへ引くのか分からない画がある。0 は始点と終点が
   /// 重なるので、番号を見ても左回りか右回りか決まらない。
-  void _paintArrows(Canvas canvas) {
-    const length = 8.0;
-    const spread = 0.55;
-
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = arrowColor;
-
-    for (var i = 0; i < order.strokeCount; i++) {
-      final mark = order.directionMark(i);
-      // 進む向きの逆へ、左右に開いた 2 本を引く。
-      final back = mark.angle + math.pi;
-      canvas.drawPath(
-        Path()
-          ..moveTo(
-            mark.at.dx + math.cos(back - spread) * length,
-            mark.at.dy + math.sin(back - spread) * length,
-          )
-          ..lineTo(mark.at.dx, mark.at.dy)
-          ..lineTo(
-            mark.at.dx + math.cos(back + spread) * length,
-            mark.at.dy + math.sin(back + spread) * length,
-          ),
-        paint,
-      );
-    }
-  }
-
-  /// 番号は拡大せず、画面の解像度で描く。字形と一緒に引き伸ばすと潰れる。
-  void _paintNumbers(Canvas canvas, double scale) {
+  ///
+  /// 矢印は番号に添える。字の上ではなく外に出しておかないと、字形の一部に
+  /// 見えて、なぞる子がその形ごと書いてしまう。
+  ///
+  /// 番号も矢印も拡大せず画面の解像度で描く。字形と一緒に引き伸ばすと潰れる。
+  void _paintOrderMarks(Canvas canvas, double scale) {
     final fontSize = (StrokeOrder.viewBox * scale * 0.11).clamp(10.0, 28.0);
 
     for (var i = 0; i < order.strokeCount; i++) {
@@ -162,12 +131,55 @@ class _StrokeOrderPainter extends CustomPainter {
       )..layout();
 
       final anchor = order.numberAnchor(i) * scale;
-      final at = anchor - Offset(label.width / 2, label.height / 2);
+      final radius = label.height * 0.62;
 
       // 書き始めが線の上に来る画があるので、下に枠の地色を敷いて読めるようにする。
-      canvas.drawCircle(anchor, label.height * 0.62, Paint()..color = surface);
-      label.paint(canvas, at);
+      canvas.drawCircle(anchor, radius, Paint()..color = surface);
+      label.paint(canvas, anchor - Offset(label.width / 2, label.height / 2));
+
+      _paintArrow(
+        canvas,
+        from: anchor,
+        direction: order.startDirection(i),
+        clearance: radius,
+        size: fontSize,
+      );
     }
+  }
+
+  /// 番号のわきから、進む向きへ短い矢印を引く。軸と、塗った三角の頭。
+  void _paintArrow(
+    Canvas canvas, {
+    required Offset from,
+    required Offset direction,
+    required double clearance,
+    required double size,
+  }) {
+    final tail = from + direction * (clearance + size * 0.15);
+    final tip = tail + direction * (size * 0.95);
+
+    final head = size * 0.42;
+    final half = size * 0.26;
+    final base = tip - direction * head;
+    final side = Offset(-direction.dy, direction.dx) * half;
+
+    canvas
+      ..drawLine(
+        tail,
+        base,
+        Paint()
+          ..color = arrowColor
+          ..strokeWidth = size * 0.16
+          ..strokeCap = StrokeCap.round,
+      )
+      ..drawPath(
+        Path()
+          ..moveTo(tip.dx, tip.dy)
+          ..lineTo(base.dx + side.dx, base.dy + side.dy)
+          ..lineTo(base.dx - side.dx, base.dy - side.dy)
+          ..close(),
+        Paint()..color = arrowColor,
+      );
   }
 
   @override
