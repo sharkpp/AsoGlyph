@@ -10,9 +10,9 @@ import '../model/char_set.dart';
 import '../model/sample.dart';
 import '../store/sample_store.dart';
 import 'about.dart';
-import 'writing_screen.dart';
+import 'char_set_screen.dart';
 
-/// 集めた字の一覧。アプリの入口。
+/// 文字種の一覧。アプリの入口。
 ///
 /// 子供にとっては「どこまで集めたか」の画面、親にとってはフォントの出口になる。
 class CollectionScreen extends StatefulWidget {
@@ -72,15 +72,27 @@ class _CollectionScreenState extends State<CollectionScreen> {
               _ModeChoice(mode: _mode, onChanged: _chooseMode),
               const SizedBox(height: 24),
               for (final charSet in CharSet.values)
-                _CharSetSection(
+                _CharSetCard(
                   charSet: charSet,
                   store: store,
-                  speaker: speaker,
-                  strokeOrders: strokeOrders,
-                  mode: _mode,
+                  onTap: () => _openCharSet(context, charSet),
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _openCharSet(BuildContext context, CharSet charSet) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => CharSetScreen(
+          charSet: charSet,
+          store: store,
+          speaker: speaker,
+          strokeOrders: strokeOrders,
+          mode: _mode,
         ),
       ),
     );
@@ -308,164 +320,39 @@ class _ModeLabel extends StatelessWidget {
   }
 }
 
-class _CharSetSection extends StatelessWidget {
-  const _CharSetSection({
+/// 文字種ひとまとまりの入口。輪で充足率を、中の字でどの束かを見せる。
+class _CharSetCard extends StatelessWidget {
+  const _CharSetCard({
     required this.charSet,
     required this.store,
-    required this.speaker,
-    required this.strokeOrders,
-    required this.mode,
+    required this.onTap,
   });
 
   final CharSet charSet;
   final SampleStore store;
-  final Speaker speaker;
-  final StrokeOrderLibrary strokeOrders;
-  final PracticeMode mode;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final collected = charSet.chars
-        .where((char) => store.latestId(char, includeTraced: false) != null)
-        .length;
-
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  value: collected / charSet.chars.length,
-                  strokeWidth: 5,
-                  backgroundColor: const Color(0xffe4dfd4),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                charSet.label,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                '$collected / ${charSet.chars.length}',
-                style: const TextStyle(color: Color(0xff9c948a)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final char in charSet.chars)
-                _CharTile(
-                  char: char,
-                  store: store,
-                  speaker: speaker,
-                  strokeOrders: strokeOrders,
-                  mode: mode,
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CharTile extends StatelessWidget {
-  const _CharTile({
-    required this.char,
-    required this.store,
-    required this.speaker,
-    required this.strokeOrders,
-    required this.mode,
-  });
-
-  final String char;
-  final SampleStore store;
-  final Speaker speaker;
-  final StrokeOrderLibrary strokeOrders;
-  final PracticeMode mode;
-
-  @override
-  Widget build(BuildContext context) {
-    // なぞり以外で書けた字。充足率もこちらで数える。
-    final collected = store.latestId(char, includeTraced: false) != null;
-    // なぞっただけの字。出力時に混ぜるかを選べるので、別の印で見せる。
-    final traced = !collected && store.attemptCount(char) > 0;
-    final scheme = Theme.of(context).colorScheme;
-
-    return SizedBox(
-      // タップターゲットは 64dp 以上（SPEC 9）。
-      width: 68,
-      height: 68,
+      padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: collected ? scheme.primaryContainer : Colors.white,
+        color: Colors.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: collected
-                ? scheme.primary
-                : traced
-                ? const Color(0xffbdb4a6)
-                : const Color(0xffe4dfd4),
-            width: 2,
-          ),
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xffe4dfd4), width: 2),
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (context) => WritingScreen(
-                char: char,
-                mode: mode,
-                store: store,
-                speaker: speaker,
-                strokeOrder: strokeOrders[char],
-              ),
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(child: CharSetRing(charSet: charSet, store: store)),
+                const Icon(Icons.chevron_right, size: 32),
+              ],
             ),
-          ),
-          child: Stack(
-            children: [
-              Center(
-                child: Text(
-                  char,
-                  style: TextStyle(
-                    fontSize: 32,
-                    height: 1,
-                    color: collected
-                        ? scheme.onPrimaryContainer
-                        : const Color(0xff9c948a),
-                  ),
-                ),
-              ),
-              if (collected)
-                Positioned(
-                  right: 4,
-                  top: 4,
-                  child: Icon(Icons.star, size: 14, color: scheme.primary),
-                )
-              // 星ではない印にする。なぞりは集まった字と同じ扱いにしない。
-              else if (traced)
-                const Positioned(
-                  right: 4,
-                  top: 4,
-                  child: Icon(
-                    Icons.gesture,
-                    size: 14,
-                    color: Color(0xffbdb4a6),
-                  ),
-                ),
-            ],
           ),
         ),
       ),

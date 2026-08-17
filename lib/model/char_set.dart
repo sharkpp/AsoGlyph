@@ -4,7 +4,8 @@
 enum CharSet {
   digits('すうじ', _digits, advanceWidth: 500),
   hiraganaBasic('ひらがな', _hiraganaBasic, advanceWidth: 1000),
-  hiraganaVoiced('だくおん', _hiraganaVoiced, advanceWidth: 1000);
+  hiraganaVoiced('だくおん', _hiraganaVoiced, advanceWidth: 1000),
+  katakanaBasic('カタカナ', _katakanaBasic, advanceWidth: 1000);
 
   const CharSet(this.label, this.chars, {required this.advanceWidth});
 
@@ -48,6 +49,20 @@ const _hiraganaVoiced = [
   'ぱ', 'ぴ', 'ぷ', 'ぺ', 'ぽ', //
 ];
 
+/// 五十音順。ひらがな清音と同じ並びにする。
+const _katakanaBasic = [
+  'ア', 'イ', 'ウ', 'エ', 'オ', //
+  'カ', 'キ', 'ク', 'ケ', 'コ', //
+  'サ', 'シ', 'ス', 'セ', 'ソ', //
+  'タ', 'チ', 'ツ', 'テ', 'ト', //
+  'ナ', 'ニ', 'ヌ', 'ネ', 'ノ', //
+  'ハ', 'ヒ', 'フ', 'ヘ', 'ホ', //
+  'マ', 'ミ', 'ム', 'メ', 'モ', //
+  'ヤ', 'ユ', 'ヨ', //
+  'ラ', 'リ', 'ル', 'レ', 'ロ', //
+  'ワ', 'ヲ', 'ン', //
+];
+
 /// 文字から所属する CharSet を引く。どこにも属さない文字は null。
 CharSet? charSetOf(String char) {
   for (final set in CharSet.values) {
@@ -59,8 +74,16 @@ CharSet? charSetOf(String char) {
 /// 読み上げるときの読み。かなは字面がそのまま読みになる。
 ///
 /// 字面のままでは読めない字だけ明示する。「0」を「れい」と読むエンジンが
-/// あるが、幼児に通じるのは「ゼロ」のほう。濁点・半濁点も名前で呼ぶ。
-String readingOf(String char) => _readings[char] ?? char;
+/// あるが、幼児に通じるのは「ゼロ」のほう。
+///
+/// カタカナは清音と読みが同じで、声だけでは「ア」と「あ」を区別できない。
+/// 何も見ずに書くモードは音しか頼りがないため、文字種を頭に付けて呼ぶ。
+String readingOf(String char) {
+  final reading = _readings[char] ?? char;
+  return charSetOf(char) == CharSet.katakanaBasic
+      ? 'カタカナの $reading'
+      : reading;
+}
 
 const _readings = {
   '0': 'ゼロ', '1': 'いち', '2': 'に', '3': 'さん', '4': 'よん', //

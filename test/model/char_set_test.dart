@@ -18,6 +18,13 @@ void main() {
       expect(readingOf('ぽ'), 'ぽ');
     });
 
+    test('カタカナは文字種を頭に付けて呼ぶ', () {
+      // 何も見ずに書くモードは音しか頼りがない。「ア」と「あ」は
+      // 読みが同じで、そのままでは書き分けられない。
+      expect(readingOf('ア'), 'カタカナの ア');
+      expect(readingOf('ン'), 'カタカナの ン');
+    });
+
     test('字面のままでは読めない字に読みが付いている', () {
       for (final char in CharSet.digits.chars) {
         expect(readingOf(char), isNot(char), reason: '$char の読みが無い');

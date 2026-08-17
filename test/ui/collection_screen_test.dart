@@ -5,6 +5,7 @@ import 'package:asoglyph/kanjivg/stroke_order.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/store/sample_store.dart';
+import 'package:asoglyph/ui/char_set_screen.dart';
 import 'package:asoglyph/ui/collection_screen.dart';
 import 'package:asoglyph/ui/writing_screen.dart';
 import 'package:flutter/material.dart';
@@ -59,9 +60,25 @@ void main() {
     );
   }
 
-  /// 字をタップして入った書き取り画面。
-  Future<WritingScreen> openWriting(WidgetTester tester, String char) async {
-    await tester.tap(find.text(char));
+  /// 文字種の充足率。同じ字数の文字種があるので、必ず束ごとに読む。
+  String countOf(WidgetTester tester, String label) => tester
+      .widget<Text>(
+        find.descendant(
+          of: find.widgetWithText(CharSetRing, label),
+          matching: find.textContaining('/'),
+        ),
+      )
+      .data!;
+
+  /// 文字種を開き、字をタップして入った書き取り画面。
+  Future<WritingScreen> openWriting(
+    WidgetTester tester,
+    String label,
+    String char,
+  ) async {
+    await tester.tap(find.text(label));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CharTile, char));
     await tester.pumpAndSettle();
     return tester.widget<WritingScreen>(find.byType(WritingScreen));
   }
@@ -69,52 +86,51 @@ void main() {
   testWidgets('文字種ごとに充足率を出す', (tester) async {
     await pumpScreen(tester);
 
-    expect(find.text('ひらがな'), findsOneWidget);
-    expect(find.text('すうじ'), findsOneWidget);
-    expect(
-      find.text('0 / ${CharSet.hiraganaBasic.chars.length}'),
-      findsOneWidget,
-    );
-    expect(find.text('0 / ${CharSet.digits.chars.length}'), findsOneWidget);
+    // 束の名前が全部見えていること。一覧はここから枝分かれする。
+    for (final charSet in CharSet.values) {
+      expect(find.text(charSet.label), findsOneWidget);
+      expect(countOf(tester, charSet.label), '0 / ${charSet.chars.length}');
+    }
   });
 
   testWidgets('字を集めると充足率が上がる', (tester) async {
     await collect(tester, 'あ');
     await pumpScreen(tester);
 
-    expect(
-      find.text('1 / ${CharSet.hiraganaBasic.chars.length}'),
-      findsOneWidget,
-    );
-    expect(find.byIcon(Icons.star), findsOneWidget, reason: '集めた字に印が付く');
+    expect(countOf(tester, 'ひらがな'), '1 / 46');
+    expect(countOf(tester, 'カタカナ'), '0 / 46', reason: '別の束は動かない');
   });
 
-  testWidgets('なぞっただけの字は、集めた字とは別の印になる', (tester) async {
+  testWidgets('なぞっただけでは充足率は動かない', (tester) async {
     await tester.runAsync(
       () => store.add(_written('あ', mode: PracticeMode.trace)),
     );
     await pumpScreen(tester);
 
-    // 充足率は動かない。なぞった字はフォントに入らない（SPEC 7.1）。
-    expect(
-      find.text('0 / ${CharSet.hiraganaBasic.chars.length}'),
-      findsOneWidget,
-    );
-    expect(find.byIcon(Icons.star), findsNothing);
-    // それでも書いた事実は見えるようにする。
-    expect(find.byIcon(Icons.gesture), findsWidgets);
+    // なぞった字はその子の字とは言いにくい。混ぜるかは出力時に選ぶ（SPEC 7.1）。
+    expect(countOf(tester, 'ひらがな'), '0 / 46');
+  });
+
+  testWidgets('文字種を開くとその束の字が並ぶ', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.tap(find.text('カタカナ'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(CharTile, 'ア'), findsOneWidget);
+    expect(find.widgetWithText(CharTile, 'あ'), findsNothing, reason: '別の束は混ざらない');
   });
 
   testWidgets('字をタップするとその字の書き取りに入る', (tester) async {
     await pumpScreen(tester);
 
-    expect((await openWriting(tester, 'か')).char, 'か');
+    expect((await openWriting(tester, 'ひらがな', 'か')).char, 'か');
   });
 
   testWidgets('既定はお手本を見て書く', (tester) async {
     await pumpScreen(tester);
 
-    expect((await openWriting(tester, 'か')).mode, PracticeMode.copy);
+    expect((await openWriting(tester, 'ひらがな', 'か')).mode, PracticeMode.copy);
   });
 
   testWidgets('じぶんでを選ぶと、その字は何も見ずに書く', (tester) async {
@@ -123,7 +139,7 @@ void main() {
     await tester.tap(find.text('じぶんで'));
     await tester.pumpAndSettle();
 
-    expect((await openWriting(tester, 'か')).mode, PracticeMode.free);
+    expect((await openWriting(tester, 'ひらがな', 'か')).mode, PracticeMode.free);
   });
 
   testWidgets('なぞり書きも選べる', (tester) async {
@@ -132,7 +148,7 @@ void main() {
     await tester.tap(find.text('なぞる'));
     await tester.pumpAndSettle();
 
-    expect((await openWriting(tester, 'か')).mode, PracticeMode.trace);
+    expect((await openWriting(tester, 'ひらがな', 'か')).mode, PracticeMode.trace);
   });
 
   testWidgets('モードを選ぶと声でも伝える', (tester) async {
@@ -161,7 +177,7 @@ void main() {
   testWidgets('テスト用に集めた字をぜんぶ消せる', (tester) async {
     await collect(tester, 'あ');
     await pumpScreen(tester);
-    expect(find.byIcon(Icons.star), findsOneWidget);
+    expect(countOf(tester, 'ひらがな'), '1 / 46');
 
     await tester.tap(find.byIcon(Icons.info_outline));
     await tester.pumpAndSettle();
@@ -176,7 +192,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.collectedChars(includeTraced: false), isEmpty);
-    expect(find.byIcon(Icons.star), findsNothing);
+    expect(countOf(tester, 'ひらがな'), '0 / 46');
   });
 
   testWidgets('やめるを押したら消さない', (tester) async {
