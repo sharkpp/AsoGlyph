@@ -8,6 +8,7 @@ import '../store/passcode.dart';
 import '../store/recipe_store.dart';
 import '../store/sample_store.dart';
 import '../store/session.dart';
+import 'backup_section.dart';
 import 'char_set_screen.dart';
 import 'passcode_gate.dart';
 import 'recipe_editor.dart';
@@ -104,6 +105,9 @@ class AdminScreen extends StatelessWidget {
                   onDuplicate: () => _duplicate(context, recipe),
                   onDelete: () => _delete(context, recipe),
                 ),
+              const SizedBox(height: 24),
+              const _Heading('控え'),
+              BackupSection(session: session),
               const SizedBox(height: 24),
               const _Heading('この画面のロック'),
               ListTile(

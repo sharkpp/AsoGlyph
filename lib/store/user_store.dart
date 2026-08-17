@@ -75,6 +75,13 @@ class UserStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 人を消す。記録が 1 つも無い人にだけ使う（[Session.restoreFrom]）。
+  Future<void> remove(String id) async {
+    await _users.record(id).delete(_db);
+    _all.removeWhere((user) => user.id == id);
+    notifyListeners();
+  }
+
   /// 書く人を切り替える。記録の読み直しは呼び出し側が行う。
   Future<void> select(String id) async {
     if (_currentId == id) return;
