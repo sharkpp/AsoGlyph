@@ -46,7 +46,7 @@ void main() {
 
   Future<void> pumpScreen(
     WidgetTester tester, {
-    CharSet charSet = CharSet.hiraganaBasic,
+    CharSet charSet = CharSet.hiragana,
     PracticeMode mode = PracticeMode.copy,
   }) async {
     tester.view
@@ -67,11 +67,13 @@ void main() {
   }
 
   testWidgets('その文字種の字がすべて並ぶ', (tester) async {
-    await pumpScreen(tester, charSet: CharSet.katakanaBasic);
+    await pumpScreen(tester, charSet: CharSet.katakana);
 
-    expect(find.byType(CharTile), findsNWidgets(46));
+    // 清音 46 ＋ 濁音・半濁音 25。濁音は別の束にしない。
+    expect(find.byType(CharTile), findsNWidgets(71));
     expect(tile('ア'), findsOneWidget);
     expect(tile('ン'), findsOneWidget);
+    expect(tile('ポ'), findsOneWidget);
   });
 
   testWidgets('集めた字に星が付く', (tester) async {
@@ -104,7 +106,7 @@ void main() {
   });
 
   testWidgets('カタカナにも書き順のデータがある', (tester) async {
-    await pumpScreen(tester, charSet: CharSet.katakanaBasic);
+    await pumpScreen(tester, charSet: CharSet.katakana);
 
     await tester.tap(tile('ア'));
     await tester.pumpAndSettle();

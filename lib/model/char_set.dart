@@ -3,9 +3,8 @@
 /// 文字種ごとに収集の開始時期も字幅も異なるため、字の集合は必ずこの単位で扱う。
 enum CharSet {
   digits('すうじ', _digits, advanceWidth: 500),
-  hiraganaBasic('ひらがな', _hiraganaBasic, advanceWidth: 1000),
-  hiraganaVoiced('だくおん', _hiraganaVoiced, advanceWidth: 1000),
-  katakanaBasic('カタカナ', _katakanaBasic, advanceWidth: 1000);
+  hiragana('ひらがな', _hiragana, advanceWidth: 1000),
+  katakana('カタカナ', _katakana, advanceWidth: 1000);
 
   const CharSet(this.label, this.chars, {required this.advanceWidth});
 
@@ -23,8 +22,15 @@ const _digits = [
   '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', //
 ];
 
-/// 五十音順。行の切れ目でそのまま並べる。
-const _hiraganaBasic = [
+/// 清音 46 字 ＋ 濁音 20 字・半濁音 5 字の 71 字。
+///
+/// 濁音を別の束にしない。子供にとっては同じ「ひらがな」で、束が分かれていると
+/// どちらを練習しているのか分からなくなる。清音を先に置き、濁音・半濁音を
+/// そのうしろに続ける。
+///
+/// 清音＋濁点からの合成は採らない（SPEC 5.1）。濁音は濁点を足しただけの字では
+/// なく、その子が書いた 1 つの字として残す。
+const _hiragana = [
   'あ', 'い', 'う', 'え', 'お', //
   'か', 'き', 'く', 'け', 'こ', //
   'さ', 'し', 'す', 'せ', 'そ', //
@@ -35,13 +41,6 @@ const _hiraganaBasic = [
   'や', 'ゆ', 'よ', //
   'ら', 'り', 'る', 'れ', 'ろ', //
   'わ', 'を', 'ん', //
-];
-
-/// 濁音 20 字・半濁音 5 字。清音と同じ並び順にする。
-///
-/// 清音＋濁点からの合成は採らない（SPEC 5.1）。濁音は濁点を足しただけの字では
-/// なく、その子が書いた 1 つの字として残す。
-const _hiraganaVoiced = [
   'が', 'ぎ', 'ぐ', 'げ', 'ご', //
   'ざ', 'じ', 'ず', 'ぜ', 'ぞ', //
   'だ', 'ぢ', 'づ', 'で', 'ど', //
@@ -49,8 +48,8 @@ const _hiraganaVoiced = [
   'ぱ', 'ぴ', 'ぷ', 'ぺ', 'ぽ', //
 ];
 
-/// 五十音順。ひらがな清音と同じ並びにする。
-const _katakanaBasic = [
+/// ひらがなと同じ並び・同じ字数の 71 字。
+const _katakana = [
   'ア', 'イ', 'ウ', 'エ', 'オ', //
   'カ', 'キ', 'ク', 'ケ', 'コ', //
   'サ', 'シ', 'ス', 'セ', 'ソ', //
@@ -61,6 +60,11 @@ const _katakanaBasic = [
   'ヤ', 'ユ', 'ヨ', //
   'ラ', 'リ', 'ル', 'レ', 'ロ', //
   'ワ', 'ヲ', 'ン', //
+  'ガ', 'ギ', 'グ', 'ゲ', 'ゴ', //
+  'ザ', 'ジ', 'ズ', 'ゼ', 'ゾ', //
+  'ダ', 'ヂ', 'ヅ', 'デ', 'ド', //
+  'バ', 'ビ', 'ブ', 'ベ', 'ボ', //
+  'パ', 'ピ', 'プ', 'ペ', 'ポ', //
 ];
 
 /// 文字から所属する CharSet を引く。どこにも属さない文字は null。
@@ -80,7 +84,7 @@ CharSet? charSetOf(String char) {
 /// 何も見ずに書くモードは音しか頼りがないため、文字種を頭に付けて呼ぶ。
 String readingOf(String char) {
   final reading = _readings[char] ?? char;
-  return charSetOf(char) == CharSet.katakanaBasic
+  return charSetOf(char) == CharSet.katakana
       ? 'カタカナの $reading'
       : reading;
 }

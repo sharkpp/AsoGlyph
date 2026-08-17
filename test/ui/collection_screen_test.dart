@@ -26,6 +26,9 @@ Sample _written(String char, {PracticeMode mode = PracticeMode.copy}) =>
       ],
     );
 
+/// かなの字数。清音 46 ＋ 濁音 20 ＋ 半濁音 5。
+final kana = CharSet.hiragana.chars.length;
+
 void main() {
   late SampleStore store;
   late StrokeOrderLibrary strokeOrders;
@@ -97,8 +100,8 @@ void main() {
     await collect(tester, 'あ');
     await pumpScreen(tester);
 
-    expect(countOf(tester, 'ひらがな'), '1 / 46');
-    expect(countOf(tester, 'カタカナ'), '0 / 46', reason: '別の束は動かない');
+    expect(countOf(tester, 'ひらがな'), '1 / $kana');
+    expect(countOf(tester, 'カタカナ'), '0 / $kana', reason: '別の束は動かない');
   });
 
   testWidgets('なぞっただけでは充足率は動かない', (tester) async {
@@ -108,7 +111,7 @@ void main() {
     await pumpScreen(tester);
 
     // なぞった字はその子の字とは言いにくい。混ぜるかは出力時に選ぶ（SPEC 7.1）。
-    expect(countOf(tester, 'ひらがな'), '0 / 46');
+    expect(countOf(tester, 'ひらがな'), '0 / $kana');
   });
 
   testWidgets('文字種を開くとその束の字が並ぶ', (tester) async {
@@ -177,7 +180,7 @@ void main() {
   testWidgets('テスト用に集めた字をぜんぶ消せる', (tester) async {
     await collect(tester, 'あ');
     await pumpScreen(tester);
-    expect(countOf(tester, 'ひらがな'), '1 / 46');
+    expect(countOf(tester, 'ひらがな'), '1 / $kana');
 
     await tester.tap(find.byIcon(Icons.info_outline));
     await tester.pumpAndSettle();
@@ -192,7 +195,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.collectedChars(includeTraced: false), isEmpty);
-    expect(countOf(tester, 'ひらがな'), '0 / 46');
+    expect(countOf(tester, 'ひらがな'), '0 / $kana');
   });
 
   testWidgets('やめるを押したら消さない', (tester) async {

@@ -133,11 +133,9 @@ User { id, displayName, avatar, birthMonth?, createdAt, passcode? }
 | CharSet | 字数 | 内容 |
 |---|---|---|
 | `digits` | 10 | 0–9 |
-| `hiraganaBasic` | 46 | 清音 |
-| `hiraganaVoiced` | 25 | 濁音20・半濁音5 |
+| `hiragana` | 71 | 清音46 ＋ 濁音20・半濁音5 |
 | `hiraganaSmall` | 9 | ぁぃぅぇぉっゃゅょ |
-| `katakanaBasic` | 46 | 清音 |
-| `katakanaVoiced` | 25 | 濁音・半濁音 |
+| `katakana` | 71 | 清音46 ＋ 濁音20・半濁音5 |
 | `katakanaSmall` | 10 | 小書き ＋ ー（長音符） |
 | `latinUpper` | 26 | A–Z |
 | `latinLower` | 26 | a–z |
@@ -153,6 +151,10 @@ User { id, displayName, avatar, birthMonth?, createdAt, passcode? }
 「その子の字ではない情報」（KanjiVG の濁音字から測った矩形）がフォントに混ざる。
 
 字数は増えるが、収集は1字ずつ進むもので一度に全部書かせるわけではない。
+
+**濁音・半濁音は清音と同じ CharSet に入れる。** 子供にとっては同じ「ひらがな」であり、
+束が分かれていると自分がどちらを練習しているのか分からなくなる。並びは清音46字を先に、
+濁音・半濁音25字をそのうしろに続ける。カタカナも同じ扱いとする。
 
 ### 5.2 ラテン文字の扱い
 

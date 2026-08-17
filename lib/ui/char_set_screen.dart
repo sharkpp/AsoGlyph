@@ -17,8 +17,8 @@ int collectedIn(CharSet charSet, SampleStore store) => charSet.chars
 
 /// 1 つの文字種の字を並べる画面。
 ///
-/// 文字種を選んでから字を選ぶ、という 2 段にしてある。ひらがな・だくおん・
-/// カタカナ・すうじで 127 字あり、漢字（L5）では 1 学年で 80 字が増える。
+/// 文字種を選んでから字を選ぶ、という 2 段にしてある。ひらがな・カタカナ・
+/// すうじで 152 字あり、漢字（L5）では 1 学年で 80 字が増える。
 /// 全部を 1 枚に積むと、子供が自分の字を探せなくなる。
 class CharSetScreen extends StatelessWidget {
   const CharSetScreen({
@@ -81,7 +81,7 @@ class CharSetScreen extends StatelessWidget {
 /// 文字種の充足率。輪の中に、その文字種を代表する字を置く。
 ///
 /// 字がまだ読めない子には「ひらがな」の文字列は手がかりにならない。
-/// あ・ア・が・0 のほうが、どの束かを見分ける印になる。
+/// あ・ア・0 のほうが、どの束かを見分ける印になる。
 class CharSetRing extends StatelessWidget {
   const CharSetRing({super.key, required this.charSet, required this.store});
 

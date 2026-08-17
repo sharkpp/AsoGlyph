@@ -155,11 +155,19 @@ void main() {
     expect(library['「'], isNull);
   });
 
-  test('濁音も書かせるので運筆を持つ', () {
-    for (final char in CharSet.hiraganaVoiced.chars) {
-      expect(library[char], isNotNull, reason: char);
+  test('集める字はすべて運筆を持つ', () {
+    // 1 字でも欠けると、その字だけお手本を出せず練習の質が落ちる。
+    for (final charSet in CharSet.values) {
+      for (final char in charSet.chars) {
+        expect(library[char], isNotNull, reason: char);
+      }
     }
+  });
+
+  test('濁音・半濁音も書かせるので運筆を持つ', () {
     expect(library['が']!.strokeCount, 5, reason: 'か 3 画 ＋ 濁点 2 画');
     expect(library['ぱ']!.strokeCount, 4, reason: 'は 3 画 ＋ 半濁点 1 画');
+    expect(library['ガ']!.strokeCount, 4, reason: 'カ 2 画 ＋ 濁点 2 画');
+    expect(library['パ']!.strokeCount, 3, reason: 'ハ 2 画 ＋ 半濁点 1 画');
   });
 }
