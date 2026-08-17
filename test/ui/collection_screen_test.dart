@@ -1,4 +1,5 @@
 import 'package:asoglyph/audio/speaker.dart';
+import 'package:asoglyph/font/font_builder.dart';
 import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/kanjivg/stroke_order.dart';
 import 'package:asoglyph/model/char_set.dart';
@@ -174,7 +175,7 @@ void main() {
     });
     await tester.pumpAndSettle();
 
-    expect(store.collectedChars, isEmpty);
+    expect(store.collectedChars(includeTraced: false), isEmpty);
     expect(find.byIcon(Icons.star), findsNothing);
   });
 
@@ -189,7 +190,7 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'やめる'));
     await tester.pumpAndSettle();
 
-    expect(store.collectedChars, ['あ']);
+    expect(store.collectedChars(includeTraced: false), ['あ']);
   });
 
   testWidgets('集めた字が無いうちはフォントを作らない', (tester) async {
@@ -211,5 +212,38 @@ void main() {
 
     expect(find.text('TTF'), findsOneWidget);
     expect(find.text('OTF'), findsOneWidget);
+  });
+
+  testWidgets('なぞった字を混ぜるかを出力時に選べる', (tester) async {
+    await collect(tester, 'あ');
+    await tester.runAsync(
+      () => store.add(_written('い', mode: PracticeMode.trace)),
+    );
+    await pumpScreen(tester);
+
+    await tester.tap(find.byIcon(Icons.ios_share));
+    await tester.pumpAndSettle();
+
+    // 既定は混ぜない。なぞりは 1 字ぶん余分にある。
+    expect(find.text('ほかに 1 字'), findsOneWidget);
+    expect(find.text('1 字'), findsNWidgets(FontFormat.values.length));
+
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    expect(find.text('2 字'), findsNWidgets(FontFormat.values.length));
+  });
+
+  testWidgets('なぞった字が無ければ混ぜる選択は出さない', (tester) async {
+    await collect(tester, 'あ');
+    await pumpScreen(tester);
+
+    await tester.tap(find.byIcon(Icons.ios_share));
+    await tester.pumpAndSettle();
+
+    expect(find.text('なぞっただけの字はありません'), findsOneWidget);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
+      isNull,
+    );
   });
 }

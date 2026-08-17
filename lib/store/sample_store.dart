@@ -78,21 +78,22 @@ class SampleStore extends ChangeNotifier {
   /// その文字を書いた回数。なぞり書きも数える（子供に見せる進捗のため）。
   int attemptCount(String char) => _byChar[char]?.length ?? 0;
 
-  /// 素材として使える最新の Sample の id。まだ無ければ null。
+  /// 素材に使う最新の Sample の id。まだ無ければ null。
   ///
-  /// なぞり書きはフォントに採用しない（SPEC 7.1）。
-  String? latestMaterialId(String char) {
+  /// なぞり書きを混ぜるかは呼び出し側が決める。なぞりとそれ以外は別の履歴
+  /// として持ち、フォントを出すときに混ぜるかどうかを選べるようにする。
+  String? latestId(String char, {required bool includeTraced}) {
     final entries = _byChar[char];
     if (entries == null) return null;
     for (final entry in entries.reversed) {
-      if (entry.mode.isFontMaterial) return entry.id;
+      if (includeTraced || entry.mode != PracticeMode.trace) return entry.id;
     }
     return null;
   }
 
   /// 素材が 1 つ以上ある文字。フォントに載せられる字はこれで決まる。
-  Iterable<String> get collectedChars =>
-      _byChar.keys.where((char) => latestMaterialId(char) != null);
+  Iterable<String> collectedChars({required bool includeTraced}) => _byChar.keys
+      .where((char) => latestId(char, includeTraced: includeTraced) != null);
 
   /// 運筆を読み出す。フォント生成のときだけ必要になる。
   Future<Sample> read(String id) async {

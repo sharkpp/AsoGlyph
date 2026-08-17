@@ -162,12 +162,12 @@ void main() {
       await _tapDone(tester);
 
       expect(store.attemptCount('き'), 1);
-      expect(store.latestMaterialId('き'), isNotNull);
+      expect(store.latestId('き', includeTraced: false), isNotNull);
 
       // sembast はタイマを使う。疑似非同期環境では完了しないため実時間で読む。
       late Sample sample;
       await tester.runAsync(
-        () async => sample = await store.read(store.latestMaterialId('き')!),
+        () async => sample = await store.read(store.latestId('き', includeTraced: false)!),
       );
       expect(sample.strokes, hasLength(1));
       expect(sample.strokes.single.points.length, greaterThan(2));
@@ -269,7 +269,7 @@ void main() {
 
       late Sample sample;
       await tester.runAsync(
-        () async => sample = await store.read(store.latestMaterialId('き')!),
+        () async => sample = await store.read(store.latestId('き', includeTraced: false)!),
       );
       expect(sample.mode, PracticeMode.free);
     });
@@ -288,7 +288,7 @@ void main() {
       expect(guide.color, isNot(views.first.color), reason: '下敷きは薄い色');
     });
 
-    testWidgets('なぞり書きはフォントの素材にしない', (tester) async {
+    testWidgets('なぞり書きは別の履歴として残る', (tester) async {
       await pumpScreen(tester, char: 'き', mode: PracticeMode.trace);
       await _drawLine(tester);
       await _tapDone(tester);
@@ -300,9 +300,14 @@ void main() {
         reason: 'できたね！ とは言わない。次の段へ誘う',
       );
       expect(
-        store.latestMaterialId('き'),
+        store.latestId('き', includeTraced: false),
         isNull,
-        reason: 'なぞっただけの字はフォントに入れない',
+        reason: 'なぞり以外の履歴には入らない',
+      );
+      expect(
+        store.latestId('き', includeTraced: true),
+        isNotNull,
+        reason: '混ぜればフォントに使える',
       );
     });
 
@@ -319,7 +324,7 @@ void main() {
 
       late Sample sample;
       await tester.runAsync(
-        () async => sample = await store.read(store.latestMaterialId('き')!),
+        () async => sample = await store.read(store.latestId('き', includeTraced: false)!),
       );
       expect(sample.strokes, hasLength(1), reason: '書きかけの画を捨てない');
       await gesture.up();

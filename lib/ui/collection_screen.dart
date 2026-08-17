@@ -103,34 +103,25 @@ class _CollectionScreenState extends State<CollectionScreen> {
   }
 
   Future<void> _export(BuildContext context) async {
-    if (store.collectedChars.isEmpty) {
+    final written = store.collectedChars(includeTraced: false).length;
+    final withTraced = store.collectedChars(includeTraced: true).length;
+    if (withTraced == 0) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('まだ字がありません')));
       return;
     }
 
-    final format = await showModalBottomSheet<FontFormat>(
+    final choice = await showModalBottomSheet<_ExportChoice>(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final format in FontFormat.values)
-              ListTile(
-                leading: const Icon(Icons.font_download_outlined),
-                title: Text(format.name.toUpperCase()),
-                onTap: () => Navigator.of(context).pop(format),
-              ),
-          ],
-        ),
-      ),
+      builder: (context) =>
+          _ExportSheet(written: written, withTraced: withTraced),
     );
-    if (format == null || !context.mounted) return;
+    if (choice == null || !context.mounted) return;
 
     final progress = ValueNotifier<(int, int)>((
       0,
-      store.collectedChars.length,
+      choice.includeTraced ? withTraced : written,
     ));
     final dialog = _showProgress(context, progress);
 
@@ -138,7 +129,8 @@ class _CollectionScreenState extends State<CollectionScreen> {
     final bytes = await buildCollectedFont(
       store: store,
       meta: meta,
-      format: format,
+      format: choice.format,
+      includeTraced: choice.includeTraced,
       onProgress: (done, total) => progress.value = (done, total),
     );
 
@@ -148,9 +140,77 @@ class _CollectionScreenState extends State<CollectionScreen> {
 
     await shareFont(
       bytes: bytes,
-      fileName: '${sanitizeFileName(meta.familyName)}.${format.name}',
-      format: format,
+      fileName: '${sanitizeFileName(meta.familyName)}.${choice.format.name}',
+      format: choice.format,
       text: 'あそんでフォントでつくったフォント',
+    );
+  }
+}
+
+/// 出力の選択。形式と、なぞった字を混ぜるかどうか。
+class _ExportChoice {
+  const _ExportChoice(this.format, this.includeTraced);
+
+  final FontFormat format;
+  final bool includeTraced;
+}
+
+/// フォントを出す前に、形式となぞりの扱いを選ばせる。
+///
+/// なぞった字とそれ以外は別の履歴として持っている。混ぜれば字数は増えるが、
+/// 混ぜた字はお手本の形をなぞったもので、その子の字とは言いにくい。
+/// どちらを取るかは親が決める。
+class _ExportSheet extends StatefulWidget {
+  const _ExportSheet({required this.written, required this.withTraced});
+
+  /// なぞり以外で集まった字数。
+  final int written;
+
+  /// なぞりも混ぜたときの字数。
+  final int withTraced;
+
+  @override
+  State<_ExportSheet> createState() => _ExportSheetState();
+}
+
+class _ExportSheetState extends State<_ExportSheet> {
+  var _includeTraced = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final extra = widget.withTraced - widget.written;
+    final count = _includeTraced ? widget.withTraced : widget.written;
+
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SwitchListTile(
+            value: _includeTraced,
+            // 足せる字が無いときに選ばせても意味がない。
+            onChanged: extra == 0
+                ? null
+                : (on) => setState(() => _includeTraced = on),
+            secondary: const Icon(Icons.gesture),
+            title: const Text('なぞった字も入れる'),
+            subtitle: Text(
+              extra == 0 ? 'なぞっただけの字はありません' : 'ほかに $extra 字',
+            ),
+          ),
+          const Divider(height: 1),
+          for (final format in FontFormat.values)
+            ListTile(
+              leading: const Icon(Icons.font_download_outlined),
+              title: Text(format.name.toUpperCase()),
+              trailing: Text('$count 字'),
+              // 字が 1 つも無い組み合わせでは出しても仕方がない。
+              enabled: count > 0,
+              onTap: () => Navigator.of(
+                context,
+              ).pop(_ExportChoice(format, _includeTraced)),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -266,7 +326,7 @@ class _CharSetSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final collected = charSet.chars
-        .where((char) => store.latestMaterialId(char) != null)
+        .where((char) => store.latestId(char, includeTraced: false) != null)
         .length;
 
     return Padding(
@@ -338,9 +398,9 @@ class _CharTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final collected = store.latestMaterialId(char) != null;
-    // なぞっただけの字はフォントに入らない（SPEC 7.1）。それでも書いた事実は
-    // 残っているので、何も起きていないように見せない。
+    // なぞり以外で書けた字。充足率もこちらで数える。
+    final collected = store.latestId(char, includeTraced: false) != null;
+    // なぞっただけの字。出力時に混ぜるかを選べるので、別の印で見せる。
     final traced = !collected && store.attemptCount(char) > 0;
     final scheme = Theme.of(context).colorScheme;
 

@@ -38,7 +38,7 @@ void main() {
       await store.add(second);
 
       expect(store.attemptCount('あ'), 2);
-      expect(store.latestMaterialId('あ'), second.id, reason: '最新が素材になる');
+      expect(store.latestId('あ', includeTraced: false), second.id, reason: '最新が素材になる');
       expect((await store.read(second.id)).strokes.single.points.first.x, 200);
     });
 
@@ -49,15 +49,15 @@ void main() {
       await store.add(_sample('い', mode: PracticeMode.trace));
 
       expect(store.attemptCount('い'), 2, reason: '進捗としては数える');
-      expect(store.latestMaterialId('い'), copy.id);
+      expect(store.latestId('い', includeTraced: false), copy.id);
     });
 
     test('なぞり書きしかない字は集めた字に入らない', () async {
       final store = await openMemoryStore();
       await store.add(_sample('う', mode: PracticeMode.trace));
 
-      expect(store.latestMaterialId('う'), isNull);
-      expect(store.collectedChars, isEmpty);
+      expect(store.latestId('う', includeTraced: false), isNull);
+      expect(store.collectedChars(includeTraced: false), isEmpty);
     });
 
     test('開き直しても記録が残る', () async {
@@ -66,7 +66,7 @@ void main() {
       await store.add(_sample('き'));
 
       await store.load();
-      expect(store.collectedChars, unorderedEquals(['か', 'き']));
+      expect(store.collectedChars(includeTraced: false), unorderedEquals(['か', 'き']));
     });
 
     test('書くたびに通知する', () async {
@@ -85,12 +85,12 @@ void main() {
 
       await store.clear();
 
-      expect(store.collectedChars, isEmpty);
+      expect(store.collectedChars(includeTraced: false), isEmpty);
       expect(store.attemptCount('あ'), 0);
 
       // 読み直しても戻らない。記録そのものが消えている。
       await store.load();
-      expect(store.collectedChars, isEmpty);
+      expect(store.collectedChars(includeTraced: false), isEmpty);
     });
   });
 }

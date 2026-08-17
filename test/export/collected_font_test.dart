@@ -33,24 +33,51 @@ void main() {
     test('集めた字だけがグリフになる', () async {
       await store.add(_written('あ'));
       await store.add(_written('5'));
-      // なぞり書きだけの字は素材にしない（SPEC 7.1）。
       await store.add(_written('い', mode: PracticeMode.trace));
 
-      final glyphs = await collectGlyphs(store);
+      final glyphs = await collectGlyphs(store, includeTraced: false);
 
       expect(
         glyphs.map((g) => String.fromCharCode(g.codePoint)),
         ['5', 'あ'],
-        reason: 'コードポイント昇順。未収集の字は載らない',
+        reason: 'コードポイント昇順。混ぜないので なぞった い は載らない',
       );
       expect(glyphs.every((g) => g.contours.isNotEmpty), isTrue);
+    });
+
+    test('なぞった字を混ぜるかを選べる', () async {
+      await store.add(_written('あ'));
+      await store.add(_written('い', mode: PracticeMode.trace));
+
+      final without = await collectGlyphs(store, includeTraced: false);
+      final with_ = await collectGlyphs(store, includeTraced: true);
+
+      expect(without.map((g) => String.fromCharCode(g.codePoint)), ['あ']);
+      expect(with_.map((g) => String.fromCharCode(g.codePoint)), ['あ', 'い']);
+    });
+
+    test('混ぜるときはモードを問わず最新を採る', () async {
+      await store.add(_written('あ'));
+      await store.add(_written('あ', mode: PracticeMode.trace));
+
+      // 混ぜないなら、なぞる前に書いたものが残る。
+      final without = await collectGlyphs(store, includeTraced: false);
+      final with_ = await collectGlyphs(store, includeTraced: true);
+
+      expect(without, hasLength(1));
+      expect(with_, hasLength(1));
+      expect(
+        with_.single.contours,
+        isNot(equals(without.single.contours)),
+        reason: '混ぜれば新しいなぞりのほうが採られる',
+      );
     });
 
     test('字幅は文字種で決まる', () async {
       await store.add(_written('あ'));
       await store.add(_written('5'));
 
-      final glyphs = await collectGlyphs(store);
+      final glyphs = await collectGlyphs(store, includeTraced: false);
       final widths = {
         for (final glyph in glyphs)
           String.fromCharCode(glyph.codePoint): glyph.advanceWidth,
@@ -68,6 +95,7 @@ void main() {
       final reported = <(int, int)>[];
       await collectGlyphs(
         store,
+        includeTraced: false,
         onProgress: (done, total) => reported.add((done, total)),
       );
 
@@ -81,6 +109,7 @@ void main() {
       for (final format in FontFormat.values) {
         final font = await buildCollectedFont(
           store: store,
+          includeTraced: false,
           meta: FontMetadata(familyName: 'AsoGlyph'),
           format: format,
         );

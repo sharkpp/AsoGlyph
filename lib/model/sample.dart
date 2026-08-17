@@ -12,9 +12,6 @@ enum PracticeMode {
 
   /// 何も見ずに書く。
   free;
-
-  /// フォントの素材として採用してよいか。
-  bool get isFontMaterial => this != PracticeMode.trace;
 }
 
 /// 1 回の試行。唯一の実データであり、不変・追記のみで削除しない（SPEC 4.1）。
