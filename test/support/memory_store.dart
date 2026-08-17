@@ -1,19 +1,24 @@
 import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
+import 'package:asoglyph/store/session.dart';
 import 'package:sembast/sembast_memory.dart';
 
 /// テスト用のデータベース。呼ぶたびに新しいメモリ DB を割り当てる。
 Future<Database> openMemoryDatabase() =>
     newDatabaseFactoryMemory().openDatabase('asoglyph.db');
 
-/// テスト用の SampleStore。
+/// テスト用の SampleStore。1 人しかいない前提の id を使う。
 Future<SampleStore> openMemoryStore() async =>
-    SampleStore.open(await openMemoryDatabase());
+    SampleStore.open(await openMemoryDatabase(), userId: 'test-user');
 
 /// テスト用の RecipeStore。
 Future<RecipeStore> openMemoryRecipes() async =>
-    RecipeStore.open(await openMemoryDatabase());
+    RecipeStore.open(await openMemoryDatabase(), userId: 'test-user');
+
+/// テスト用の Session。記録も版も同じ 1 つのメモリ DB に置く。
+Future<Session> openMemorySession() async =>
+    Session.open(await openMemoryDatabase());
 
 /// テスト用のパスコード置き場。端末の Keychain を触らない。
 class MemorySecretStore implements SecretStore {

@@ -11,11 +11,13 @@ import '../model/sample.dart';
 import '../store/passcode.dart';
 import '../store/recipe_store.dart';
 import '../store/sample_store.dart';
+import '../store/session.dart';
 import 'about.dart';
 import 'admin_screen.dart';
 import 'char_set_screen.dart';
 import 'export_sheet.dart';
 import 'passcode_gate.dart';
+import 'user_picker.dart';
 
 /// 文字種の一覧。アプリの入口。
 ///
@@ -23,15 +25,13 @@ import 'passcode_gate.dart';
 class CollectionScreen extends StatefulWidget {
   const CollectionScreen({
     super.key,
-    required this.store,
-    required this.recipes,
+    required this.session,
     required this.passcode,
     required this.speaker,
     required this.strokeOrders,
   });
 
-  final SampleStore store;
-  final RecipeStore recipes;
+  final Session session;
   final Passcode passcode;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
@@ -46,19 +46,30 @@ class _CollectionScreenState extends State<CollectionScreen> {
   /// 既定はお手本あり。いちばん多くの子が始められるところに置く。
   var _mode = PracticeMode.copy;
 
-  SampleStore get store => widget.store;
-  RecipeStore get recipes => widget.recipes;
+  Session get session => widget.session;
+  SampleStore get store => session.samples;
+  RecipeStore get recipes => session.recipes;
   Passcode get passcode => widget.passcode;
   Speaker get speaker => widget.speaker;
   StrokeOrderLibrary get strokeOrders => widget.strokeOrders;
 
   @override
   Widget build(BuildContext context) {
+    // 画面ぜんぶを包む。人が増えたときに出る切り替えボタンは AppBar にあり、
+    // 本文だけを包むと、人を足しても現れないままになる。
+    return AnimatedBuilder(
+      animation: Listenable.merge([store, session]),
+      builder: (context, _) => _buildScreen(context),
+    );
+  }
+
+  Widget _buildScreen(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xfffaf7f0),
         title: const Text('あそんでフォント'),
         actions: [
+          CurrentUserButton(session: session),
           IconButton(
             iconSize: 28,
             icon: const Icon(Icons.ios_share),
@@ -81,21 +92,18 @@ class _CollectionScreenState extends State<CollectionScreen> {
         ],
       ),
       body: SafeArea(
-        child: AnimatedBuilder(
-          animation: store,
-          builder: (context, _) => ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _ModeChoice(mode: _mode, onChanged: _chooseMode),
-              const SizedBox(height: 24),
-              for (final charSet in CharSet.values)
-                _CharSetCard(
-                  charSet: charSet,
-                  store: store,
-                  onTap: () => _openCharSet(context, charSet),
-                ),
-            ],
-          ),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _ModeChoice(mode: _mode, onChanged: _chooseMode),
+            const SizedBox(height: 24),
+            for (final charSet in CharSet.values)
+              _CharSetCard(
+                charSet: charSet,
+                store: store,
+                onTap: () => _openCharSet(context, charSet),
+              ),
+          ],
         ),
       ),
     );
@@ -108,7 +116,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) =>
-            AdminScreen(store: store, recipes: recipes, passcode: passcode),
+            AdminScreen(session: session, passcode: passcode),
       ),
     );
   }

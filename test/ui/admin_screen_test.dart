@@ -5,6 +5,7 @@ import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
+import 'package:asoglyph/store/session.dart';
 import 'package:asoglyph/ui/admin_screen.dart';
 import 'package:asoglyph/ui/recipe_editor.dart';
 import 'package:flutter/material.dart';
@@ -29,13 +30,15 @@ void main() {
   final spring = DateTime(2026, 4, 1);
   final autumn = DateTime(2026, 10, 1);
 
+  late Session session;
   late SampleStore store;
   late RecipeStore recipes;
   late Passcode passcode;
 
   setUp(() async {
-    store = await openMemoryStore();
-    recipes = await openMemoryRecipes();
+    session = await openMemorySession();
+    store = session.samples;
+    recipes = session.recipes;
     passcode = await openMemoryPasscode();
   });
 
@@ -45,9 +48,7 @@ void main() {
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      MaterialApp(
-        home: AdminScreen(store: store, recipes: recipes, passcode: passcode),
-      ),
+      MaterialApp(home: AdminScreen(session: session, passcode: passcode)),
     );
   }
 

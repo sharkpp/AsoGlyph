@@ -12,12 +12,22 @@ import '../model/font_recipe.dart';
 /// 生成したフォントそのものは保存しない。同じ版と同じ記録からは
 /// 同じバイト列が出るため、持っていても意味がない。
 class RecipeStore extends ChangeNotifier {
-  RecipeStore(this._db);
+  RecipeStore(this._db, {required this.userId});
 
-  static Future<RecipeStore> open(Database db) async {
-    final store = RecipeStore(db);
+  static Future<RecipeStore> open(Database db, {required String userId}) async {
+    final store = RecipeStore(db, userId: userId);
     await store.load();
     return store;
+  }
+
+  /// いま読み書きしている人（SPEC 7.5）。版も人ごとに分かれる。
+  String userId;
+
+  /// 書く人を切り替える。
+  Future<void> useUser(String id) async {
+    if (userId == id) return;
+    userId = id;
+    await load();
   }
 
   static final _recipes = stringMapStoreFactory.store('recipes');
@@ -35,7 +45,10 @@ class RecipeStore extends ChangeNotifier {
       ..addAll(
         (await _recipes.find(
           _db,
-          finder: Finder(sortOrders: [SortOrder('createdAt')]),
+          finder: Finder(
+            filter: Filter.equals('userId', userId),
+            sortOrders: [SortOrder('createdAt')],
+          ),
         )).map((record) => _decode(record.key, record.value)),
       );
     notifyListeners();
@@ -70,7 +83,10 @@ class RecipeStore extends ChangeNotifier {
   }
 
   Future<void> save(FontRecipe recipe) async {
-    await _recipes.record(recipe.id).put(_db, _encode(recipe));
+    await _recipes.record(recipe.id).put(_db, {
+      ..._encode(recipe),
+      'userId': userId,
+    });
     final index = _all.indexWhere((r) => r.id == recipe.id);
     if (index < 0) {
       _all.add(recipe);

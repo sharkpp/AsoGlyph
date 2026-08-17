@@ -5,10 +5,12 @@ import 'package:asoglyph/kanjivg/stroke_order.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/store/passcode.dart';
-import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
+import 'package:asoglyph/store/session.dart';
 import 'package:asoglyph/ui/char_set_screen.dart';
+import 'package:asoglyph/model/user.dart';
 import 'package:asoglyph/ui/collection_screen.dart';
+import 'package:asoglyph/ui/user_picker.dart';
 import 'package:asoglyph/ui/writing_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,8 +35,8 @@ final hiragana = CharSet.hiragana.chars.length;
 final katakana = CharSet.katakana.chars.length;
 
 void main() {
+  late Session session;
   late SampleStore store;
-  late RecipeStore recipes;
   late Passcode passcode;
   late StrokeOrderLibrary strokeOrders;
 
@@ -44,8 +46,8 @@ void main() {
   });
 
   setUp(() async {
-    store = await openMemoryStore();
-    recipes = await openMemoryRecipes();
+    session = await openMemorySession();
+    store = session.samples;
     passcode = await openMemoryPasscode();
   });
 
@@ -62,8 +64,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: CollectionScreen(
-          store: store,
-          recipes: recipes,
+          session: session,
           passcode: passcode,
           speaker: speaker ?? RecordingSpeaker(),
           strokeOrders: strokeOrders,
@@ -171,6 +172,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(speaker.spoken, ['じぶんで かいてみよう']);
+  });
+
+  testWidgets('1 人しかいないうちは、人の切り替えを出さない', (tester) async {
+    await pumpScreen(tester);
+
+    // 使いようのないボタンを子供向け画面に置かない（SPEC 9）。
+    expect(find.byType(AvatarMark), findsNothing);
+  });
+
+  testWidgets('2 人いれば切り替えられ、字は混ざらない', (tester) async {
+    await collect(tester, 'あ');
+    await tester.runAsync(
+      () => session.addUser(name: 'いもうと', avatar: Avatar.rabbit),
+    );
+    await pumpScreen(tester);
+
+    // いま書いている人の印が出る。
+    expect(find.byType(AvatarMark), findsOneWidget);
+    expect(countOf(tester, 'ひらがな'), '0 / $hiragana', reason: 'いもうとの字はまだ無い');
+
+    await tester.tap(find.byType(AvatarMark));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      await tester.tap(find.text('じぶん'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pumpAndSettle();
+
+    expect(countOf(tester, 'ひらがな'), '1 / $hiragana', reason: 'じぶんの字は残っている');
   });
 
   testWidgets('KanjiVG のクレジットをアプリの中で読める', (tester) async {

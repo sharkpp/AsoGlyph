@@ -9,14 +9,27 @@ import 'stroke_codec.dart';
 ///
 /// 運筆は別ストアに分けてある。一覧・充足率の表示に必要なのは書いた事実だけで、
 /// 全文字ぶんの運筆をメモリに載せる理由がないため。
+///
+/// 記録は必ずどれか 1 人に属する（SPEC 7.5）。読み書きはいま選ばれている人の
+/// ぶんだけを扱い、ほかの人の記録はメモリにも載せない。
 class SampleStore extends ChangeNotifier {
-  SampleStore(this._db);
+  SampleStore(this._db, {required this.userId});
 
   /// アプリから使う実体を開く。
-  static Future<SampleStore> open(Database db) async {
-    final store = SampleStore(db);
+  static Future<SampleStore> open(Database db, {required String userId}) async {
+    final store = SampleStore(db, userId: userId);
     await store.load();
     return store;
+  }
+
+  /// いま読み書きしている人。
+  String userId;
+
+  /// 書く人を切り替える。ほかの人の記録は見えなくなる。
+  Future<void> useUser(String id) async {
+    if (userId == id) return;
+    userId = id;
+    await load();
   }
 
   static final _meta = stringMapStoreFactory.store('samples');
@@ -33,6 +46,7 @@ class SampleStore extends ChangeNotifier {
     final records = await _meta.find(
       _db,
       finder: Finder(
+        filter: Filter.equals('userId', userId),
         sortOrders: [SortOrder('writtenAt'), SortOrder(Field.key)],
       ),
     );
@@ -46,6 +60,7 @@ class SampleStore extends ChangeNotifier {
   Future<void> add(Sample sample) async {
     await _db.transaction((txn) async {
       await _meta.record(sample.id).put(txn, {
+        'userId': userId,
         'char': sample.char,
         'mode': sample.mode.name,
         'writtenAt': sample.writtenAt.millisecondsSinceEpoch,
@@ -61,14 +76,19 @@ class SampleStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 記録を全部消す。
+  /// いまの人の記録を全部消す。
   ///
   /// 記録は追記のみで削除しないのが原則（SPEC 4.1）。これはその例外で、
   /// 動作確認のために最初から試し直せるようにするためだけに置いてある。
   Future<void> clear() async {
+    final ids = [
+      for (final entries in _byChar.values)
+        for (final entry in entries) entry.id,
+    ];
     await _db.transaction((txn) async {
-      await _meta.delete(txn);
-      await _strokes.delete(txn);
+      // ほかの人の記録は消さない。
+      await _meta.records(ids).delete(txn);
+      await _strokes.records(ids).delete(txn);
     });
     _byChar.clear();
     notifyListeners();

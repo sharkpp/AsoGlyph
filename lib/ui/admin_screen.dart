@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import '../export/resolve_recipe.dart';
 import '../model/char_set.dart';
 import '../model/font_recipe.dart';
+import '../model/user.dart';
 import '../store/passcode.dart';
 import '../store/recipe_store.dart';
 import '../store/sample_store.dart';
+import '../store/session.dart';
 import 'char_set_screen.dart';
 import 'passcode_gate.dart';
 import 'recipe_editor.dart';
+import 'user_picker.dart';
 
 /// 保護者向けの画面（SPEC 7.6）。
 ///
@@ -17,14 +20,15 @@ import 'recipe_editor.dart';
 class AdminScreen extends StatelessWidget {
   const AdminScreen({
     super.key,
-    required this.store,
-    required this.recipes,
+    required this.session,
     required this.passcode,
   });
 
-  final SampleStore store;
-  final RecipeStore recipes;
+  final Session session;
   final Passcode passcode;
+
+  SampleStore get store => session.samples;
+  RecipeStore get recipes => session.recipes;
 
   @override
   Widget build(BuildContext context) {
@@ -35,11 +39,37 @@ class AdminScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: AnimatedBuilder(
-          animation: Listenable.merge([store, recipes, passcode]),
+          animation: Listenable.merge([store, recipes, passcode, session]),
           builder: (context, _) => ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const _Heading('集まり具合'),
+              Row(
+                children: [
+                  const Expanded(child: _Heading('書く人')),
+                  FilledButton.icon(
+                    onPressed: () => _addUser(context),
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('ふやす'),
+                  ),
+                ],
+              ),
+              for (final user in session.users.all)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: AvatarMark(avatar: user.avatar),
+                  title: Text(user.displayName),
+                  subtitle: Text(
+                    user.id == session.current.id ? 'いま書いている人' : '',
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: '名前と印を変える',
+                    onPressed: () => _editUser(context, user),
+                  ),
+                  onTap: () => session.switchTo(user.id),
+                ),
+              const SizedBox(height: 24),
+              _Heading('${session.current.displayName} の集まり具合'),
               for (final charSet in CharSet.values)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -92,6 +122,26 @@ class AdminScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _addUser(BuildContext context) async {
+    final details = await askUserDetails(context, title: '書く人をふやす');
+    if (details == null) return;
+    // 足したらその人に切り替える。続けて書けるようにする。
+    await session.addUser(name: details.name, avatar: details.avatar);
+  }
+
+  Future<void> _editUser(BuildContext context, User user) async {
+    final details = await askUserDetails(
+      context,
+      title: '名前と印を変える',
+      initialName: user.displayName,
+      initialAvatar: user.avatar,
+    );
+    if (details == null) return;
+    await session.users.save(
+      user.copyWith(displayName: details.name, avatar: details.avatar),
     );
   }
 
