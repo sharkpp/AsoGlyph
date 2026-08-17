@@ -8,6 +8,7 @@ import '../model/font_recipe.dart';
 import '../store/recipe_store.dart';
 import '../store/sample_store.dart';
 import 'admin_screen.dart' show formatDate;
+import 'char_rules_screen.dart';
 import 'export_sheet.dart';
 
 /// 版の中身を決める画面（SPEC 7.6）。
@@ -72,6 +73,20 @@ class _RecipeEditorState extends State<RecipeEditor> {
                 onLatest: () => _update(_recipe.copyWith(base: const LatestPolicy())),
                 onPick: _pickBaseTime,
               ),
+              const SizedBox(height: 24),
+              const _Heading('字ごとの差し替え'),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.push_pin_outlined),
+                title: const Text('字を選び直す'),
+                subtitle: Text(
+                  _recipe.charRules.isEmpty
+                      ? '規則どおり'
+                      : '${_recipe.charRules.length} 字を差し替え中',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openCharRules,
+              ),
               const SizedBox(height: 32),
               FilledButton.icon(
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
@@ -120,6 +135,18 @@ class _RecipeEditorState extends State<RecipeEditor> {
     _update(
       _recipe.copyWith(
         groupRules: {..._recipe.groupRules}..remove(charSet),
+      ),
+    );
+  }
+
+  void _openCharRules() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => CharRulesScreen(
+          recipe: _recipe,
+          store: store,
+          onChanged: _update,
+        ),
       ),
     );
   }
