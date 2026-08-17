@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:asoglyph/export/collected_font.dart';
 import 'package:asoglyph/font/font_builder.dart';
 import 'package:asoglyph/ink/stroke.dart';
+import 'package:asoglyph/model/font_recipe.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +24,14 @@ Sample _written(String char, {PracticeMode mode = PracticeMode.copy}) {
   );
 }
 
+/// 今の字を全部入れる既定の版。
+FontRecipe _recipe() => FontRecipe.latest(
+  id: 'test',
+  name: 'テスト',
+  createdAt: DateTime.utc(2026),
+  fontMeta: FontMetadata(familyName: 'Test'),
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -35,7 +44,7 @@ void main() {
       await store.add(_written('5'));
       await store.add(_written('い', mode: PracticeMode.trace));
 
-      final glyphs = await collectGlyphs(store, includeTraced: false);
+      final glyphs = await collectGlyphs(_recipe(), store, includeTraced: false);
 
       expect(
         glyphs.map((g) => String.fromCharCode(g.codePoint)),
@@ -49,8 +58,8 @@ void main() {
       await store.add(_written('あ'));
       await store.add(_written('い', mode: PracticeMode.trace));
 
-      final without = await collectGlyphs(store, includeTraced: false);
-      final with_ = await collectGlyphs(store, includeTraced: true);
+      final without = await collectGlyphs(_recipe(), store, includeTraced: false);
+      final with_ = await collectGlyphs(_recipe(), store, includeTraced: true);
 
       expect(without.map((g) => String.fromCharCode(g.codePoint)), ['あ']);
       expect(with_.map((g) => String.fromCharCode(g.codePoint)), ['あ', 'い']);
@@ -61,8 +70,8 @@ void main() {
       await store.add(_written('あ', mode: PracticeMode.trace));
 
       // 混ぜないなら、なぞる前に書いたものが残る。
-      final without = await collectGlyphs(store, includeTraced: false);
-      final with_ = await collectGlyphs(store, includeTraced: true);
+      final without = await collectGlyphs(_recipe(), store, includeTraced: false);
+      final with_ = await collectGlyphs(_recipe(), store, includeTraced: true);
 
       expect(without, hasLength(1));
       expect(with_, hasLength(1));
@@ -77,7 +86,7 @@ void main() {
       await store.add(_written('あ'));
       await store.add(_written('5'));
 
-      final glyphs = await collectGlyphs(store, includeTraced: false);
+      final glyphs = await collectGlyphs(_recipe(), store, includeTraced: false);
       final widths = {
         for (final glyph in glyphs)
           String.fromCharCode(glyph.codePoint): glyph.advanceWidth,
@@ -94,6 +103,7 @@ void main() {
 
       final reported = <(int, int)>[];
       await collectGlyphs(
+        _recipe(),
         store,
         includeTraced: false,
         onProgress: (done, total) => reported.add((done, total)),
@@ -107,10 +117,10 @@ void main() {
       await store.add(_written('5'));
 
       for (final format in FontFormat.values) {
-        final font = await buildCollectedFont(
+        final font = await buildRecipeFont(
+          recipe: _recipe(),
           store: store,
           includeTraced: false,
-          meta: FontMetadata(familyName: 'AsoGlyph'),
           format: format,
         );
 

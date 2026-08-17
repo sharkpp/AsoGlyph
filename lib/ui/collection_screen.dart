@@ -7,6 +7,7 @@ import '../export/font_export.dart';
 import '../font/font_builder.dart';
 import '../kanjivg/stroke_order.dart';
 import '../model/char_set.dart';
+import '../model/font_recipe.dart';
 import '../model/sample.dart';
 import '../store/sample_store.dart';
 import 'about.dart';
@@ -137,10 +138,18 @@ class _CollectionScreenState extends State<CollectionScreen> {
     ));
     final dialog = _showProgress(context, progress);
 
-    final meta = FontMetadata(familyName: 'AsoGlyph', created: DateTime.now());
-    final bytes = await buildCollectedFont(
+    // 今の字を全部入れる既定の版。文字種を選んだり時点を指定したりする
+    // 版づくりは管理画面（SPEC 7.6）で、ここは子供向け画面の手早い出口。
+    final now = DateTime.now();
+    final recipe = FontRecipe.latest(
+      id: 'quick',
+      name: 'いまの字',
+      createdAt: now,
+      fontMeta: FontMetadata(familyName: 'AsoGlyph', created: now),
+    );
+    final bytes = await buildRecipeFont(
+      recipe: recipe,
       store: store,
-      meta: meta,
       format: choice.format,
       includeTraced: choice.includeTraced,
       onProgress: (done, total) => progress.value = (done, total),
@@ -152,7 +161,8 @@ class _CollectionScreenState extends State<CollectionScreen> {
 
     await shareFont(
       bytes: bytes,
-      fileName: '${sanitizeFileName(meta.familyName)}.${choice.format.name}',
+      fileName:
+          '${sanitizeFileName(recipe.fontMeta.familyName)}.${choice.format.name}',
       format: choice.format,
       text: 'あそんでフォントでつくったフォント',
     );

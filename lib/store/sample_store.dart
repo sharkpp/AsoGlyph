@@ -26,7 +26,7 @@ class SampleStore extends ChangeNotifier {
   final Database _db;
 
   /// 文字 -> 試行。書いた順に並ぶ。
-  final Map<String, List<_Entry>> _byChar = {};
+  final Map<String, List<SampleRef>> _byChar = {};
 
   Future<void> load() async {
     _byChar.clear();
@@ -38,7 +38,7 @@ class SampleStore extends ChangeNotifier {
       ),
     );
     for (final record in records) {
-      final entry = _Entry.fromRecord(record.key, record.value);
+      final entry = SampleRef.fromRecord(record.key, record.value);
       _byChar.putIfAbsent(entry.char, () => []).add(entry);
     }
     notifyListeners();
@@ -58,7 +58,7 @@ class SampleStore extends ChangeNotifier {
 
     _byChar
         .putIfAbsent(sample.char, () => [])
-        .add(_Entry(sample.id, sample.char, sample.mode, sample.writtenAt));
+        .add(SampleRef(sample.id, sample.char, sample.mode, sample.writtenAt));
     notifyListeners();
   }
 
@@ -78,18 +78,31 @@ class SampleStore extends ChangeNotifier {
   /// その文字を書いた回数。なぞり書きも数える（子供に見せる進捗のため）。
   int attemptCount(String char) => _byChar[char]?.length ?? 0;
 
+  /// その文字の試行を書いた順に返す。運筆は読まない。
+  ///
+  /// [before] を渡すと、その時刻以前に書いたものだけを返す（`at` 規則）。
+  List<SampleRef> history(
+    String char, {
+    required bool includeTraced,
+    DateTime? before,
+  }) => [
+    for (final entry in _byChar[char] ?? const <SampleRef>[])
+      if (includeTraced || entry.mode != PracticeMode.trace)
+        if (before == null || !entry.writtenAt.isAfter(before)) entry,
+  ];
+
   /// 素材に使う最新の Sample の id。まだ無ければ null。
   ///
   /// なぞり書きを混ぜるかは呼び出し側が決める。なぞりとそれ以外は別の履歴
   /// として持ち、フォントを出すときに混ぜるかどうかを選べるようにする。
   String? latestId(String char, {required bool includeTraced}) {
-    final entries = _byChar[char];
-    if (entries == null) return null;
-    for (final entry in entries.reversed) {
-      if (includeTraced || entry.mode != PracticeMode.trace) return entry.id;
-    }
-    return null;
+    final entries = history(char, includeTraced: includeTraced);
+    return entries.isEmpty ? null : entries.last.id;
   }
+
+  /// その id の試行がまだあるか。差し替え（charRules）の指す先を確かめる。
+  bool contains(String id) =>
+      _byChar.values.any((entries) => entries.any((e) => e.id == id));
 
   /// 素材が 1 つ以上ある文字。フォントに載せられる字はこれで決まる。
   Iterable<String> collectedChars({required bool includeTraced}) => _byChar.keys
@@ -102,7 +115,7 @@ class SampleStore extends ChangeNotifier {
     if (meta == null || blob == null) {
       throw StateError('Sample $id が見つからない');
     }
-    final entry = _Entry.fromRecord(id, meta);
+    final entry = SampleRef.fromRecord(id, meta);
     return Sample(
       id: id,
       char: entry.char,
@@ -113,15 +126,20 @@ class SampleStore extends ChangeNotifier {
   }
 }
 
-class _Entry {
-  const _Entry(this.id, this.char, this.mode, this.writtenAt);
+/// 記録 1 件のうち、運筆を除いた見出し。
+///
+/// 一覧・充足率・版の選択に必要なのは書いた事実だけで、全文字ぶんの運筆を
+/// メモリに載せる理由がない。運筆は [SampleStore.read] で個別に読む。
+class SampleRef {
+  const SampleRef(this.id, this.char, this.mode, this.writtenAt);
 
-  factory _Entry.fromRecord(String id, Map<String, Object?> record) => _Entry(
-    id,
-    record['char']! as String,
-    PracticeMode.values.byName(record['mode']! as String),
-    DateTime.fromMillisecondsSinceEpoch(record['writtenAt']! as int),
-  );
+  factory SampleRef.fromRecord(String id, Map<String, Object?> record) =>
+      SampleRef(
+        id,
+        record['char']! as String,
+        PracticeMode.values.byName(record['mode']! as String),
+        DateTime.fromMillisecondsSinceEpoch(record['writtenAt']! as int),
+      );
 
   final String id;
   final String char;
