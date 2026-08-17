@@ -295,6 +295,11 @@ void main() {
 
       expect(store.attemptCount('き'), 1, reason: '書いた事実は残す');
       expect(
+        speaker.spoken.last,
+        contains('なぞれたね'),
+        reason: 'できたね！ とは言わない。次の段へ誘う',
+      );
+      expect(
         store.latestMaterialId('き'),
         isNull,
         reason: 'なぞっただけの字はフォントに入れない',

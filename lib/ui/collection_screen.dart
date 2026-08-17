@@ -339,6 +339,9 @@ class _CharTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final collected = store.latestMaterialId(char) != null;
+    // なぞっただけの字はフォントに入らない（SPEC 7.1）。それでも書いた事実は
+    // 残っているので、何も起きていないように見せない。
+    final traced = !collected && store.attemptCount(char) > 0;
     final scheme = Theme.of(context).colorScheme;
 
     return SizedBox(
@@ -350,7 +353,11 @@ class _CharTile extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: collected ? scheme.primary : const Color(0xffe4dfd4),
+            color: collected
+                ? scheme.primary
+                : traced
+                ? const Color(0xffbdb4a6)
+                : const Color(0xffe4dfd4),
             width: 2,
           ),
         ),
@@ -386,6 +393,17 @@ class _CharTile extends StatelessWidget {
                   right: 4,
                   top: 4,
                   child: Icon(Icons.star, size: 14, color: scheme.primary),
+                )
+              // 星ではない印にする。なぞりは集まった字と同じ扱いにしない。
+              else if (traced)
+                const Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Icon(
+                    Icons.gesture,
+                    size: 14,
+                    color: Color(0xffbdb4a6),
+                  ),
                 ),
             ],
           ),

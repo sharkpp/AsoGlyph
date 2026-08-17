@@ -107,7 +107,12 @@ class _WritingScreenState extends State<WritingScreen>
       _glyph = glyph;
       _busy = false;
     });
-    widget.speaker.speak('できたね！');
+    // なぞりはフォントに入らない。ほめたうえで、次の段へ誘う（SPEC 7.1）。
+    widget.speaker.speak(
+      widget.mode == PracticeMode.trace
+          ? 'なぞれたね！ こんどは じぶんで かいてみよう'
+          : 'できたね！',
+    );
   }
 
   void _again() {

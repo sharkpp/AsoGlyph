@@ -12,16 +12,17 @@ import 'package:flutter_test/flutter_test.dart';
 import '../support/memory_store.dart';
 import '../support/recording_speaker.dart';
 
-Sample _written(String char) => Sample.now(
-  char: char,
-  mode: PracticeMode.copy,
-  strokes: [
-    Stroke(const [
-      InkPoint(x: 300, y: 500, t: 0, pressure: 0),
-      InkPoint(x: 700, y: 500, t: 20, pressure: 0),
-    ]),
-  ],
-);
+Sample _written(String char, {PracticeMode mode = PracticeMode.copy}) =>
+    Sample.now(
+      char: char,
+      mode: mode,
+      strokes: [
+        Stroke(const [
+          InkPoint(x: 300, y: 500, t: 0, pressure: 0),
+          InkPoint(x: 700, y: 500, t: 20, pressure: 0),
+        ]),
+      ],
+    );
 
 void main() {
   late SampleStore store;
@@ -85,6 +86,22 @@ void main() {
       findsOneWidget,
     );
     expect(find.byIcon(Icons.star), findsOneWidget, reason: '集めた字に印が付く');
+  });
+
+  testWidgets('なぞっただけの字は、集めた字とは別の印になる', (tester) async {
+    await tester.runAsync(
+      () => store.add(_written('あ', mode: PracticeMode.trace)),
+    );
+    await pumpScreen(tester);
+
+    // 充足率は動かない。なぞった字はフォントに入らない（SPEC 7.1）。
+    expect(
+      find.text('0 / ${CharSet.hiraganaBasic.chars.length}'),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.star), findsNothing);
+    // それでも書いた事実は見えるようにする。
+    expect(find.byIcon(Icons.gesture), findsWidgets);
   });
 
   testWidgets('字をタップするとその字の書き取りに入る', (tester) async {
