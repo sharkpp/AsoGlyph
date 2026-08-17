@@ -69,11 +69,13 @@ void main() {
   testWidgets('その文字種の字がすべて並ぶ', (tester) async {
     await pumpScreen(tester, charSet: CharSet.katakana);
 
-    // 清音 46 ＋ 濁音・半濁音 25。濁音は別の束にしない。
-    expect(find.byType(CharTile), findsNWidgets(71));
+    // 清音 46 ＋ 濁音・半濁音 25 ＋ 小書き 9 ＋ 長音符。束は分けない。
+    expect(find.byType(CharTile), findsNWidgets(81));
     expect(tile('ア'), findsOneWidget);
     expect(tile('ン'), findsOneWidget);
     expect(tile('ポ'), findsOneWidget);
+    expect(tile('ャ'), findsOneWidget);
+    expect(tile('ー'), findsOneWidget);
   });
 
   testWidgets('集めた字に星が付く', (tester) async {

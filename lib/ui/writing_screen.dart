@@ -49,6 +49,9 @@ class _WritingScreenState extends State<WritingScreen>
   Glyph? _glyph;
   bool _busy = false;
 
+  /// 小書きの字。枠を小さくして、その中に書かせる（SPEC 5.3）。
+  bool get _small => isSmallKana(widget.char);
+
   /// お手本を出すモードで、書き順のデータもある。
   bool get _showsStrokeOrder =>
       widget.mode != PracticeMode.free && widget.strokeOrder != null;
@@ -191,7 +194,7 @@ class _WritingScreenState extends State<WritingScreen>
                   children: [
                     // 書き取り枠と同じ十字を敷く。お手本と自分の字を、
                     // 同じ物差しで見比べられるようにする（SPEC 7.1）。
-                    const WritingGuide(border: false),
+                    WritingGuide(border: false, small: _small),
                     if (_busy)
                       const Center(child: CircularProgressIndicator())
                     else if (glyph == null)
@@ -262,7 +265,7 @@ class _WritingScreenState extends State<WritingScreen>
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    const WritingGuide(),
+                    WritingGuide(small: _small),
                     // なぞり書きは、字形を薄く敷いてその上をなぞらせる。
                     if (widget.mode == PracticeMode.trace &&
                         widget.strokeOrder != null)

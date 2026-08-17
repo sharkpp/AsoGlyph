@@ -5,6 +5,7 @@ import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/ui/glyph_preview.dart';
 import 'package:asoglyph/ui/stroke_order_view.dart';
+import 'package:asoglyph/ui/writing_guide.dart';
 import 'package:asoglyph/ui/writing_screen.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -86,6 +87,37 @@ void main() {
         ),
       );
     }
+
+    testWidgets('小書きの字は、書き取り枠を小さくして書かせる', (tester) async {
+      await pumpScreen(tester, char: 'ゃ');
+
+      // 書き取り面もお手本も、同じ小さい枠にする。書いた大きさがそのまま
+      // フォントの字形になるので、枠だけが大きさを決めている（SPEC 5.3）。
+      final guides = tester
+          .widgetList<WritingGuide>(find.byType(WritingGuide))
+          .toList();
+      expect(guides, hasLength(2));
+      expect(guides.every((guide) => guide.small), isTrue);
+    });
+
+    testWidgets('大きい字は枠いっぱいに書かせる', (tester) async {
+      await pumpScreen(tester, char: 'や');
+
+      final guides = tester.widgetList<WritingGuide>(
+        find.byType(WritingGuide),
+      );
+      expect(guides.any((guide) => guide.small), isFalse);
+    });
+
+    testWidgets('長音符は小さくしない', (tester) async {
+      // 「ー」は全角の幅いっぱいに引く字（SPEC 5.3）。
+      await pumpScreen(tester, char: 'ー');
+
+      final guides = tester.widgetList<WritingGuide>(
+        find.byType(WritingGuide),
+      );
+      expect(guides.any((guide) => guide.small), isFalse);
+    });
 
     testWidgets('お手本が出て、書き上げるとフォントの字に入れ替わる', (tester) async {
       await pumpScreen(tester);

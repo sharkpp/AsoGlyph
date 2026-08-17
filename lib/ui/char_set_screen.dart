@@ -18,7 +18,7 @@ int collectedIn(CharSet charSet, SampleStore store) => charSet.chars
 /// 1 つの文字種の字を並べる画面。
 ///
 /// 文字種を選んでから字を選ぶ、という 2 段にしてある。ひらがな・カタカナ・
-/// すうじで 152 字あり、漢字（L5）では 1 学年で 80 字が増える。
+/// すうじで 171 字あり、漢字（L5）では 1 学年で 80 字が増える。
 /// 全部を 1 枚に積むと、子供が自分の字を探せなくなる。
 class CharSetScreen extends StatelessWidget {
   const CharSetScreen({
