@@ -26,11 +26,14 @@ class AtPolicy extends Policy {
 
   final DateTime time;
 
+  /// 指すのは時刻そのもので、どの時間帯で書いたかではない。
+  /// `DateTime` の `==` は UTC と現地時刻を別物として扱うため、瞬間で比べる。
   @override
-  bool operator ==(Object other) => other is AtPolicy && other.time == time;
+  bool operator ==(Object other) =>
+      other is AtPolicy && other.time.isAtSameMomentAs(time);
 
   @override
-  int get hashCode => time.hashCode;
+  int get hashCode => time.microsecondsSinceEpoch.hashCode;
 }
 
 /// フォントの版（SPEC 4.3）。

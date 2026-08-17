@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'audio/speaker.dart';
 import 'kanjivg/stroke_order.dart';
+import 'store/app_database.dart';
+import 'store/recipe_store.dart';
 import 'store/sample_store.dart';
 import 'ui/about.dart';
 import 'ui/collection_screen.dart';
@@ -9,9 +12,12 @@ import 'ui/collection_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   registerKanjiVgLicense();
+  // 記録も版も同じ 1 つのデータベースに置く。
+  final database = await openAppDatabase('asoglyph.db');
   runApp(
     AsoGlyphApp(
-      store: await SampleStore.open(),
+      store: await SampleStore.open(database),
+      recipes: await RecipeStore.open(database),
       speaker: await TtsSpeaker.open(),
       strokeOrders: await StrokeOrderLibrary.load(),
     ),
@@ -22,11 +28,13 @@ class AsoGlyphApp extends StatelessWidget {
   const AsoGlyphApp({
     super.key,
     required this.store,
+    required this.recipes,
     required this.speaker,
     required this.strokeOrders,
   });
 
   final SampleStore store;
+  final RecipeStore recipes;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
 
@@ -35,6 +43,15 @@ class AsoGlyphApp extends StatelessWidget {
     return MaterialApp(
       title: 'あそんでフォント',
       debugShowCheckedModeBanner: false,
+      // 日付選択など Flutter の部品が英語のまま出ないようにする。
+      // 保護者向け画面で日付を選ばせるため、日本語が要る。
+      locale: const Locale('ja'),
+      supportedLocales: const [Locale('ja')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xffe8863c)),
         scaffoldBackgroundColor: const Color(0xfffaf7f0),
@@ -42,6 +59,7 @@ class AsoGlyphApp extends StatelessWidget {
       ),
       home: CollectionScreen(
         store: store,
+        recipes: recipes,
         speaker: speaker,
         strokeOrders: strokeOrders,
       ),

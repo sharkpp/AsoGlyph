@@ -3,7 +3,6 @@ import 'package:sembast/blob.dart';
 import 'package:sembast/sembast.dart';
 
 import '../model/sample.dart';
-import 'app_database.dart';
 import 'stroke_codec.dart';
 
 /// 書いた記録の置き場。追記のみで、書き換えも削除もしない（SPEC 4.1）。
@@ -14,8 +13,8 @@ class SampleStore extends ChangeNotifier {
   SampleStore(this._db);
 
   /// アプリから使う実体を開く。
-  static Future<SampleStore> open() async {
-    final store = SampleStore(await openAppDatabase('asoglyph.db'));
+  static Future<SampleStore> open(Database db) async {
+    final store = SampleStore(db);
     await store.load();
     return store;
   }

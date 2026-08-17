@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../audio/speaker.dart';
@@ -9,9 +8,12 @@ import '../kanjivg/stroke_order.dart';
 import '../model/char_set.dart';
 import '../model/font_recipe.dart';
 import '../model/sample.dart';
+import '../store/recipe_store.dart';
 import '../store/sample_store.dart';
 import 'about.dart';
+import 'admin_screen.dart';
 import 'char_set_screen.dart';
+import 'export_sheet.dart';
 
 /// 文字種の一覧。アプリの入口。
 ///
@@ -20,11 +22,13 @@ class CollectionScreen extends StatefulWidget {
   const CollectionScreen({
     super.key,
     required this.store,
+    required this.recipes,
     required this.speaker,
     required this.strokeOrders,
   });
 
   final SampleStore store;
+  final RecipeStore recipes;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
 
@@ -39,6 +43,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
   var _mode = PracticeMode.copy;
 
   SampleStore get store => widget.store;
+  RecipeStore get recipes => widget.recipes;
   Speaker get speaker => widget.speaker;
   StrokeOrderLibrary get strokeOrders => widget.strokeOrders;
 
@@ -54,6 +59,17 @@ class _CollectionScreenState extends State<CollectionScreen> {
             icon: const Icon(Icons.ios_share),
             tooltip: 'フォントをつくる',
             onPressed: () => _export(context),
+          ),
+          IconButton(
+            iconSize: 28,
+            icon: const Icon(Icons.tune),
+            tooltip: 'おうちの人へ',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) =>
+                    AdminScreen(store: store, recipes: recipes),
+              ),
+            ),
           ),
           IconButton(
             iconSize: 28,
@@ -125,10 +141,10 @@ class _CollectionScreenState extends State<CollectionScreen> {
       return;
     }
 
-    final choice = await showModalBottomSheet<_ExportChoice>(
-      context: context,
-      builder: (context) =>
-          _ExportSheet(written: written, withTraced: withTraced),
+    final choice = await showExportSheet(
+      context,
+      written: written,
+      withTraced: withTraced,
     );
     if (choice == null || !context.mounted) return;
 
@@ -136,7 +152,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
       0,
       choice.includeTraced ? withTraced : written,
     ));
-    final dialog = _showProgress(context, progress);
+    final dialog = showExportProgress(context, progress);
 
     // 今の字を全部入れる既定の版。文字種を選んだり時点を指定したりする
     // 版づくりは管理画面（SPEC 7.6）で、ここは子供向け画面の手早い出口。
@@ -167,103 +183,6 @@ class _CollectionScreenState extends State<CollectionScreen> {
       text: 'あそんでフォントでつくったフォント',
     );
   }
-}
-
-/// 出力の選択。形式と、なぞった字を混ぜるかどうか。
-class _ExportChoice {
-  const _ExportChoice(this.format, this.includeTraced);
-
-  final FontFormat format;
-  final bool includeTraced;
-}
-
-/// フォントを出す前に、形式となぞりの扱いを選ばせる。
-///
-/// なぞった字とそれ以外は別の履歴として持っている。混ぜれば字数は増えるが、
-/// 混ぜた字はお手本の形をなぞったもので、その子の字とは言いにくい。
-/// どちらを取るかは親が決める。
-class _ExportSheet extends StatefulWidget {
-  const _ExportSheet({required this.written, required this.withTraced});
-
-  /// なぞり以外で集まった字数。
-  final int written;
-
-  /// なぞりも混ぜたときの字数。
-  final int withTraced;
-
-  @override
-  State<_ExportSheet> createState() => _ExportSheetState();
-}
-
-class _ExportSheetState extends State<_ExportSheet> {
-  var _includeTraced = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final extra = widget.withTraced - widget.written;
-    final count = _includeTraced ? widget.withTraced : widget.written;
-
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SwitchListTile(
-            value: _includeTraced,
-            // 足せる字が無いときに選ばせても意味がない。
-            onChanged: extra == 0
-                ? null
-                : (on) => setState(() => _includeTraced = on),
-            secondary: const Icon(Icons.gesture),
-            title: const Text('なぞった字も入れる'),
-            subtitle: Text(
-              extra == 0 ? 'なぞっただけの字はありません' : 'ほかに $extra 字',
-            ),
-          ),
-          const Divider(height: 1),
-          for (final format in FontFormat.values)
-            ListTile(
-              leading: const Icon(Icons.font_download_outlined),
-              title: Text(format.name.toUpperCase()),
-              trailing: Text('$count 字'),
-              // 字が 1 つも無い組み合わせでは出しても仕方がない。
-              enabled: count > 0,
-              onTap: () => Navigator.of(
-                context,
-              ).pop(_ExportChoice(format, _includeTraced)),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// フォント生成のあいだ、進み具合だけを見せる。
-Future<void> _showProgress(
-  BuildContext context,
-  ValueListenable<(int, int)> progress,
-) {
-  return showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => AlertDialog(
-      content: ValueListenableBuilder(
-        valueListenable: progress,
-        builder: (context, value, _) {
-          final (done, total) = value;
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(
-                value: total == 0 ? null : done / total,
-              ),
-              const SizedBox(width: 24),
-              Text('$done / $total'),
-            ],
-          );
-        },
-      ),
-    ),
-  );
 }
 
 /// 書く前に、どこまで見せてもらうかを選ばせる。
