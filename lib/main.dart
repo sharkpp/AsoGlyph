@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'audio/speaker.dart';
 import 'kanjivg/stroke_order.dart';
 import 'store/app_database.dart';
+import 'store/passcode.dart';
 import 'store/recipe_store.dart';
 import 'store/sample_store.dart';
 import 'ui/about.dart';
@@ -18,6 +19,7 @@ Future<void> main() async {
     AsoGlyphApp(
       store: await SampleStore.open(database),
       recipes: await RecipeStore.open(database),
+      passcode: await Passcode.open(),
       speaker: await TtsSpeaker.open(),
       strokeOrders: await StrokeOrderLibrary.load(),
     ),
@@ -29,12 +31,14 @@ class AsoGlyphApp extends StatelessWidget {
     super.key,
     required this.store,
     required this.recipes,
+    required this.passcode,
     required this.speaker,
     required this.strokeOrders,
   });
 
   final SampleStore store;
   final RecipeStore recipes;
+  final Passcode passcode;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
 
@@ -60,6 +64,7 @@ class AsoGlyphApp extends StatelessWidget {
       home: CollectionScreen(
         store: store,
         recipes: recipes,
+        passcode: passcode,
         speaker: speaker,
         strokeOrders: strokeOrders,
       ),

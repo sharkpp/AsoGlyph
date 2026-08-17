@@ -4,6 +4,7 @@ import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/kanjivg/stroke_order.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
+import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/ui/char_set_screen.dart';
@@ -34,6 +35,7 @@ final katakana = CharSet.katakana.chars.length;
 void main() {
   late SampleStore store;
   late RecipeStore recipes;
+  late Passcode passcode;
   late StrokeOrderLibrary strokeOrders;
 
   setUpAll(() async {
@@ -44,6 +46,7 @@ void main() {
   setUp(() async {
     store = await openMemoryStore();
     recipes = await openMemoryRecipes();
+    passcode = await openMemoryPasscode();
   });
 
   /// sembast はタイマを使う。テストの疑似非同期環境では完了しないため、
@@ -61,6 +64,7 @@ void main() {
         home: CollectionScreen(
           store: store,
           recipes: recipes,
+          passcode: passcode,
           speaker: speaker ?? RecordingSpeaker(),
           strokeOrders: strokeOrders,
         ),

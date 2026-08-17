@@ -8,12 +8,14 @@ import '../kanjivg/stroke_order.dart';
 import '../model/char_set.dart';
 import '../model/font_recipe.dart';
 import '../model/sample.dart';
+import '../store/passcode.dart';
 import '../store/recipe_store.dart';
 import '../store/sample_store.dart';
 import 'about.dart';
 import 'admin_screen.dart';
 import 'char_set_screen.dart';
 import 'export_sheet.dart';
+import 'passcode_gate.dart';
 
 /// 文字種の一覧。アプリの入口。
 ///
@@ -23,12 +25,14 @@ class CollectionScreen extends StatefulWidget {
     super.key,
     required this.store,
     required this.recipes,
+    required this.passcode,
     required this.speaker,
     required this.strokeOrders,
   });
 
   final SampleStore store;
   final RecipeStore recipes;
+  final Passcode passcode;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
 
@@ -44,6 +48,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
 
   SampleStore get store => widget.store;
   RecipeStore get recipes => widget.recipes;
+  Passcode get passcode => widget.passcode;
   Speaker get speaker => widget.speaker;
   StrokeOrderLibrary get strokeOrders => widget.strokeOrders;
 
@@ -64,12 +69,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
             iconSize: 28,
             icon: const Icon(Icons.tune),
             tooltip: 'おうちの人へ',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) =>
-                    AdminScreen(store: store, recipes: recipes),
-              ),
-            ),
+            onPressed: () => _openAdmin(context),
           ),
           IconButton(
             iconSize: 28,
@@ -97,6 +97,18 @@ class _CollectionScreenState extends State<CollectionScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _openAdmin(BuildContext context) async {
+    // パスコードが掛かっていなければ、そのまま通る（既定は無効）。
+    if (!await unlockAdmin(context, passcode)) return;
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            AdminScreen(store: store, recipes: recipes, passcode: passcode),
       ),
     );
   }

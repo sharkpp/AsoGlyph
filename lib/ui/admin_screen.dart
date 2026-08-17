@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../export/resolve_recipe.dart';
 import '../model/char_set.dart';
 import '../model/font_recipe.dart';
+import '../store/passcode.dart';
 import '../store/recipe_store.dart';
 import '../store/sample_store.dart';
 import 'char_set_screen.dart';
+import 'passcode_gate.dart';
 import 'recipe_editor.dart';
 
 /// 保護者向けの画面（SPEC 7.6）。
@@ -17,10 +19,12 @@ class AdminScreen extends StatelessWidget {
     super.key,
     required this.store,
     required this.recipes,
+    required this.passcode,
   });
 
   final SampleStore store;
   final RecipeStore recipes;
+  final Passcode passcode;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +35,7 @@ class AdminScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: AnimatedBuilder(
-          animation: Listenable.merge([store, recipes]),
+          animation: Listenable.merge([store, recipes, passcode]),
           builder: (context, _) => ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -70,6 +74,20 @@ class AdminScreen extends StatelessWidget {
                   onDuplicate: () => _duplicate(context, recipe),
                   onDelete: () => _delete(context, recipe),
                 ),
+              const SizedBox(height: 24),
+              const _Heading('この画面のロック'),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(passcode.isSet ? Icons.lock : Icons.lock_open),
+                title: Text(passcode.isSet ? 'パスコードを変える' : 'パスコードを決める'),
+                subtitle: Text(
+                  passcode.isSet
+                      ? 'この画面に入るときに聞きます'
+                      : '掛けていません。決めると、子供がここに入れなくなります',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => showPasscodeSettings(context, passcode),
+              ),
             ],
           ),
         ),

@@ -2,6 +2,7 @@ import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/font_recipe.dart';
 import 'package:asoglyph/model/sample.dart';
+import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/ui/admin_screen.dart';
@@ -30,10 +31,12 @@ void main() {
 
   late SampleStore store;
   late RecipeStore recipes;
+  late Passcode passcode;
 
   setUp(() async {
     store = await openMemoryStore();
     recipes = await openMemoryRecipes();
+    passcode = await openMemoryPasscode();
   });
 
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -42,7 +45,9 @@ void main() {
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      MaterialApp(home: AdminScreen(store: store, recipes: recipes)),
+      MaterialApp(
+        home: AdminScreen(store: store, recipes: recipes, passcode: passcode),
+      ),
     );
   }
 
