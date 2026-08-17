@@ -65,15 +65,37 @@ class StrokeOrder {
     return best!;
   }
 
-  /// [index] 画目の、進む向きを示す点。矢印を置くのに使う。
+  /// [index] 画目の、進む向きを示す矢印を置く場所と向き。
   ///
-  /// 書き終わりではなく書き始めの少し先に置く。0 のように始点と終点が
+  /// 位置は書き終わりではなく書き始めの少し先。0 のように始点と終点が
   /// 重なる画は、終わりに矢印を立てても左回りか右回りか決まらない。
-  Tangent directionMark(int index) {
+  ///
+  /// さらに線から横へ逃がす。線の上に描くと字形の一部に見えてしまい、
+  /// なぞる子がその形ごと書いてしまう。
+  ({Offset at, double angle}) directionMark(int index) {
     final metric = _metrics[index];
-    return metric.getTangentForOffset(
+    final on = metric.getTangentForOffset(
       min(_markOffset, metric.length * 0.35),
     )!;
+
+    // 進む向きの左右どちらへ逃がすか。他の画から遠いほうを選ぶ。
+    final normal = Offset(-on.vector.dy, on.vector.dx);
+    var best = on.position;
+    var bestScore = double.negativeInfinity;
+    for (final side in [1.0, -1.0]) {
+      final at = Offset(
+        (on.position.dx + normal.dx * side * _markGap)
+            .clamp(_margin, viewBox - _margin),
+        (on.position.dy + normal.dy * side * _markGap)
+            .clamp(_margin, viewBox - _margin),
+      );
+      final score = _distanceToInk(at);
+      if (score > bestScore) {
+        bestScore = score;
+        best = at;
+      }
+    }
+    return (at: best, angle: on.angle);
   }
 
   /// 全部の画を粗く点に開いたもの。番号の置き場所を選ぶのに使う。
@@ -93,6 +115,7 @@ class StrokeOrder {
   }
 
   static const _markOffset = 13.0;
+  static const _markGap = 9.0;
   static const _numberDirections = 16;
   static const _numberRadius = 12.0;
   static const _inkSpacing = 2.0;

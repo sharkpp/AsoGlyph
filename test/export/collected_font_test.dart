@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:asoglyph/export/collected_font.dart';
 import 'package:asoglyph/font/font_builder.dart';
 import 'package:asoglyph/ink/stroke.dart';
-import 'package:asoglyph/kanjivg/dakuten_placement.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,9 +27,6 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late SampleStore store;
-  late DakutenPlacements placements;
-
-  setUpAll(() async => placements = await DakutenPlacements.load());
   setUp(() async => store = await openMemoryStore());
 
   group('収集済みフォント', () {
@@ -40,7 +36,7 @@ void main() {
       // なぞり書きだけの字は素材にしない（SPEC 7.1）。
       await store.add(_written('い', mode: PracticeMode.trace));
 
-      final glyphs = await collectGlyphs(store, placements: placements);
+      final glyphs = await collectGlyphs(store);
 
       expect(
         glyphs.map((g) => String.fromCharCode(g.codePoint)),
@@ -54,7 +50,7 @@ void main() {
       await store.add(_written('あ'));
       await store.add(_written('5'));
 
-      final glyphs = await collectGlyphs(store, placements: placements);
+      final glyphs = await collectGlyphs(store);
       final widths = {
         for (final glyph in glyphs)
           String.fromCharCode(glyph.codePoint): glyph.advanceWidth,
@@ -72,55 +68,10 @@ void main() {
       final reported = <(int, int)>[];
       await collectGlyphs(
         store,
-        placements: placements,
         onProgress: (done, total) => reported.add((done, total)),
       );
 
       expect(reported, [(1, 3), (2, 3), (3, 3)]);
-    });
-
-    test('清音と濁点がそろうと濁音が合成される', () async {
-      await store.add(_written('か'));
-      await store.add(_written('゛'));
-
-      final glyphs = await collectGlyphs(store, placements: placements);
-      final chars = glyphs.map((g) => String.fromCharCode(g.codePoint));
-
-      expect(chars, contains('が'), reason: 'か ＋ ゛ から作る');
-      expect(chars, isNot(contains('ぱ')), reason: '半濁点はまだ無い');
-      expect(chars, isNot(contains('ざ')), reason: 'さ を集めていない');
-      expect(
-        glyphs.firstWhere((g) => g.codePoint == 'が'.runes.first).contours,
-        isNotEmpty,
-      );
-    });
-
-    test('濁点だけでは何も作れない', () async {
-      await store.add(_written('゛'));
-
-      final glyphs = await collectGlyphs(store, placements: placements);
-
-      expect(
-        glyphs.map((g) => String.fromCharCode(g.codePoint)),
-        ['゛'],
-        reason: '濁点そのものは字として載る',
-      );
-    });
-
-    test('濁音は清音より画が増える', () async {
-      await store.add(_written('か'));
-      await store.add(_written('゛'));
-
-      final glyphs = await collectGlyphs(store, placements: placements);
-      final ka = glyphs.firstWhere((g) => g.codePoint == 'か'.runes.first);
-      final ga = glyphs.firstWhere((g) => g.codePoint == 'が'.runes.first);
-
-      expect(
-        ga.contours.length,
-        greaterThan(ka.contours.length),
-        reason: '濁点のぶん輪郭が増える',
-      );
-      expect(ga.advanceWidth, ka.advanceWidth, reason: '濁音も全角');
     });
 
     test('.notdef とスペースを足したフォントが出る', () async {
@@ -130,7 +81,6 @@ void main() {
       for (final format in FontFormat.values) {
         final font = await buildCollectedFont(
           store: store,
-          placements: placements,
           meta: FontMetadata(familyName: 'AsoGlyph'),
           format: format,
         );

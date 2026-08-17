@@ -77,5 +77,20 @@ void main() {
       await store.add(_sample('く'));
       expect(notified, 1);
     });
+
+    test('ぜんぶ消すと空になる', () async {
+      final store = await openMemoryStore();
+      await store.add(_sample('あ'));
+      await store.add(_sample('い'));
+
+      await store.clear();
+
+      expect(store.collectedChars, isEmpty);
+      expect(store.attemptCount('あ'), 0);
+
+      // 読み直しても戻らない。記録そのものが消えている。
+      await store.load();
+      expect(store.collectedChars, isEmpty);
+    });
   });
 }

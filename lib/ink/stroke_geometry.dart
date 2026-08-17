@@ -33,18 +33,6 @@ class StrokeStyle {
 
   /// 線幅を均す移動平均の窓幅（入力点の個数）。
   final int smoothingWindow;
-
-  /// 線幅だけを [factor] 倍した設定。
-  ///
-  /// 濁点は清音より小さく置く。同じ太さのまま描くと潰れる（SPEC 5.1）。
-  StrokeStyle scaleWidth(double factor) => StrokeStyle(
-    baseWidth: baseWidth * factor,
-    pressureRange: pressureRange,
-    speedRange: speedRange,
-    referenceSpeed: referenceSpeed,
-    resampleSpacing: resampleSpacing,
-    smoothingWindow: smoothingWindow,
-  );
 }
 
 /// 描画に使う 1 点。位置と、その点での線幅を持つ。
@@ -96,29 +84,27 @@ List<double> strokeWidths(Stroke stroke, StrokeStyle style) {
     final after = i < points.length - 1
         ? _speedBetween(points[i], points[i + 1])
         : null;
-    speeds.add(
-      switch ((before, after)) {
-        (final a?, final b?) => (a + b) / 2,
-        (final a?, null) => a,
-        (null, final b?) => b,
-        _ => 0.0,
-      },
-    );
+    speeds.add(switch ((before, after)) {
+      (final a?, final b?) => (a + b) / 2,
+      (final a?, null) => a,
+      (null, final b?) => b,
+      _ => 0.0,
+    });
   }
 
   return [
     for (final speed in speeds)
       style.baseWidth *
-          (1 - style.speedRange * (speed / style.referenceSpeed).clamp(0.0, 1.0)),
+          (1 -
+              style.speedRange *
+                  (speed / style.referenceSpeed).clamp(0.0, 1.0)),
   ];
 }
 
 double _speedBetween(InkPoint a, InkPoint b) {
   final dt = (b.t - a.t).abs();
   if (dt == 0) return 0;
-  final distance = math.sqrt(
-    math.pow(b.x - a.x, 2) + math.pow(b.y - a.y, 2),
-  );
+  final distance = math.sqrt(math.pow(b.x - a.x, 2) + math.pow(b.y - a.y, 2));
   return distance / dt;
 }
 

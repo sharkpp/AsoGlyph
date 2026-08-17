@@ -4,24 +4,9 @@
 enum CharSet {
   digits('すうじ', _digits, advanceWidth: 500),
   hiraganaBasic('ひらがな', _hiraganaBasic, advanceWidth: 1000),
-  soundMarks('だくてん', _soundMarks, advanceWidth: 1000),
+  hiraganaVoiced('だくおん', _hiraganaVoiced, advanceWidth: 1000);
 
-  /// 清音に濁点を重ねて作る。書かせない（SPEC 5.1）。
-  ///
-  /// 全部書かせるとひらがなだけで 80 字になり、5〜6 歳には重い。
-  hiraganaVoiced(
-    'だくおん',
-    _hiraganaVoiced,
-    advanceWidth: 1000,
-    collect: false,
-  );
-
-  const CharSet(
-    this.label,
-    this.chars, {
-    required this.advanceWidth,
-    this.collect = true,
-  });
+  const CharSet(this.label, this.chars, {required this.advanceWidth});
 
   /// 子供向け画面にも出す名前。
   final String label;
@@ -31,11 +16,6 @@ enum CharSet {
 
   /// 字送り幅（em 1000 基準）。和文は全角、数字・ラテンは半角に固定する（SPEC 5.2）。
   final int advanceWidth;
-
-  /// 書かせて集める文字種か。
-  ///
-  /// 収集対象と出力対象は一致しない（SPEC 5）。合成で作る字は出力にだけ現れる。
-  final bool collect;
 }
 
 const _digits = [
@@ -56,10 +36,10 @@ const _hiraganaBasic = [
   'わ', 'を', 'ん', //
 ];
 
-/// 濁点と半濁点。清音 46 字にこの 2 字を足した 48 字を集める（SPEC 5.1）。
-const _soundMarks = ['゛', '゜'];
-
-/// 清音＋濁点から合成する 25 字。清音と同じ並び順にする。
+/// 濁音 20 字・半濁音 5 字。清音と同じ並び順にする。
+///
+/// SPEC 5.1 は清音＋濁点からの合成を既定にしているが、そちらは採らない。
+/// 濁音は濁点を足しただけの字ではなく、その子が書いた 1 つの字として残す。
 const _hiraganaVoiced = [
   'が', 'ぎ', 'ぐ', 'げ', 'ご', //
   'ざ', 'じ', 'ず', 'ぜ', 'ぞ', //
@@ -85,5 +65,4 @@ String readingOf(String char) => _readings[char] ?? char;
 const _readings = {
   '0': 'ゼロ', '1': 'いち', '2': 'に', '3': 'さん', '4': 'よん', //
   '5': 'ご', '6': 'ろく', '7': 'なな', '8': 'はち', '9': 'きゅう', //
-  '゛': 'てんてん', '゜': 'まる', //
 };

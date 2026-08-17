@@ -62,6 +62,19 @@ class SampleStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 記録を全部消す。
+  ///
+  /// 記録は追記のみで削除しないのが原則（SPEC 4.1）。これはその例外で、
+  /// 動作確認のために最初から試し直せるようにするためだけに置いてある。
+  Future<void> clear() async {
+    await _db.transaction((txn) async {
+      await _meta.delete(txn);
+      await _strokes.delete(txn);
+    });
+    _byChar.clear();
+    notifyListeners();
+  }
+
   /// その文字を書いた回数。なぞり書きも数える（子供に見せる進捗のため）。
   int attemptCount(String char) => _byChar[char]?.length ?? 0;
 

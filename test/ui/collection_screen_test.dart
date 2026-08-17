@@ -1,6 +1,5 @@
 import 'package:asoglyph/audio/speaker.dart';
 import 'package:asoglyph/ink/stroke.dart';
-import 'package:asoglyph/kanjivg/dakuten_placement.dart';
 import 'package:asoglyph/kanjivg/stroke_order.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
@@ -27,12 +26,10 @@ Sample _written(String char) => Sample.now(
 void main() {
   late SampleStore store;
   late StrokeOrderLibrary strokeOrders;
-  late DakutenPlacements placements;
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     strokeOrders = await StrokeOrderLibrary.load();
-    placements = await DakutenPlacements.load();
   });
 
   setUp(() async {
@@ -55,7 +52,6 @@ void main() {
           store: store,
           speaker: speaker ?? RecordingSpeaker(),
           strokeOrders: strokeOrders,
-          placements: placements,
         ),
       ),
     );
@@ -73,7 +69,10 @@ void main() {
 
     expect(find.text('ひらがな'), findsOneWidget);
     expect(find.text('すうじ'), findsOneWidget);
-    expect(find.text('0 / ${CharSet.hiraganaBasic.chars.length}'), findsOneWidget);
+    expect(
+      find.text('0 / ${CharSet.hiraganaBasic.chars.length}'),
+      findsOneWidget,
+    );
     expect(find.text('0 / ${CharSet.digits.chars.length}'), findsOneWidget);
   });
 
@@ -81,7 +80,10 @@ void main() {
     await collect(tester, 'あ');
     await pumpScreen(tester);
 
-    expect(find.text('1 / ${CharSet.hiraganaBasic.chars.length}'), findsOneWidget);
+    expect(
+      find.text('1 / ${CharSet.hiraganaBasic.chars.length}'),
+      findsOneWidget,
+    );
     expect(find.byIcon(Icons.star), findsOneWidget, reason: '集めた字に印が付く');
   });
 
@@ -136,6 +138,41 @@ void main() {
     expect(notice.data, contains('KanjiVG'));
     expect(notice.data, contains('Ulrich Apel'));
     expect(notice.data, contains('creativecommons.org/licenses/by-sa/3.0/'));
+  });
+
+  testWidgets('テスト用に集めた字をぜんぶ消せる', (tester) async {
+    await collect(tester, 'あ');
+    await pumpScreen(tester);
+    expect(find.byIcon(Icons.star), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('集めた字をぜんぶ消す（テスト用）'));
+    await tester.pumpAndSettle();
+
+    // 取り消せないので、必ず一度たしかめる。
+    expect(find.text('集めた字をぜんぶ消しますか？'), findsOneWidget);
+    await tester.runAsync(() async {
+      await tester.tap(find.widgetWithText(FilledButton, '消す'));
+    });
+    await tester.pumpAndSettle();
+
+    expect(store.collectedChars, isEmpty);
+    expect(find.byIcon(Icons.star), findsNothing);
+  });
+
+  testWidgets('やめるを押したら消さない', (tester) async {
+    await collect(tester, 'あ');
+    await pumpScreen(tester);
+
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('集めた字をぜんぶ消す（テスト用）'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'やめる'));
+    await tester.pumpAndSettle();
+
+    expect(store.collectedChars, ['あ']);
   });
 
   testWidgets('集めた字が無いうちはフォントを作らない', (tester) async {

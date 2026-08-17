@@ -108,7 +108,7 @@ class _StrokeOrderPainter extends CustomPainter {
     if (showNumbers && progress.value >= 1) _paintNumbers(canvas, scale);
   }
 
-  /// 書き始めの少し先に、進む向きの矢印を置く。
+  /// 書き始めの少し先の、線の外側に、進む向きの矢印を置く。
   ///
   /// 番号だけでは、どちらへ引くのか分からない画がある。0 は始点と終点が
   /// 重なるので、番号を見ても左回りか右回りか決まらない。
@@ -130,13 +130,13 @@ class _StrokeOrderPainter extends CustomPainter {
       canvas.drawPath(
         Path()
           ..moveTo(
-            mark.position.dx + math.cos(back - spread) * length,
-            mark.position.dy + math.sin(back - spread) * length,
+            mark.at.dx + math.cos(back - spread) * length,
+            mark.at.dy + math.sin(back - spread) * length,
           )
-          ..lineTo(mark.position.dx, mark.position.dy)
+          ..lineTo(mark.at.dx, mark.at.dy)
           ..lineTo(
-            mark.position.dx + math.cos(back + spread) * length,
-            mark.position.dy + math.sin(back + spread) * length,
+            mark.at.dx + math.cos(back + spread) * length,
+            mark.at.dy + math.sin(back + spread) * length,
           ),
         paint,
       );

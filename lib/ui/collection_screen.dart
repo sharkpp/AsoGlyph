@@ -5,7 +5,6 @@ import '../audio/speaker.dart';
 import '../export/collected_font.dart';
 import '../export/font_export.dart';
 import '../font/font_builder.dart';
-import '../kanjivg/dakuten_placement.dart';
 import '../kanjivg/stroke_order.dart';
 import '../model/char_set.dart';
 import '../model/sample.dart';
@@ -22,13 +21,11 @@ class CollectionScreen extends StatefulWidget {
     required this.store,
     required this.speaker,
     required this.strokeOrders,
-    required this.placements,
   });
 
   final SampleStore store;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
-  final DakutenPlacements placements;
 
   @override
   State<CollectionScreen> createState() => _CollectionScreenState();
@@ -61,7 +58,8 @@ class _CollectionScreenState extends State<CollectionScreen> {
             iconSize: 28,
             icon: const Icon(Icons.info_outline),
             tooltip: 'このアプリについて',
-            onPressed: () => showAboutAsoGlyph(context),
+            onPressed: () =>
+                showAboutAsoGlyph(context, onClear: () => _clearAll(context)),
           ),
         ],
       ),
@@ -73,8 +71,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
             children: [
               _ModeChoice(mode: _mode, onChanged: _chooseMode),
               const SizedBox(height: 24),
-              // 合成で作る字は書かせない。一覧にも出さない（SPEC 5.1）。
-              for (final charSet in CharSet.values.where((s) => s.collect))
+              for (final charSet in CharSet.values)
                 _CharSetSection(
                   charSet: charSet,
                   store: store,
@@ -99,11 +96,17 @@ class _CollectionScreenState extends State<CollectionScreen> {
     });
   }
 
+  Future<void> _clearAll(BuildContext context) async {
+    if (!await confirmClearAll(context)) return;
+    await store.clear();
+    if (context.mounted) Navigator.of(context).pop();
+  }
+
   Future<void> _export(BuildContext context) async {
     if (store.collectedChars.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('まだ字がありません')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('まだ字がありません')));
       return;
     }
 
@@ -125,13 +128,15 @@ class _CollectionScreenState extends State<CollectionScreen> {
     );
     if (format == null || !context.mounted) return;
 
-    final progress = ValueNotifier<(int, int)>((0, store.collectedChars.length));
+    final progress = ValueNotifier<(int, int)>((
+      0,
+      store.collectedChars.length,
+    ));
     final dialog = _showProgress(context, progress);
 
     final meta = FontMetadata(familyName: 'AsoGlyph', created: DateTime.now());
     final bytes = await buildCollectedFont(
       store: store,
-      placements: widget.placements,
       meta: meta,
       format: format,
       onProgress: (done, total) => progress.value = (done, total),
@@ -166,7 +171,9 @@ Future<void> _showProgress(
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(value: total == 0 ? null : done / total),
+              CircularProgressIndicator(
+                value: total == 0 ? null : done / total,
+              ),
               const SizedBox(width: 24),
               Text('$done / $total'),
             ],
@@ -281,7 +288,10 @@ class _CharSetSection extends StatelessWidget {
               const SizedBox(width: 12),
               Text(
                 charSet.label,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(width: 12),
               Text(
@@ -365,7 +375,9 @@ class _CharTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 32,
                     height: 1,
-                    color: collected ? scheme.onPrimaryContainer : const Color(0xff9c948a),
+                    color: collected
+                        ? scheme.onPrimaryContainer
+                        : const Color(0xff9c948a),
                   ),
                 ),
               ),

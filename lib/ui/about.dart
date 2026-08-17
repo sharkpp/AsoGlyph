@@ -32,14 +32,50 @@ void registerKanjiVgLicense() {
   );
 }
 
-void showAboutAsoGlyph(BuildContext context) {
+void showAboutAsoGlyph(BuildContext context, {required VoidCallback onClear}) {
   showAboutDialog(
     context: context,
     applicationName: 'あそんでフォント',
     applicationLegalese: '© sharkpp  https://sharkpp.net',
-    children: const [
-      SizedBox(height: 16),
-      SelectableText(_kanjiVgNotice, style: TextStyle(fontSize: 13, height: 1.6)),
+    children: [
+      const SizedBox(height: 16),
+      const SelectableText(
+        _kanjiVgNotice,
+        style: TextStyle(fontSize: 13, height: 1.6),
+      ),
+      const Divider(height: 32),
+      // 動作確認のための出口。子供の手が届かないよう、この奥に置く。
+      TextButton.icon(
+        style: TextButton.styleFrom(foregroundColor: const Color(0xffb3261e)),
+        icon: const Icon(Icons.delete_forever),
+        label: const Text('集めた字をぜんぶ消す（テスト用）'),
+        onPressed: onClear,
+      ),
     ],
   );
+}
+
+/// 消す前に一度たしかめる。取り消せない操作なので必ず挟む。
+Future<bool> confirmClearAll(BuildContext context) async {
+  final answer = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('集めた字をぜんぶ消しますか？'),
+      content: const Text('書いた記録がすべて消えます。元には戻せません。'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('やめる'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xffb3261e),
+          ),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('消す'),
+        ),
+      ],
+    ),
+  );
+  return answer ?? false;
 }

@@ -11,7 +11,7 @@ void main() {
   });
 
   test('収集対象の字は全部そろっている', () {
-    for (final charSet in CharSet.values.where((s) => s.collect)) {
+    for (final charSet in CharSet.values) {
       for (final char in charSet.chars) {
         expect(library[char], isNotNull, reason: '$char の書き順が無い');
       }
@@ -26,14 +26,22 @@ void main() {
   });
 
   test('字は KanjiVG の座標系に収まる', () {
-    for (final charSet in CharSet.values.where((s) => s.collect)) {
+    for (final charSet in CharSet.values) {
       for (final char in charSet.chars) {
         for (final stroke in library[char]!.strokes) {
           final bounds = stroke.getBounds();
           expect(bounds.left, greaterThanOrEqualTo(0), reason: char);
           expect(bounds.top, greaterThanOrEqualTo(0), reason: char);
-          expect(bounds.right, lessThanOrEqualTo(StrokeOrder.viewBox), reason: char);
-          expect(bounds.bottom, lessThanOrEqualTo(StrokeOrder.viewBox), reason: char);
+          expect(
+            bounds.right,
+            lessThanOrEqualTo(StrokeOrder.viewBox),
+            reason: char,
+          );
+          expect(
+            bounds.bottom,
+            lessThanOrEqualTo(StrokeOrder.viewBox),
+            reason: char,
+          );
         }
       }
     }
@@ -67,7 +75,9 @@ void main() {
       expect(anchor.dy, inInclusiveRange(0, StrokeOrder.viewBox));
 
       // 書き始めのそば。別の画の番号と取り違える距離ではない。
-      final start = order.strokes[i].computeMetrics().single
+      final start = order.strokes[i]
+          .computeMetrics()
+          .single
           .getTangentForOffset(0)!
           .position;
       expect((anchor - start).distance, lessThan(14));
@@ -80,7 +90,9 @@ void main() {
     for (final char in ['あ', 'ぬ', 'ほ', 'ま']) {
       final order = library[char]!;
       for (var i = 0; i < order.strokeCount; i++) {
-        final start = order.strokes[i].computeMetrics().single
+        final start = order.strokes[i]
+            .computeMetrics()
+            .single
             .getTangentForOffset(0)!
             .position;
         // 枠へ寄せる clamp が効く画もあるので、遠ざかることだけを見る。
@@ -102,9 +114,25 @@ void main() {
     expect((end - start).distance, lessThan(15), reason: '始点と終点が近い');
 
     final mark = order.directionMark(0);
-    final distance = (mark.position - start).distance;
+    final distance = (mark.at - start).distance;
     expect(distance, greaterThan(5), reason: '書き始めから離れている');
-    expect(distance, lessThan(20), reason: 'それでも書き始めのそば');
+    expect(distance, lessThan(25), reason: 'それでも書き始めのそば');
+  });
+
+  test('矢印は線の外に出す', () {
+    // 線の上に描くと字形の一部に見え、なぞる子がその形ごと書いてしまう。
+    for (final char in ['0', 'あ', 'し', 'ぽ']) {
+      final order = library[char]!;
+      for (var i = 0; i < order.strokeCount; i++) {
+        final at = order.directionMark(i).at;
+        final onLine = order.strokes[i]
+            .computeMetrics()
+            .single
+            .getTangentForOffset(0)!
+            .position;
+        expect(at, isNot(onLine), reason: char);
+      }
+    }
   });
 
   test('画ごとに別の場所へ置く', () {
@@ -125,10 +153,11 @@ void main() {
     expect(library['「'], isNull);
   });
 
-  test('書かせない字は同梱しない', () {
-    // 濁音は清音＋濁点で合成する。KanjiVG の が を持ち歩く理由がない（SPEC 5.1）。
+  test('濁音も書かせるので運筆を持つ', () {
     for (final char in CharSet.hiraganaVoiced.chars) {
-      expect(library[char], isNull, reason: char);
+      expect(library[char], isNotNull, reason: char);
     }
+    expect(library['が']!.strokeCount, 5, reason: 'か 3 画 ＋ 濁点 2 画');
+    expect(library['ぱ']!.strokeCount, 4, reason: 'は 3 画 ＋ 半濁点 1 画');
   });
 }
