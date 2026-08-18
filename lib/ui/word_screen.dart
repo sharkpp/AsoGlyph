@@ -159,15 +159,25 @@ class _WordTile extends StatelessWidget {
                 WordImageView(image: word.image!, books: books, size: 56),
                 const SizedBox(width: 8),
               ],
-              Text(
-                word.text,
-                style: TextStyle(
-                  fontSize: 28,
-                  height: 1.2,
-                  color: done
-                      ? scheme.onPrimaryContainer
-                      : const Color(0xff6f665c),
+              // かっこの中は、書かない字なので薄く出す（SPEC 7.4）。
+              // どこを書くのかが、選ぶ前に分かるようにする。
+              Text.rich(
+                TextSpan(
+                  children: [
+                    for (final part in word.segments)
+                      TextSpan(
+                        text: part.text,
+                        style: TextStyle(
+                          color: part.given
+                              ? const Color(0xff9c948a)
+                              : done
+                              ? scheme.onPrimaryContainer
+                              : const Color(0xff6f665c),
+                        ),
+                      ),
+                  ],
                 ),
+                style: const TextStyle(fontSize: 28, height: 1.2),
               ),
               if (done) ...[
                 const SizedBox(width: 6),

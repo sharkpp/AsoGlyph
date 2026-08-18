@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:asoglyph/model/word.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:asoglyph/store/session.dart';
 import 'package:asoglyph/store/word_book_store.dart';
 import 'package:asoglyph/ui/word_book_editor.dart';
@@ -110,6 +111,68 @@ void main() {
     // 使い道で変わる。人に渡すなら絵ごと、自分で直すなら YAML。
     expect(find.text('単語帳ファイル（.asodict）'), findsOneWidget);
     expect(find.text('YAML'), findsOneWidget);
+  });
+
+  testWidgets('絵は落として入れることもできる', (tester) async {
+    final book = await tester.runAsync(makeBook) as WordBook;
+    await pumpEditor(tester, book);
+
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pumpAndSettle();
+
+    // 選ぶ画面を開いて探し直すより、そのまま落とせるほうが早い。
+    expect(find.byType(DropTarget), findsOneWidget);
+    expect(find.textContaining('ここに絵を落としても入ります'), findsOneWidget);
+  });
+
+  testWidgets('かっこの中は薄く出す', (tester) async {
+    final book = await tester.runAsync(
+      () => books.add(
+        const WordBook(
+          id: '',
+          name: 'ヒーロー',
+          words: [Word(text: '[ウルトラマン]オメガ', reading: 'うるとらまんおめが')],
+        ),
+      ),
+    ) as WordBook;
+    await pumpEditor(tester, book);
+
+    // どこを書かせるのかが、親にもひと目で分かるようにする。
+    // 行の見出しは 1 つめの Text（2 つめは読み）。
+    final title = tester.widget<Text>(
+      find
+          .descendant(
+            of: find.byType(ListTile).first,
+            matching: find.byType(Text),
+          )
+          .first,
+    );
+    final spans = (title.textSpan! as TextSpan).children!.cast<TextSpan>();
+    expect(spans.map((span) => span.text), ['ウルトラマン', 'オメガ']);
+    expect(spans.first.style!.color, const Color(0xff9c948a));
+    expect(spans.last.style!.color, isNull, reason: '書かせるところは地の色');
+  });
+
+  testWidgets('ぜんぶ かっこの中の語は決められない', (tester) async {
+    final book = await tester.runAsync(makeBook) as WordBook;
+    await pumpEditor(tester, book);
+
+    await tester.tap(find.text('ことばを足す'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'ことば'), '[ぜんぶ]');
+    await tester.pump();
+
+    expect(find.textContaining('書かせる字がありません'), findsOneWidget);
+    await tester.tap(find.text('決める'));
+    await tester.pumpAndSettle();
+
+    // 書かせる字が 1 つも無い語は、練習に出しようがない。
+    expect(
+      find.widgetWithText(AlertDialog, 'ことばを足す'),
+      findsOneWidget,
+      reason: '閉じない',
+    );
+    expect(books.all.last.words, hasLength(1));
   });
 
   test('書き出した単語帳ファイルを、絵ごと戻せる', () async {

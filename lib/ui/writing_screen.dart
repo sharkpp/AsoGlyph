@@ -22,15 +22,23 @@ class WritingSteps {
   const WritingSteps({
     required this.chars,
     required this.index,
+    this.given = const {},
     this.reading,
     this.picture,
   });
 
-  /// 書く順に並んだ字。
+  /// 出す並び。書かせない字（[given]）も入る。
   final List<String> chars;
 
-  /// 0 始まり。
+  /// いま書いている字の位置。0 始まり。
   final int index;
+
+  /// 書かせない字の位置（SPEC 7.4）。
+  ///
+  /// 「[ウルトラマン]オメガ」の ウルトラマン のように、出しておくだけの字。
+  /// 書く順から外すが、並びからは外さない。何の語を書いているのかは、
+  /// そこが見えていないと分からない。
+  final Set<int> given;
 
   /// つながった語としての読み。おまかせのときは null（語ではない）。
   final String? reading;
@@ -41,7 +49,15 @@ class WritingSteps {
   /// モードでも出す。絵は字を教えないので、音だけで書くという前提は崩れない。
   final Widget? picture;
 
-  bool get isLast => index == chars.length - 1;
+  /// このあとに、まだ書く字があるか。
+  bool get isLast => !_hasWritable(after: index);
+
+  bool _hasWritable({required int after}) {
+    for (var i = after + 1; i < chars.length; i++) {
+      if (!given.contains(i)) return true;
+    }
+    return false;
+  }
 }
 
 /// 1 文字を書く画面。
@@ -280,33 +296,49 @@ class _WritingScreenState extends State<WritingScreen>
       alignment: WrapAlignment.center,
       children: [
         for (final (index, char) in chars.indexed)
-          Container(
-            width: 44,
-            height: 52,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: index == progress.index
-                  ? scheme.primaryContainer
-                  : Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: index == progress.index
-                    ? scheme.primary
-                    : const Color(0xffe4dfd4),
-                width: 2,
+          () {
+            final here = index == progress.index;
+            // 出しておく字は、書く字と同じ枠にしない。書くところが
+            // どれなのかが、ひと目で分かるようにする。
+            final given = progress.given.contains(index);
+            // 何も見ずに書くモードでも、出しておく字は伏せない。
+            // 書かせない字を隠しても、手がかりが減るだけ。
+            final masked = hides && !given && index >= progress.index;
+
+            return Container(
+              width: 44,
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: here
+                    ? scheme.primaryContainer
+                    : given
+                    ? const Color(0xfff2efe8)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: here
+                      ? scheme.primary
+                      : given
+                      ? const Color(0xffece7dc)
+                      : const Color(0xffe4dfd4),
+                  width: 2,
+                ),
               ),
-            ),
-            child: Text(
-              hides && index >= progress.index ? '？' : char,
-              style: TextStyle(
-                fontSize: 28,
-                height: 1,
-                color: index <= progress.index
-                    ? const Color(0xff6f665c)
-                    : const Color(0xffbdb4a6),
+              child: Text(
+                masked ? '？' : char,
+                style: TextStyle(
+                  fontSize: 28,
+                  height: 1,
+                  color: given
+                      ? const Color(0xff9c948a)
+                      : index <= progress.index
+                      ? const Color(0xff6f665c)
+                      : const Color(0xffbdb4a6),
+                ),
               ),
-            ),
-          ),
+            );
+          }(),
       ],
     );
   }

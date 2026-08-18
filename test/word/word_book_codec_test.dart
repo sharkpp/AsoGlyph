@@ -1,4 +1,5 @@
 import 'package:asoglyph/word/word_book_codec.dart';
+import 'package:asoglyph/word/word_image.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -151,6 +152,30 @@ words:
         () => parseWordBookFile(fileName: 'words.txt', source: 'ねこ'),
         throwsA(isA<WordBookFormatException>()),
       );
+    });
+  });
+
+  group('絵', () {
+    test('受ける形式', () {
+      // WebP は同じ絵が PNG・JPEG より小さくなる。容量で切っているので、
+      // 同じ絵でも WebP なら通ることがある。
+      for (final name in ['a.png', 'a.JPG', 'a.jpeg', 'a.webp', 'a.svg']) {
+        expect(isSupportedImage(name), isTrue, reason: name);
+      }
+      for (final name in ['a.gif', 'a.bmp', 'a.pdf', 'a']) {
+        expect(isSupportedImage(name), isFalse, reason: name);
+      }
+    });
+
+    test('SVG だけ描き方が違う', () {
+      expect(isSvg('a.svg'), isTrue);
+      expect(isSvg('a.webp'), isFalse);
+    });
+
+    test('大きさは KB で言う', () {
+      // 断るときに何 KB あったかを見せる。
+      expect(describeSize(512 * 1024), '512 KB');
+      expect(describeSize(1536), '2 KB');
     });
   });
 }

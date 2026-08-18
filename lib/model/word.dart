@@ -36,15 +36,91 @@ class Word {
   /// 絵を外した語。[copyWith] では null を渡せない。
   Word withoutImage() => Word(text: text, reading: reading, tags: tags);
 
-  /// 1 字ずつに分ける。書く順はこの並び。
-  List<String> get chars => text.characters;
+  /// かっこで囲んだところは書かせない（SPEC 7.4）。
+  ///
+  /// 「[ウルトラマン]オメガ」は、ウルトラマン を出しておいて オメガ だけ
+  /// 書かせる。長い名前ぜんぶを書かせると、1 セッションで終わらないし、
+  /// 4 歳には長すぎて何を書いているのか分からなくなる。
+  ///
+  /// かっこが閉じていなければ、そこから先ぜんぶを書かせない扱いにする。
+  /// 取り込んだ単語帳で 1 か所書き損じただけで、読み込みそのものを
+  /// 断るほどのことではない。
+  List<WordSegment> get segments {
+    final out = <WordSegment>[];
+    final buffer = StringBuffer();
+    var given = false;
+
+    void flush() {
+      if (buffer.isEmpty) return;
+      out.add(WordSegment(buffer.toString(), given: given));
+      buffer.clear();
+    }
+
+    for (final char in text.characters) {
+      if (char == '[' && !given) {
+        flush();
+        given = true;
+      } else if (char == ']' && given) {
+        flush();
+        given = false;
+      } else {
+        buffer.write(char);
+      }
+    }
+    flush();
+    return out;
+  }
+
+  /// 人に見せる形。かっこは外す。
+  String get display => [for (final part in segments) part.text].join();
+
+  /// 出す並び。書かせない字も入る。
+  List<String> get displayChars => display.characters;
+
+  /// [displayChars] のうち、書かせない字の位置。
+  Set<int> get givenIndices {
+    final out = <int>{};
+    var at = 0;
+    for (final part in segments) {
+      final length = part.text.characters.length;
+      if (part.given) {
+        for (var i = 0; i < length; i++) {
+          out.add(at + i);
+        }
+      }
+      at += length;
+    }
+    return out;
+  }
+
+  /// 書かせる字だけ。書く順はこの並び。
+  ///
+  /// 充足率も出題の重みも、この字だけで決まる。出しておく字は書かないので、
+  /// 集まった字にも数えない。
+  List<String> get chars => [
+    for (final part in segments)
+      if (!part.given) ...part.text.characters,
+  ];
 
   /// この語を書くのに要る字が、どれも [collectable] に含まれるか。
   ///
   /// 集める文字種に無い字を含む語は出題候補から外す（SPEC 7.4）。
   /// 書けない字が 1 つでも混じると、その語は最後まで書けない。
+  ///
+  /// かっこの中は見ない。「[ウルトラマン]オメガ」はカタカナを集めていれば
+  /// 書けるし、「[東京]スカイツリー」は漢字を集めていなくても書ける。
   bool isWritable(Set<String> collectable) =>
-      chars.every(collectable.contains);
+      chars.isNotEmpty && chars.every(collectable.contains);
+}
+
+/// 語の一部分。書かせるところと、出しておくところに分かれる。
+class WordSegment {
+  const WordSegment(this.text, {required this.given});
+
+  final String text;
+
+  /// 出しておくだけで、書かせないところ。
+  final bool given;
 }
 
 /// 語のまとまり（SPEC 7.4）。

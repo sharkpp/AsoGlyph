@@ -70,8 +70,12 @@ Future<bool> practiceWord(
   bool praise = true,
 }) async {
   final sampleIds = <String>[];
+  final chars = word.displayChars;
+  final given = word.givenIndices;
 
-  for (final (index, char) in word.chars.indexed) {
+  for (final (index, char) in chars.indexed) {
+    // かっこの中は出しておくだけ。書かせない（SPEC 7.4）。
+    if (given.contains(index)) continue;
     // 続けて押されて画面ごと閉じられていたら、そこで終わる。
     if (!context.mounted) return false;
     final id = await Navigator.of(context).push<String>(
@@ -83,8 +87,9 @@ Future<bool> practiceWord(
           speaker: speaker,
           strokeOrder: strokeOrders[char],
           steps: WritingSteps(
-            chars: word.chars,
+            chars: chars,
             index: index,
+            given: given,
             reading: word.reading,
             picture: word.image == null
                 ? null

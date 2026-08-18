@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 
 import '../export/font_export.dart';
 import '../model/char_set.dart';
@@ -233,7 +234,20 @@ class _WordRow extends StatelessWidget {
             ? const Icon(Icons.image_outlined, color: Color(0xffbdb4a6))
             : WordImageView(image: image, books: books, size: 48),
       ),
-      title: Text(word.text, style: const TextStyle(fontSize: 20)),
+      title: Text.rich(
+        TextSpan(
+          children: [
+            for (final part in word.segments)
+              TextSpan(
+                text: part.text,
+                style: TextStyle(
+                  color: part.given ? const Color(0xff9c948a) : null,
+                ),
+              ),
+          ],
+        ),
+        style: const TextStyle(fontSize: 20),
+      ),
       subtitle: Text(
         unwritable.isEmpty
             ? word.reading
@@ -288,6 +302,13 @@ class _WordDialogState extends State<_WordDialog> {
   );
   late String? _image = widget.initial?.image;
 
+  /// 絵を落とそうとしているか。落とし先がどこかを目で分かるようにする。
+  var _dropping = false;
+
+  /// いま書かせることになる字。かっこの外だけ。
+  List<String> get _writable =>
+      Word(text: _text.text.trim(), reading: '').chars;
+
   @override
   void dispose() {
     _text.dispose();
@@ -296,9 +317,6 @@ class _WordDialogState extends State<_WordDialog> {
   }
 
   /// 絵を選ぶ（SPEC 7.4）。
-  ///
-  /// 大きすぎる絵は断る。縮めない。勝手に縮めると、親が選んだ絵と出てくる絵が
-  /// 違うものになる。何 KB あったかを見せて、選び直してもらう。
   Future<void> _pickImage() async {
     final file = await openFile(
       acceptedTypeGroups: [
@@ -307,16 +325,35 @@ class _WordDialogState extends State<_WordDialog> {
       ],
     );
     if (file == null || !mounted) return;
+    await _accept(await file.readAsBytes(), file.name);
+  }
 
+  /// 落とされた絵を受ける（SPEC 7.4）。
+  ///
+  /// 親は絵をファイルとして持っている。選ぶ画面を開いて探し直すより、
+  /// そのまま落とせるほうが早い。
+  ///
+  /// 落とせるのは web とデスクトップだけ。iOS・Android では [DropTarget] が
+  /// 何もしないので、「絵を選ぶ」がそのまま唯一の道になる。
+  Future<void> _acceptDrop(DropDoneDetails details) async {
+    // まとめて落とされても、語に付く絵は 1 つ。最初のものだけ受ける。
+    final file = details.files.firstOrNull;
+    if (file == null) return;
+    await _accept(await file.readAsBytes(), file.name);
+  }
+
+  /// 大きすぎる絵は断る。縮めない。勝手に縮めると、親が選んだ絵と出てくる絵が
+  /// 違うものになる。何 KB あったかを見せて、選び直してもらう。
+  Future<void> _accept(Uint8List bytes, String fileName) async {
+    if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    if (!isSupportedImage(file.name)) {
+
+    if (!isSupportedImage(fileName)) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('入れられるのは PNG・JPEG・SVG です')),
+        const SnackBar(content: Text('入れられるのは PNG・JPEG・WebP・SVG です')),
       );
       return;
     }
-
-    final bytes = await file.readAsBytes();
     if (bytes.length > maxImageBytes) {
       messenger.showSnackBar(
         SnackBar(
@@ -329,7 +366,7 @@ class _WordDialogState extends State<_WordDialog> {
       return;
     }
 
-    final id = await widget.books.addImage(bytes, fileName: file.name);
+    final id = await widget.books.addImage(bytes, fileName: fileName);
     if (mounted) setState(() => _image = id);
   }
 
@@ -347,11 +384,22 @@ class _WordDialogState extends State<_WordDialog> {
             TextField(
               controller: _text,
               autofocus: true,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 labelText: 'ことば',
                 hintText: 'ねこ',
+                // 長い名前ぜんぶを書かせると 1 セッションで終わらない。
+                helperText: '[かっこ] の中は出しておくだけで、書かせません',
               ),
             ),
+            if (_writable.isEmpty && _text.text.trim().isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                  'ぜんぶ かっこの中です。書かせる字がありません',
+                  style: TextStyle(fontSize: 12, color: Color(0xffc4553c)),
+                ),
+              ),
             const SizedBox(height: 8),
             TextField(
               controller: _reading,
@@ -362,47 +410,74 @@ class _WordDialogState extends State<_WordDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                SizedBox(
-                  width: 64,
-                  height: 64,
-                  child: image == null
-                      ? const Icon(
-                          Icons.image_outlined,
-                          size: 40,
-                          color: Color(0xffbdb4a6),
-                        )
-                      : WordImageView(
-                          image: image,
-                          books: widget.books,
-                          size: 64,
-                        ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: _pickImage,
-                        icon: const Icon(Icons.add_photo_alternate_outlined),
-                        label: Text(image == null ? '絵を選ぶ' : '絵を変える'),
-                      ),
-                      if (image != null)
-                        TextButton(
-                          onPressed: () => setState(() => _image = null),
-                          child: const Text('絵を外す'),
-                        ),
-                    ],
+            DropTarget(
+              onDragEntered: (_) => setState(() => _dropping = true),
+              onDragExited: (_) => setState(() => _dropping = false),
+              onDragDone: (details) async {
+                setState(() => _dropping = false);
+                await _acceptDrop(details);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _dropping
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _dropping
+                        ? Theme.of(context).colorScheme.primary
+                        : const Color(0xffe4dfd4),
+                    width: 2,
                   ),
                 ),
-              ],
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 64,
+                      height: 64,
+                      child: image == null
+                          ? const Icon(
+                              Icons.image_outlined,
+                              size: 40,
+                              color: Color(0xffbdb4a6),
+                            )
+                          : WordImageView(
+                              image: image,
+                              books: widget.books,
+                              size: 64,
+                            ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _pickImage,
+                            icon: const Icon(
+                              Icons.add_photo_alternate_outlined,
+                            ),
+                            label: Text(image == null ? '絵を選ぶ' : '絵を変える'),
+                          ),
+                          if (image != null)
+                            TextButton(
+                              onPressed: () => setState(() => _image = null),
+                              child: const Text('絵を外す'),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
+            const SizedBox(height: 4),
             Text(
               // 字が読めない子は、絵でしか語を選べない。
               '絵があると、字が読めなくても自分で語を選べます。'
-              '${describeSize(maxImageBytes)} まで。',
+              'ここに絵を落としても入ります。${describeSize(maxImageBytes)} まで。',
               style: const TextStyle(fontSize: 12, color: Color(0xff9c948a)),
             ),
           ],
@@ -416,7 +491,8 @@ class _WordDialogState extends State<_WordDialog> {
         FilledButton(
           onPressed: () {
             final word = _text.text.trim();
-            if (word.isEmpty) return;
+            // 書かせる字が 1 つも無い語は、練習に出しようがない。
+            if (word.isEmpty || _writable.isEmpty) return;
             // 読みを書かなかったら、ことばをそのまま読む。かなの語では
             // それで足りるし、ここで止めると入力が進まない。
             final how = _reading.text.trim();

@@ -216,6 +216,40 @@ void main() {
     expect(find.byType(WordImageView), findsOneWidget);
   });
 
+  testWidgets('かっこの中は出しておくだけで、書かせない', (tester) async {
+    await tester.runAsync(() async {
+      for (final book in [...session.books.all]) {
+        await session.books.remove(book.id);
+      }
+      await session.books.add(
+        const WordBook(
+          id: '',
+          name: 'ヒーロー',
+          words: [
+            Word(text: '[ウルトラマン]オメガ', reading: 'うるとらまんおめが'),
+          ],
+        ),
+      );
+    });
+    await collectOnly(tester, {CharSet.katakana});
+    await pumpScreen(tester);
+
+    await tester.tap(find.text('ウルトラマンオメガ'));
+    await tester.pumpAndSettle();
+
+    // 長い名前ぜんぶを書かせると 1 セッションで終わらない（SPEC 7.4）。
+    final screen = tester.widget<WritingScreen>(find.byType(WritingScreen));
+    expect(screen.char, 'オ', reason: 'ウルトラマン は書かせない');
+    expect(screen.steps!.chars, hasLength(9), reason: '並びからは外さない');
+    expect(screen.steps!.given, {0, 1, 2, 3, 4, 5});
+    expect(screen.steps!.index, 6);
+    expect(screen.steps!.isLast, isFalse);
+
+    // 出しておく字も画面に出る。何の語を書いているのかが分からなくなる。
+    expect(find.text('ウ'), findsOneWidget);
+    expect(find.text('マ'), findsOneWidget);
+  });
+
   test('書けない字を含む語は出題候補から外れる', () {
     const word = Word(text: 'ねこ', reading: 'ねこ');
 

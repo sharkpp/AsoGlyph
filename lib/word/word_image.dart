@@ -8,7 +8,10 @@ library;
 ///
 /// 写真そのものではなく「その語を表す絵」を入れてもらうためのもの。
 /// SVG も受けるのは、線画のほうが小さくて幼児にも分かりやすいため。
-const imageExtensions = ['png', 'jpg', 'jpeg', 'svg'];
+///
+/// WebP は同じ絵が PNG・JPEG より小さくなる。容量で切っている（[maxImageBytes]）
+/// ので、同じ絵でも WebP なら通ることがある。
+const imageExtensions = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
 
 /// 1 枚の上限（バイト）。
 ///

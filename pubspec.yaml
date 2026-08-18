@@ -9,6 +9,7 @@ environment:
 dependencies:
   archive: ^4.0.9
   csv: ^8.0.0
+  desktop_drop: ^0.7.1
   file_selector: ^1.1.0
   flutter:
     sdk: flutter
