@@ -92,8 +92,8 @@ void main() {
     // という状態を作らない（SPEC 7.4）。
     final first = tester.widget<WritingScreen>(find.byType(WritingScreen));
     expect(first.char, 'ね');
-    expect(first.word!.index, 0);
-    expect(first.word!.isLast, isFalse);
+    expect(first.steps!.index, 0);
+    expect(first.steps!.isLast, isFalse);
     expect(speaker.spoken.last, contains('ねこ の ね'));
 
     await drawLine(tester);
@@ -107,7 +107,7 @@ void main() {
 
     final second = tester.widget<WritingScreen>(find.byType(WritingScreen));
     expect(second.char, 'こ');
-    expect(second.word!.isLast, isTrue);
+    expect(second.steps!.isLast, isTrue);
 
     await drawLine(tester);
     await tester.pump();

@@ -73,6 +73,8 @@ class _RecipeEditorState extends State<RecipeEditor> {
                 policy: _recipe.base,
                 onLatest: () =>
                     _update(_recipe.copyWith(base: const LatestPolicy())),
+                onBest: () =>
+                    _update(_recipe.copyWith(base: const BestPolicy())),
                 onPick: _pickBaseTime,
               ),
               // 「あの頃」がいつかは、日付を見ても分からない。字が変わるのを
@@ -305,31 +307,51 @@ class _CharSetRow extends StatelessWidget {
   }
 }
 
+/// 版ぜんぶに効く規則の選び方。
+enum _BaseChoice { latest, best, at }
+
 class _BasePolicyRow extends StatelessWidget {
   const _BasePolicyRow({
     required this.policy,
     required this.onLatest,
+    required this.onBest,
     required this.onPick,
   });
 
   final Policy policy;
   final VoidCallback onLatest;
+  final VoidCallback onBest;
   final VoidCallback onPick;
 
   @override
   Widget build(BuildContext context) {
-    return RadioGroup<bool>(
-      groupValue: policy is LatestPolicy,
-      onChanged: (latest) => (latest ?? true) ? onLatest() : onPick(),
+    return RadioGroup<_BaseChoice>(
+      groupValue: switch (policy) {
+        LatestPolicy() => _BaseChoice.latest,
+        BestPolicy() => _BaseChoice.best,
+        AtPolicy() => _BaseChoice.at,
+      },
+      onChanged: (choice) => switch (choice ?? _BaseChoice.latest) {
+        _BaseChoice.latest => onLatest(),
+        _BaseChoice.best => onBest(),
+        _BaseChoice.at => onPick(),
+      },
       child: Column(
         children: [
-          const RadioListTile<bool>(
-            value: true,
+          const RadioListTile<_BaseChoice>(
+            value: _BaseChoice.latest,
             title: Text('いまの字'),
             subtitle: Text('いちばん新しく書いたもの'),
           ),
-          RadioListTile<bool>(
-            value: false,
+          // 点で採否を決めるのではなく、同じ字を何度も書いたときに
+          // どれを採るかを選ばせるだけ（SPEC 1 / 4.3）。
+          const RadioListTile<_BaseChoice>(
+            value: _BaseChoice.best,
+            title: Text('いちばん よく書けた字'),
+            subtitle: Text('同じ字のうち、お手本に近く書けたもの'),
+          ),
+          RadioListTile<_BaseChoice>(
+            value: _BaseChoice.at,
             title: const Text('あの頃の字'),
             subtitle: Text(
               switch (policy) {

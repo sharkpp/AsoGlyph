@@ -30,6 +30,21 @@ class StrokeOrder {
     return metric.extractPath(0, metric.length * fraction);
   }
 
+  /// [index] 画目を、等間隔の [count] 点に開く。座標系は [viewBox] 四方のまま。
+  ///
+  /// 書いた字とお手本を同じ形に揃えて比べるために使う（SPEC 7.3）。
+  List<Offset> samplePoints(int index, int count) {
+    final metric = _metrics[index];
+    return [
+      for (var i = 0; i < count; i++)
+        metric
+            .getTangentForOffset(
+              metric.length * (count == 1 ? 0 : i / (count - 1)),
+            )!
+            .position,
+    ];
+  }
+
   /// [index] 画目の番号を置く点。座標系は [viewBox] 四方のまま。
   ///
   /// KanjiVG の main.xml は画数ラベルの座標を持たないため自分で決める。

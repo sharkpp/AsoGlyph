@@ -256,6 +256,24 @@ void main() {
     expect(find.text('だれが かく？'), findsOneWidget);
   });
 
+  testWidgets('おまかせで、まだ書いていない字から出す', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.tap(find.text('おまかせで かく'));
+    await tester.pumpAndSettle();
+
+    // 何を書くかを選ばせない。選ばせると書ける字ばかりを選ぶ（SPEC 7.3）。
+    final screen = tester.widget<WritingScreen>(find.byType(WritingScreen));
+    expect(screen.steps!.chars, hasLength(5), reason: '1 まとまりは 5 字');
+    expect(screen.steps!.index, 0);
+    expect(screen.steps!.reading, isNull, reason: 'つながった語ではない');
+    expect(
+      screen.steps!.chars,
+      everyElement(isIn(CharSet.hiragana.chars + CharSet.katakana.chars +
+          CharSet.digits.chars)),
+    );
+  });
+
   testWidgets('KanjiVG のクレジットをアプリの中で読める', (tester) async {
     await pumpScreen(tester);
 

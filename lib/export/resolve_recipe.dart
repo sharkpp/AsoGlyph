@@ -46,14 +46,30 @@ String? _resolveChar(
   if (pinned != null && store.contains(pinned)) return pinned;
 
   final history = switch (policy) {
-    LatestPolicy() => store.history(char, includeTraced: includeTraced),
+    LatestPolicy() || BestPolicy() => store.history(
+      char,
+      includeTraced: includeTraced,
+    ),
     AtPolicy(:final time) => store.history(
       char,
       includeTraced: includeTraced,
       before: time,
     ),
   };
-  return history.isEmpty ? null : history.last.id;
+  if (history.isEmpty) return null;
+  if (policy is! BestPolicy) return history.last.id;
+
+  // 測りの無い試行（書き順データを持たない字）は、比べようがないので
+  // いちばん新しいものを採る。0 点として扱うと、採点できない字だけ
+  // 最初に書いた字が残り続ける。
+  var best = history.last;
+  for (final entry in history) {
+    final score = entry.score?.overall;
+    if (score == null) continue;
+    final current = best.score?.overall;
+    if (current == null || score > current) best = entry;
+  }
+  return best.id;
 }
 
 /// レシピが今の記録で何字ぶんになるか。出力前に見せる。

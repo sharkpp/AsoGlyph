@@ -138,7 +138,11 @@ Future<void> practiceWord(
           store: session.samples,
           speaker: speaker,
           strokeOrder: strokeOrders[char],
-          word: WordProgress(word: word, index: index),
+          steps: WritingSteps(
+            chars: word.chars,
+            index: index,
+            reading: word.reading,
+          ),
         ),
       ),
     );

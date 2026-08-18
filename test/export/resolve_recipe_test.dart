@@ -4,6 +4,7 @@ import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/font_recipe.dart';
 import 'package:asoglyph/model/sample.dart';
+import 'package:asoglyph/model/score.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,11 +14,23 @@ Sample _written(
   String char, {
   PracticeMode mode = PracticeMode.copy,
   required DateTime at,
+  double? overall,
+  bool rejected = false,
 }) => Sample(
   id: '$char-${at.toIso8601String()}-${mode.name}',
   char: char,
   mode: mode,
   writtenAt: at,
+  rejected: rejected,
+  score: overall == null
+      ? null
+      : Score(
+          shape: overall,
+          strokes: overall,
+          fit: overall,
+          durationMs: 1000,
+          retries: 0,
+        ),
   strokes: [
     Stroke(const [
       InkPoint(x: 300, y: 500, t: 0, pressure: 0),
@@ -181,4 +194,55 @@ void main() {
     expect(resolved.keys, ['あ']);
     expect(resolved['あ'], 'あ-2026-04-01T00:00:00.000Z-copy');
   });
+  group('いちばん よく書けた字', () {
+    test('同じ字のうち、測りのいちばん良いものを採る', () async {
+      final store = await openMemoryStore();
+      final best = _written('あ', at: DateTime(2026, 4, 1), overall: 0.9);
+      await store.add(best);
+      await store.add(_written('あ', at: DateTime(2026, 5, 1), overall: 0.2));
+
+      final resolved = resolveRecipe(
+        _recipe(base: const BestPolicy()),
+        store,
+        includeTraced: false,
+      );
+
+      // 点で採否を決めるのではなく、同じ字のうちどれを採るかを選ぶだけ。
+      expect(resolved['あ'], best.id);
+    });
+
+    test('測りが無い字は、いちばん新しいものを採る', () async {
+      final store = await openMemoryStore();
+      await store.add(_written('あ', at: DateTime(2026, 4, 1)));
+      final newest = _written('あ', at: DateTime(2026, 5, 1));
+      await store.add(newest);
+
+      final resolved = resolveRecipe(
+        _recipe(base: const BestPolicy()),
+        store,
+        includeTraced: false,
+      );
+
+      // 0 点として扱うと、採点できない字だけ最初に書いた字が残り続ける。
+      expect(resolved['あ'], newest.id);
+    });
+
+    test('はねた字は、点が良くても採らない', () async {
+      final store = await openMemoryStore();
+      await store.add(
+        _written('あ', at: DateTime(2026, 4, 1), overall: 1, rejected: true),
+      );
+      final kept = _written('あ', at: DateTime(2026, 5, 1), overall: 0.3);
+      await store.add(kept);
+
+      final resolved = resolveRecipe(
+        _recipe(base: const BestPolicy()),
+        store,
+        includeTraced: false,
+      );
+
+      expect(resolved['あ'], kept.id);
+    });
+  });
+
 }

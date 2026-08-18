@@ -7,25 +7,34 @@ import '../ink/ink_controller.dart';
 import '../kanjivg/stroke_order.dart';
 import '../model/char_set.dart';
 import '../model/sample.dart';
-import '../model/word.dart';
+import '../practice/scoring.dart';
 import '../store/sample_store.dart';
 import '../trace/glyph_builder.dart';
 import 'glyph_preview.dart';
 import 'stroke_order_view.dart';
 import 'writing_guide.dart';
 
-/// 単語のうち、いま何字めを書いているか（SPEC 7.4）。
+/// ひとまとまりの中で、いま何字めを書いているか。
 ///
-/// 語を書く導線でだけ渡す。1 字だけ練習するときは null。
-class WordProgress {
-  const WordProgress({required this.word, required this.index});
+/// 語を書く導線（SPEC 7.4）と、おまかせの導線（SPEC 7.3）が使う。
+/// 1 字だけ練習するときは null。
+class WritingSteps {
+  const WritingSteps({
+    required this.chars,
+    required this.index,
+    this.reading,
+  });
 
-  final Word word;
+  /// 書く順に並んだ字。
+  final List<String> chars;
 
   /// 0 始まり。
   final int index;
 
-  bool get isLast => index == word.chars.length - 1;
+  /// つながった語としての読み。おまかせのときは null（語ではない）。
+  final String? reading;
+
+  bool get isLast => index == chars.length - 1;
 }
 
 /// 1 文字を書く画面。
@@ -43,13 +52,13 @@ class WritingScreen extends StatefulWidget {
     required this.store,
     required this.speaker,
     this.strokeOrder,
-    this.word,
+    this.steps,
   });
 
   final String char;
 
-  /// 語の中の何字めか。1 字だけ練習するときは null（SPEC 7.4）。
-  final WordProgress? word;
+  /// ひとまとまりの中の何字めか。1 字だけ練習するときは null。
+  final WritingSteps? steps;
 
   /// お手本を出すか、音だけで書かせるか（SPEC 7.1）。
   final PracticeMode mode;
@@ -74,11 +83,14 @@ class _WritingScreenState extends State<WritingScreen>
   /// 書けた記録の id。書き直すたびに新しいものに入れ替わる。
   String? _savedId;
 
+  /// 「もういちど」を押した回数。苦手さの手がかりになる（SPEC 7.3）。
+  var _retries = 0;
+
   /// 小書きの字。枠を小さくして、その中に書かせる（SPEC 5.3）。
   bool get _small => isSmallKana(widget.char);
 
-  /// 語の途中で、まだ続きの字があるか。
-  bool get _continues => widget.word != null && !widget.word!.isLast;
+  /// ひとまとまりの途中で、まだ続きの字があるか。
+  bool get _continues => widget.steps != null && !widget.steps!.isLast;
 
   /// お手本を出すモードで、書き順のデータもある。
   bool get _showsStrokeOrder =>
@@ -118,10 +130,10 @@ class _WritingScreenState extends State<WritingScreen>
   /// 語を書いているときは語の読みから言う。「ねこ の ね」と言われて
   /// はじめて、いま書いている字がどこの字なのか分かる。
   void _prompt() {
-    final word = widget.word;
+    final reading = widget.steps?.reading;
     final char = readingOf(widget.char);
     widget.speaker.speak(
-      word == null ? '$char、かいてね' : '${word.word.reading} の $char、かいてね',
+      reading == null ? '$char、かいてね' : '$reading の $char、かいてね',
     );
     if (_showsStrokeOrder) _playback.forward(from: 0);
   }
@@ -136,10 +148,18 @@ class _WritingScreenState extends State<WritingScreen>
     setState(() => _busy = true);
 
     final glyph = await buildGlyph(char: widget.char, strokes: strokes);
+    // 測るのは出題の重み付けのため。フォントに載せるかは決めない（SPEC 1）。
+    // 例外は鏡文字と明らかな書き損じだけ。
     final sample = Sample.now(
       char: widget.char,
       mode: widget.mode,
       strokes: strokes,
+      score: scoreStrokes(
+        strokes: strokes,
+        model: widget.strokeOrder,
+        retries: _retries,
+      ),
+      rejected: detectRejected(strokes: strokes, model: widget.strokeOrder),
     );
     await widget.store.add(sample);
 
@@ -159,7 +179,10 @@ class _WritingScreenState extends State<WritingScreen>
 
   void _again() {
     _ink.clear();
-    setState(() => _glyph = null);
+    setState(() {
+      _glyph = null;
+      _retries++;
+    });
     _prompt();
   }
 
@@ -183,8 +206,8 @@ class _WritingScreenState extends State<WritingScreen>
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  if (widget.word != null) ...[
-                    _buildWordStrip(widget.word!),
+                  if (widget.steps != null) ...[
+                    _buildSteps(widget.steps!),
                     const SizedBox(height: 12),
                   ],
                   Expanded(
@@ -213,14 +236,17 @@ class _WritingScreenState extends State<WritingScreen>
     );
   }
 
-  /// いま書いている語と、その中のどこを書いているか（SPEC 7.4）。
+  /// ひとまとまりのどこを書いているか。
   ///
-  /// 3 字めまで書いたのに何の語か分からない、という状態を作らない。
+  /// 語なら、3 字めまで書いたのに何の語か分からない、という状態を作らない
+  /// （SPEC 7.4）。おまかせなら、あと何字で終わるかが見える（SPEC 7.1 の
+  /// 「1 セッションを区切る」）。
+  ///
   /// 何も見ずに書くモードでは、まだ書いていない字を伏せる。字が出ていると
   /// 音を頼りに書くという前提が崩れる（SPEC 7.1）。
-  Widget _buildWordStrip(WordProgress progress) {
+  Widget _buildSteps(WritingSteps progress) {
     final scheme = Theme.of(context).colorScheme;
-    final chars = progress.word.chars;
+    final chars = progress.chars;
     final hides = widget.mode == PracticeMode.free;
 
     return Wrap(

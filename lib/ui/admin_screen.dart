@@ -333,6 +333,7 @@ String describe(FontRecipe recipe) {
             .join('・');
   final when = switch (recipe.base) {
     LatestPolicy() => 'いまの字',
+    BestPolicy() => 'いちばん よく書けた字',
     AtPolicy(:final time) => '${formatDate(time)} までの字',
   };
   // 文字種ごとの時点指定があるときは、そちらが効いていることを伝える。

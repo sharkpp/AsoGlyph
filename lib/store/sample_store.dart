@@ -3,6 +3,7 @@ import 'package:sembast/blob.dart';
 import 'package:sembast/sembast.dart';
 
 import '../model/sample.dart';
+import '../model/score.dart';
 import 'stroke_codec.dart';
 
 /// 書いた記録の置き場。追記のみで、書き換えも削除もしない（SPEC 4.1）。
@@ -64,6 +65,8 @@ class SampleStore extends ChangeNotifier {
         'char': sample.char,
         'mode': sample.mode.name,
         'writtenAt': sample.writtenAt.millisecondsSinceEpoch,
+        'score': sample.score?.toRecord(),
+        'rejected': sample.rejected,
       });
       await _strokes
           .record(sample.id)
@@ -72,7 +75,16 @@ class SampleStore extends ChangeNotifier {
 
     _byChar
         .putIfAbsent(sample.char, () => [])
-        .add(SampleRef(sample.id, sample.char, sample.mode, sample.writtenAt));
+        .add(
+          SampleRef(
+            sample.id,
+            sample.char,
+            sample.mode,
+            sample.writtenAt,
+            score: sample.score,
+            rejected: sample.rejected,
+          ),
+        );
     notifyListeners();
   }
 
@@ -94,20 +106,28 @@ class SampleStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// その文字を書いた回数。なぞり書きも数える（子供に見せる進捗のため）。
+  /// その文字を書いた回数。なぞり書きも、はねた字も数える。
+  /// 子供に見せる進捗と、苦手な字の重み付け（SPEC 7.3）はどちらも試行の数で決まる。
   int attemptCount(String char) => _byChar[char]?.length ?? 0;
+
+  /// その文字の試行ぜんぶ。はねた字も含む。難易度を出すのに使う（SPEC 7.3）。
+  List<SampleRef> attempts(String char) =>
+      List.unmodifiable(_byChar[char] ?? const <SampleRef>[]);
 
   /// その文字の試行を書いた順に返す。運筆は読まない。
   ///
   /// [before] を渡すと、その時刻以前に書いたものだけを返す（`at` 規則）。
+  /// 鏡文字・書き損じ（[SampleRef.rejected]）は除く。素材にしないのは
+  /// この 2 つだけで、点の低い字はそのまま残る（SPEC 1 / 4.1）。
   List<SampleRef> history(
     String char, {
     required bool includeTraced,
     DateTime? before,
   }) => [
     for (final entry in _byChar[char] ?? const <SampleRef>[])
-      if (includeTraced || entry.mode != PracticeMode.trace)
-        if (before == null || !entry.writtenAt.isAfter(before)) entry,
+      if (!entry.rejected)
+        if (includeTraced || entry.mode != PracticeMode.trace)
+          if (before == null || !entry.writtenAt.isAfter(before)) entry,
   ];
 
   /// 素材に使う最新の Sample の id。まだ無ければ null。
@@ -156,6 +176,8 @@ class SampleStore extends ChangeNotifier {
       mode: entry.mode,
       writtenAt: entry.writtenAt,
       strokes: decodeStrokes(blob.bytes),
+      score: entry.score,
+      rejected: entry.rejected,
     );
   }
 }
@@ -165,18 +187,35 @@ class SampleStore extends ChangeNotifier {
 /// 一覧・充足率・版の選択に必要なのは書いた事実だけで、全文字ぶんの運筆を
 /// メモリに載せる理由がない。運筆は [SampleStore.read] で個別に読む。
 class SampleRef {
-  const SampleRef(this.id, this.char, this.mode, this.writtenAt);
+  const SampleRef(
+    this.id,
+    this.char,
+    this.mode,
+    this.writtenAt, {
+    this.score,
+    this.rejected = false,
+  });
 
-  factory SampleRef.fromRecord(String id, Map<String, Object?> record) =>
-      SampleRef(
-        id,
-        record['char']! as String,
-        PracticeMode.values.byName(record['mode']! as String),
-        DateTime.fromMillisecondsSinceEpoch(record['writtenAt']! as int),
-      );
+  factory SampleRef.fromRecord(String id, Map<String, Object?> record) {
+    final score = record['score'] as Map<String, Object?>?;
+    return SampleRef(
+      id,
+      record['char']! as String,
+      PracticeMode.values.byName(record['mode']! as String),
+      DateTime.fromMillisecondsSinceEpoch(record['writtenAt']! as int),
+      score: score == null ? null : Score.fromRecord(score),
+      rejected: record['rejected'] as bool? ?? false,
+    );
+  }
 
   final String id;
   final String char;
   final PracticeMode mode;
   final DateTime writtenAt;
+
+  /// 出題の重み付けに使う測り（SPEC 7.3）。
+  final Score? score;
+
+  /// 鏡文字・明らかな書き損じ。素材には採らない。
+  final bool rejected;
 }

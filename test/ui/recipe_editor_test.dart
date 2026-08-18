@@ -2,6 +2,8 @@ import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/font_recipe.dart';
 import 'package:asoglyph/model/sample.dart';
+import 'package:asoglyph/model/score.dart';
+import 'package:asoglyph/export/resolve_recipe.dart';
 import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/ui/recipe_editor.dart';
@@ -10,11 +12,20 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/memory_store.dart';
 
-Sample _written(String char, {required DateTime at}) => Sample(
+Sample _written(String char, {required DateTime at, double? overall}) => Sample(
   id: '$char-${at.toIso8601String()}',
   char: char,
   mode: PracticeMode.copy,
   writtenAt: at,
+  score: overall == null
+      ? null
+      : Score(
+          shape: overall,
+          strokes: overall,
+          fit: overall,
+          durationMs: 1000,
+          retries: 0,
+        ),
   strokes: [
     Stroke(const [
       InkPoint(x: 300, y: 500, t: 0, pressure: 0),
@@ -144,4 +155,22 @@ void main() {
 
     expect(recipes.all.single.groupRules, isEmpty);
   });
+  testWidgets('いちばん よく書けた字を選べる', (tester) async {
+    final tidy = _written('あ', at: DateTime(2026, 4, 1), overall: 0.9);
+    await tester.runAsync(() async {
+      await store.add(tidy);
+      await store.add(_written('あ', at: DateTime(2026, 5, 1), overall: 0.1));
+    });
+    await pumpEditor(tester);
+
+    await tester.tap(find.text('いちばん よく書けた字'));
+    await tester.pumpAndSettle();
+
+    expect(recipes.all.single.base, const BestPolicy());
+    expect(
+      resolveRecipe(recipes.all.single, store, includeTraced: false)['あ'],
+      tidy.id,
+    );
+  });
+
 }

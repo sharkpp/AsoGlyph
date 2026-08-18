@@ -412,5 +412,41 @@ void main() {
       final canvas = tester.widget<InkCanvas>(find.byType(InkCanvas));
       expect(canvas.controller.strokes, hasLength(1), reason: 'スタイラスの 1 画だけ');
     });
+
+    testWidgets('書いた字に測りが付く', (tester) async {
+      await pumpScreen(tester);
+      await drawLine(tester);
+      await tester.pump();
+      await tapDone(tester);
+
+      // 測るのは出題の重み付けのため。フォントに載せるかは決めない（SPEC 1）。
+      final attempt = store.attempts('あ').single;
+      expect(attempt.score, isNotNull);
+      expect(attempt.score!.strokes, closeTo(1 / 3, 0.01), reason: 'あ は 3 画');
+      expect(attempt.score!.retries, 0);
+      expect(attempt.rejected, isFalse, reason: 'へたな字ははねない');
+      expect(
+        store.latestId('あ', includeTraced: false),
+        isNotNull,
+        reason: '点が低くても素材になる',
+      );
+    });
+
+    testWidgets('もういちど を押した回数が残る', (tester) async {
+      await pumpScreen(tester);
+      await drawLine(tester);
+      await tester.pump();
+      await tapDone(tester);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'もういちど'));
+      await tester.pumpAndSettle();
+      await drawLine(tester);
+      await tester.pump();
+      await tapDone(tester);
+
+      // 書き直した回数は苦手さの手がかりになる（SPEC 7.3）。
+      expect(store.attempts('あ').last.score!.retries, 1);
+    });
+
   });
 }

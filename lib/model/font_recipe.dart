@@ -2,9 +2,6 @@ import '../font/glyph.dart';
 import 'char_set.dart';
 
 /// どの試行を採るかの規則（SPEC 4.3）。
-///
-/// SPEC は `best`（スコア最良）も定めているが、スコアは L4 の採点機能で
-/// 入る。母集団が無いうちに器だけ作らない。
 sealed class Policy {
   const Policy();
 }
@@ -18,6 +15,21 @@ class LatestPolicy extends Policy {
 
   @override
   int get hashCode => (LatestPolicy).hashCode;
+}
+
+/// 測りがいちばん良かった試行（SPEC 4.3）。
+///
+/// **これは「フォントへの採否を点で決める」ことではない。** どの版でも
+/// その子の字だけが載る。同じ字を何回も書いたとき、そのうちどれを採るかを
+/// 親が選べるようにしているだけで、既定は最新のまま（SPEC 1）。
+class BestPolicy extends Policy {
+  const BestPolicy();
+
+  @override
+  bool operator ==(Object other) => other is BestPolicy;
+
+  @override
+  int get hashCode => (BestPolicy).hashCode;
 }
 
 /// 指定した時刻以前で最新の試行。「あの頃の文字」の実体。

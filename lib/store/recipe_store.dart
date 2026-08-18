@@ -144,6 +144,7 @@ FontRecipe _decode(String id, Map<String, Object?> record) {
 
 Map<String, Object?> _encodePolicy(Policy policy) => switch (policy) {
   LatestPolicy() => {'type': 'latest'},
+  BestPolicy() => {'type': 'best'},
   AtPolicy(:final time) => {
     'type': 'at',
     'time': time.millisecondsSinceEpoch,
@@ -155,5 +156,6 @@ Policy _decodePolicy(Map<String, Object?> record) =>
       'at' => AtPolicy(
         DateTime.fromMillisecondsSinceEpoch(record['time']! as int),
       ),
+      'best' => const BestPolicy(),
       _ => const LatestPolicy(),
     };

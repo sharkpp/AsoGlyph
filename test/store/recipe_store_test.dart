@@ -24,7 +24,10 @@ void main() {
       created.copyWith(
         charSets: {CharSet.hiragana},
         base: AtPolicy(spring),
-        groupRules: {CharSet.hiragana: const LatestPolicy()},
+        groupRules: {
+          CharSet.hiragana: const LatestPolicy(),
+          CharSet.katakana: const BestPolicy(),
+        },
         charRules: {'あ': 'sample-1'},
       ),
     );
@@ -37,7 +40,10 @@ void main() {
     expect(loaded.name, 'あの頃');
     expect(loaded.charSets, {CharSet.hiragana});
     expect(loaded.base, AtPolicy(spring));
-    expect(loaded.groupRules, {CharSet.hiragana: const LatestPolicy()});
+    expect(loaded.groupRules, {
+      CharSet.hiragana: const LatestPolicy(),
+      CharSet.katakana: const BestPolicy(),
+    });
     expect(loaded.charRules, {'あ': 'sample-1'});
   });
 

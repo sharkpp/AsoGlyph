@@ -19,6 +19,7 @@ import 'admin_screen.dart';
 import 'char_set_screen.dart';
 import 'export_sheet.dart';
 import 'passcode_gate.dart';
+import 'practice_session.dart';
 import 'user_picker.dart';
 import 'word_screen.dart';
 
@@ -106,6 +107,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
           children: [
             _ModeChoice(mode: _mode, onChanged: _chooseMode),
             const SizedBox(height: 24),
+            _PracticeCard(onTap: () => _practice(context)),
             if (_wordCount > 0)
               _WordCard(
                 total: _wordCount,
@@ -135,6 +137,15 @@ class _CollectionScreenState extends State<CollectionScreen> {
       ),
     );
   }
+
+  /// おまかせで書く。まだ集めていない字と苦手な字が出やすい（SPEC 7.3）。
+  Future<void> _practice(BuildContext context) => practiceSession(
+    context,
+    session: session,
+    mode: _mode,
+    speaker: speaker,
+    strokeOrders: strokeOrders,
+  );
 
   /// いま書ける語の数。集める文字種に無い字を含む語は数えない（SPEC 7.4）。
   int get _wordCount => _writableWords.length;
@@ -311,6 +322,65 @@ class _ModeLabel extends StatelessWidget {
         const SizedBox(height: 2),
         Text(text, style: const TextStyle(fontSize: 13)),
       ],
+    );
+  }
+}
+
+/// おまかせで書く入口（SPEC 7.3）。
+///
+/// いちばん上に大きく置く。何を書くか決められない子が、迷わず始められる
+/// ところがこの画面には要る。
+class _PracticeCard extends StatelessWidget {
+  const _PracticeCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: scheme.primaryContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: scheme.primary, width: 2),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.auto_awesome, size: 40, color: scheme.primary),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'おまかせで かく',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const Text(
+                        'まだ書いていない字と、にがてな字が出ます',
+                        style: TextStyle(fontSize: 13, color: Color(0xff6f665c)),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, size: 32),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
