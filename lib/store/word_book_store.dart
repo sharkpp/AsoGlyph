@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show AssetManifest, rootBundle;
 import 'package:sembast/blob.dart';
@@ -54,6 +56,9 @@ class WordBookStore extends ChangeNotifier {
 
   final List<WordBook> _all = [];
 
+  /// いちばん最後に入れた時刻。次に入れるものを必ずそのうしろに置く。
+  int _lastAddedAt = 0;
+
   /// 作った順に並ぶ。
   List<WordBook> get all => List.unmodifiable(_all);
 
@@ -64,19 +69,17 @@ class WordBookStore extends ChangeNotifier {
   Future<void> load() async {
     // 控えから戻したときは、同じ id で中身が入れ替わっていることがある。
     _imageCache.clear();
+    final records = await _books.find(
+      _db,
+      finder: Finder(sortOrders: [SortOrder('addedAt')]),
+    );
+    _lastAddedAt = records.fold(
+      0,
+      (last, record) => max(last, record.value['addedAt']! as int),
+    );
     _all
       ..clear()
-      ..addAll(
-        (await _books.find(
-          _db,
-          finder: Finder(
-            // id は UUID v7。同じミリ秒に入れても並びが一意に決まる。
-            // 内蔵の辞書は起動時にまとめて入るので、ここが揺れると
-            // 管理画面の並びが開くたびに変わる。
-            sortOrders: [SortOrder('addedAt'), SortOrder(Field.key)],
-          ),
-        )).map((record) => _decode(record.key, record.value)),
-      );
+      ..addAll(records.map((record) => _decode(record.key, record.value)));
     notifyListeners();
   }
 
@@ -176,9 +179,15 @@ class WordBookStore extends ChangeNotifier {
       words: book.words,
       source: source,
     );
+    // 同じミリ秒に何冊も入る（内蔵の辞書は起動時にまとめて入る）。時刻だけでは
+    // 並びが決まらないので、必ず 1 つずつ進めて入れた順にする。
+    //
+    // id では代われない。UUID v7 はミリ秒から先が乱数で、同じミリ秒の中に
+    // 順序を持たない。並びを id に頼ると、開くたびに順番が変わる。
+    _lastAddedAt = max(DateTime.now().millisecondsSinceEpoch, _lastAddedAt + 1);
     await _books.record(saved.id).put(_db, {
       ..._encode(saved),
-      'addedAt': DateTime.now().millisecondsSinceEpoch,
+      'addedAt': _lastAddedAt,
     });
     _all.add(saved);
     notifyListeners();

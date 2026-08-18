@@ -43,7 +43,8 @@ class SampleStore extends ChangeNotifier {
 
   Future<void> load() async {
     _byChar.clear();
-    // id は UUID v7。同じミリ秒に書いた記録でも順序が一意に決まる。
+    // 同じミリ秒に書かれたときは id で決める。1 字書くのに 1 ミリ秒しか
+    // 掛からないことはないので、実際には writtenAt だけで並ぶ。
     final records = await _meta.find(
       _db,
       finder: Finder(

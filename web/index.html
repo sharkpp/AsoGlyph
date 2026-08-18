@@ -1,46 +1,38 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
+    アプリを配る場所がルート直下でなければ、下の href を直す。
+    先頭と末尾の "/" が要る。`flutter build --base-href` でも差し替わる。
   -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="子供が書いた字が、そのままフォントになるアプリ。字も設定も端末の中だけに残ります。">
 
-  <!-- iOS meta tags & icons -->
+  <!-- 端末の枠と地の色を合わせる。読み込み中に白が差し込まないようにする。 -->
+  <meta name="theme-color" content="#faf7f0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+
+  <!-- ホーム画面に置いたときの見え方（iOS） -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="asoglyph">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="あそんでフォント">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>asoglyph</title>
+  <title>あそんでフォント</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* 読み込み中も地の色にしておく。真っ白から始まると、開くたびに白が光る。 */
+    html, body { margin: 0; padding: 0; height: 100%; background-color: #faf7f0; }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

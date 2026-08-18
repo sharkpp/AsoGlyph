@@ -143,6 +143,30 @@ void main() {
       expect(books.all.first.words, book.words, reason: 'もとは変わらない');
     });
 
+    test('並びは入れた順のまま。開き直しても変わらない', () async {
+      final db = await openMemoryDatabase();
+      final books = await openMemoryWordBooks(db);
+      // 内蔵の辞書は起動時にまとめて入る。同じミリ秒に何冊も入るので、
+      // 時刻だけでは並びが決まらない（UUID v7 も同じミリ秒の中では乱数）。
+      final order = [for (final book in books.all) book.name];
+      expect(order, hasLength(greaterThan(1)));
+
+      for (var i = 0; i < 3; i++) {
+        await books.add(
+          WordBook(
+            id: '',
+            name: 'あとから $i',
+            words: const [Word(text: 'ねこ', reading: 'ねこ')],
+          ),
+        );
+      }
+      final expected = [...order, 'あとから 0', 'あとから 1', 'あとから 2'];
+      expect([for (final book in books.all) book.name], expected);
+
+      final reopened = await openMemoryWordBooks(db);
+      expect([for (final book in reopened.all) book.name], expected);
+    });
+
     test('開き直しても内蔵はそろっている', () async {
       final db = await openMemoryDatabase();
       final first = await openMemoryWordBooks(db);

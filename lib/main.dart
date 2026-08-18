@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'audio/speaker.dart';
 import 'kanjivg/stroke_order.dart';
 import 'store/app_database.dart';
+import 'store/persistent_storage.dart';
 import 'store/passcode.dart';
 import 'store/session.dart';
 import 'ui/about.dart';
@@ -12,6 +13,9 @@ import 'ui/collection_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   registerKanjiVgLicense();
+  // 置き場を片づけないでほしいと、開く前に頼んでおく（web だけ）。
+  // 集めた字は取り戻せない。
+  await requestPersistentStorage();
   // 記録も版も同じ 1 つのデータベースに置く。
   final database = await openAppDatabase('asoglyph.db');
   runApp(

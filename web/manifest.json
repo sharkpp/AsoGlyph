@@ -1,12 +1,17 @@
 {
-    "name": "asoglyph",
-    "short_name": "asoglyph",
+    "name": "あそんでフォント",
+    "short_name": "あそんでフォント",
+    "description": "子供が書いた字が、そのままフォントになるアプリ。字も設定も端末の中だけに残ります。",
+    "lang": "ja",
+    "dir": "ltr",
+    "id": "/",
     "start_url": ".",
+    "scope": "./",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#faf7f0",
+    "theme_color": "#faf7f0",
+    "orientation": "any",
+    "categories": ["education", "kids"],
     "prefer_related_applications": false,
     "icons": [
         {
