@@ -130,6 +130,8 @@ Future<void> practiceWord(
   final sampleIds = <String>[];
 
   for (final (index, char) in word.chars.indexed) {
+    // 続けて押されて画面ごと閉じられていたら、そこで終わる。
+    if (!context.mounted) return;
     final id = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (context) => WritingScreen(

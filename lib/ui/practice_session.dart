@@ -33,6 +33,8 @@ Future<void> practiceSession(
   if (chars.isEmpty) return;
 
   for (final (index, char) in chars.indexed) {
+    // 続けて押されて画面ごと閉じられていたら、そこで終わる。
+    if (!context.mounted) return;
     final id = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (context) => WritingScreen(
