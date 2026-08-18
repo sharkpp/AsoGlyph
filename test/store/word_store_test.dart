@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
+import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/model/char_set.dart';
+import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/model/user.dart';
 import 'package:asoglyph/model/word.dart';
 import 'package:asoglyph/store/word_attempt_store.dart';
@@ -8,6 +10,17 @@ import 'package:asoglyph/store/word_book_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/memory_store.dart';
+
+Sample _written(String char) => Sample.now(
+  char: char,
+  mode: PracticeMode.copy,
+  strokes: [
+    Stroke(const [
+      InkPoint(x: 300, y: 500, t: 0),
+      InkPoint(x: 700, y: 500, t: 20),
+    ]),
+  ],
+);
 
 void main() {
   setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
@@ -267,6 +280,58 @@ void main() {
 
       await store.finish(word: 'ねこ', sampleIds: ['c', 'd']);
       expect(store.countOf('ねこ'), 2, reason: '書くたびに増える');
+    });
+
+    test('語ごとにまとめて、新しい順に並べる', () async {
+      final store = await WordAttemptStore.open(
+        await openMemoryDatabase(),
+        userId: 'test-user',
+      );
+      await store.finish(word: 'ねこ', sampleIds: ['a']);
+      await store.finish(word: 'いぬ', sampleIds: ['b']);
+      await store.finish(word: 'ねこ', sampleIds: ['c']);
+
+      final history = store.byWord;
+      expect(history.map((entry) => entry.word), ['ねこ', 'いぬ']);
+      expect(history.first.count, 2);
+      expect(history.first.lastAt, store.all.last.finishedAt);
+    });
+
+    test('語ごとに記録を消せる。書いた字は消えない', () async {
+      final session = await openMemorySession();
+      await session.samples.add(_written('ね'));
+      await session.attempts.finish(word: 'ねこ', sampleIds: ['a']);
+      await session.attempts.finish(word: 'いぬ', sampleIds: ['b']);
+
+      await session.attempts.removeWord('ねこ');
+
+      // 消えるのは「書けた」という印だけ（SPEC 4.1 / 4.2）。
+      expect(session.attempts.countOf('ねこ'), 0);
+      expect(session.attempts.countOf('いぬ'), 1);
+      expect(session.samples.collectedChars(includeTraced: false), {'ね'});
+    });
+
+    test('ぜんぶ消しても、ほかの人の記録は残る', () async {
+      final session = await openMemorySession();
+      await session.attempts.finish(word: 'ねこ', sampleIds: ['a']);
+      await session.addUser(name: 'いもうと', avatar: Avatar.rabbit);
+      await session.attempts.finish(word: 'いぬ', sampleIds: ['b']);
+
+      await session.attempts.clear();
+      expect(session.attempts.all, isEmpty);
+
+      await session.switchTo(session.users.all.first.id);
+      expect(session.attempts.countOf('ねこ'), 1);
+    });
+
+    test('消したことは開き直しても残る', () async {
+      final db = await openMemoryDatabase();
+      final store = await WordAttemptStore.open(db, userId: 'test-user');
+      await store.finish(word: 'ねこ', sampleIds: ['a']);
+      await store.clear();
+
+      final reopened = await WordAttemptStore.open(db, userId: 'test-user');
+      expect(reopened.all, isEmpty);
     });
 
     test('人ごとに分かれる', () async {

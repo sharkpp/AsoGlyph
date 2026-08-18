@@ -286,6 +286,54 @@ void main() {
     expect(book.words.single.reading, 'ぱんだ');
   });
 
+  testWidgets('書いたことばの記録を、語ごとに消せる', (tester) async {
+    await tester.runAsync(() async {
+      await store.add(_written('ね', at: spring));
+      await session.attempts.finish(word: 'ねこ', sampleIds: ['a']);
+      await session.attempts.finish(word: 'いぬ', sampleIds: ['b']);
+    });
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(find.text('書いたことばの記録'), 200);
+
+    await tester.runAsync(() async {
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(ListTile, 'ねこ'),
+          matching: find.byIcon(Icons.close),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pump();
+
+    // 消えるのは「書けた」という印だけ。書いた字は消えない（SPEC 4.1）。
+    expect(session.attempts.countOf('ねこ'), 0);
+    expect(session.attempts.countOf('いぬ'), 1);
+    expect(store.collectedChars(includeTraced: false), {'ね'});
+  });
+
+  testWidgets('書いたことばの記録を、まとめて消せる', (tester) async {
+    await tester.runAsync(
+      () => session.attempts.finish(word: 'ねこ', sampleIds: ['a']),
+    );
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(find.text('ぜんぶ消す'), 200);
+
+    await tester.tap(find.text('ぜんぶ消す'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('集めた字も版も消えません'), findsOneWidget);
+
+    await tester.runAsync(() async {
+      await tester.tap(find.widgetWithText(FilledButton, '消す'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pumpAndSettle();
+
+    expect(session.attempts.all, isEmpty);
+    expect(find.textContaining('まだ、ことばを最後まで書いた記録はありません'),
+        findsOneWidget);
+  });
+
   testWidgets('ロックは 2 つ別々に掛けられる', (tester) async {
     await pumpScreen(tester);
     await tester.scrollUntilVisible(find.text('書く人の切り替えのロック'), 200);

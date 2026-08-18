@@ -196,6 +196,8 @@ class _CollectionScreenState extends State<CollectionScreen> {
   Future<void> _clearAll(BuildContext context) async {
     if (!await confirmClearAll(context)) return;
     await store.clear();
+    // 字が無いのに「書けた」印だけ残ると、一覧が食い違う。
+    await session.attempts.clear();
     if (context.mounted) Navigator.of(context).pop();
   }
 

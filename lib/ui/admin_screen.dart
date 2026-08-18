@@ -15,6 +15,7 @@ import 'passcode_gate.dart';
 import 'recipe_editor.dart';
 import 'user_picker.dart';
 import 'word_book_section.dart';
+import 'word_history_section.dart';
 
 /// 保護者向けの画面（SPEC 7.6）。
 ///
@@ -47,6 +48,7 @@ class AdminScreen extends StatelessWidget {
             store,
             recipes,
             books,
+            session.attempts,
             locks.admin,
             locks.switching,
             session,
@@ -107,6 +109,9 @@ class AdminScreen extends StatelessWidget {
               const SizedBox(height: 24),
               const _Heading('ことばに出てこない字'),
               MissingCharsSection(session: session),
+              const SizedBox(height: 24),
+              const _Heading('書いたことばの記録'),
+              WordHistorySection(session: session),
               const SizedBox(height: 24),
               Row(
                 children: [

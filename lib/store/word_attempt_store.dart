@@ -89,4 +89,61 @@ class WordAttemptStore extends ChangeNotifier {
   /// その語を最後まで書けた回数。単語帳の一覧に印を出すのに使う。
   int countOf(String word) =>
       _all.where((attempt) => attempt.word == word).length;
+
+  /// 語ごとのまとめ。最後に書いたのが新しい順。
+  ///
+  /// 管理画面で、どの語を書いたかを見せて消せるようにするのに使う。
+  List<WordHistory> get byWord {
+    final counts = <String, int>{};
+    final last = <String, DateTime>{};
+    for (final attempt in _all) {
+      counts[attempt.word] = (counts[attempt.word] ?? 0) + 1;
+      final at = last[attempt.word];
+      if (at == null || attempt.finishedAt.isAfter(at)) {
+        last[attempt.word] = attempt.finishedAt;
+      }
+    }
+    return [
+      for (final word in counts.keys)
+        WordHistory(word: word, count: counts[word]!, lastAt: last[word]!),
+    ]..sort((a, b) => b.lastAt.compareTo(a.lastAt));
+  }
+
+  /// その語の履歴を消す（SPEC 4.2）。
+  ///
+  /// **書いた字は消えない。** 消えるのは「この語を書き終えた」という印だけで、
+  /// 1 字ずつの記録は [SampleStore] にそのまま残る（SPEC 4.1）。
+  /// 星が付いたままだと、もう一度書かせたい語を子供が選ばなくなる。
+  Future<void> removeWord(String word) async {
+    final ids = [
+      for (final attempt in _all)
+        if (attempt.word == word) attempt.id,
+    ];
+    if (ids.isEmpty) return;
+    await _attempts.records(ids).delete(_db);
+    _all.removeWhere((attempt) => attempt.word == word);
+    notifyListeners();
+  }
+
+  /// いまの人の履歴を全部消す。書いた字は消えない。
+  Future<void> clear() async {
+    if (_all.isEmpty) return;
+    // ほかの人の履歴は消さない。
+    await _attempts.records([for (final a in _all) a.id]).delete(_db);
+    _all.clear();
+    notifyListeners();
+  }
+}
+
+/// 語ごとの書いた履歴のまとめ。
+class WordHistory {
+  const WordHistory({
+    required this.word,
+    required this.count,
+    required this.lastAt,
+  });
+
+  final String word;
+  final int count;
+  final DateTime lastAt;
 }
