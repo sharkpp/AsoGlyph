@@ -17,7 +17,7 @@ Future<void> main() async {
   runApp(
     AsoGlyphApp(
       session: await Session.open(database),
-      passcode: await Passcode.open(),
+      locks: await Locks.open(),
       speaker: await TtsSpeaker.open(),
       strokeOrders: await StrokeOrderLibrary.load(),
     ),
@@ -28,13 +28,13 @@ class AsoGlyphApp extends StatelessWidget {
   const AsoGlyphApp({
     super.key,
     required this.session,
-    required this.passcode,
+    required this.locks,
     required this.speaker,
     required this.strokeOrders,
   });
 
   final Session session;
-  final Passcode passcode;
+  final Locks locks;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
 
@@ -59,7 +59,7 @@ class AsoGlyphApp extends StatelessWidget {
       ),
       home: CollectionScreen(
         session: session,
-        passcode: passcode,
+        locks: locks,
         speaker: speaker,
         strokeOrders: strokeOrders,
       ),

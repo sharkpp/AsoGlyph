@@ -35,7 +35,19 @@ class MemorySecretStore implements SecretStore {
 }
 
 /// テスト用の Passcode。既定は掛かっていない。
-Future<Passcode> openMemoryPasscode({String? code}) async {
+Future<Passcode> openMemoryPasscode({
+  String? code,
+  PasscodeKind kind = PasscodeKind.admin,
+}) async {
   final store = MemorySecretStore()..value = code;
-  return Passcode.open(store);
+  return Passcode.open(kind, store);
 }
+
+/// テスト用のロックひとそろい。既定はどちらも掛かっていない。
+Future<Locks> openMemoryLocks({String? admin, String? switching}) async => Locks(
+  admin: await openMemoryPasscode(code: admin),
+  switching: await openMemoryPasscode(
+    code: switching,
+    kind: PasscodeKind.switching,
+  ),
+);

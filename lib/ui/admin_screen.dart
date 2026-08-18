@@ -22,11 +22,11 @@ class AdminScreen extends StatelessWidget {
   const AdminScreen({
     super.key,
     required this.session,
-    required this.passcode,
+    required this.locks,
   });
 
   final Session session;
-  final Passcode passcode;
+  final Locks locks;
 
   SampleStore get store => session.samples;
   RecipeStore get recipes => session.recipes;
@@ -40,7 +40,13 @@ class AdminScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: AnimatedBuilder(
-          animation: Listenable.merge([store, recipes, passcode, session]),
+          animation: Listenable.merge([
+            store,
+            recipes,
+            locks.admin,
+            locks.switching,
+            session,
+          ]),
           builder: (context, _) => ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -124,18 +130,18 @@ class AdminScreen extends StatelessWidget {
               const _Heading('控え'),
               BackupSection(session: session),
               const SizedBox(height: 24),
-              const _Heading('この画面のロック'),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(passcode.isSet ? Icons.lock : Icons.lock_open),
-                title: Text(passcode.isSet ? 'パスコードを変える' : 'パスコードを決める'),
-                subtitle: Text(
-                  passcode.isSet
-                      ? 'この画面に入るときに聞きます'
-                      : '掛けていません。決めると、子供がここに入れなくなります',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => showPasscodeSettings(context, passcode),
+              const _Heading('ロック'),
+              _PasscodeTile(
+                passcode: locks.admin,
+                title: 'この画面のロック',
+                whenSet: 'この画面に入るときに聞きます',
+                whenUnset: '掛けていません。決めると、子供がここに入れなくなります',
+              ),
+              _PasscodeTile(
+                passcode: locks.switching,
+                title: '書く人の切り替えのロック',
+                whenSet: '子供の画面で人を切り替えるときに聞きます',
+                whenUnset: '掛けていません。決めると、子供がよその人の記録に書けなくなります',
               ),
             ],
           ),
@@ -329,3 +335,30 @@ String describe(FontRecipe recipe) {
 
 String formatDate(DateTime time) =>
     '${time.year}年${time.month}月${time.day}日';
+
+/// パスコードを掛ける・変える・外す入口。掛け先ごとに 1 行。
+class _PasscodeTile extends StatelessWidget {
+  const _PasscodeTile({
+    required this.passcode,
+    required this.title,
+    required this.whenSet,
+    required this.whenUnset,
+  });
+
+  final Passcode passcode;
+  final String title;
+  final String whenSet;
+  final String whenUnset;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(passcode.isSet ? Icons.lock : Icons.lock_open),
+      title: Text(title),
+      subtitle: Text(passcode.isSet ? whenSet : whenUnset),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => showPasscodeSettings(context, passcode),
+    );
+  }
+}

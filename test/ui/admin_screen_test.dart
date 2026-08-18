@@ -34,13 +34,13 @@ void main() {
   late Session session;
   late SampleStore store;
   late RecipeStore recipes;
-  late Passcode passcode;
+  late Locks locks;
 
   setUp(() async {
     session = await openMemorySession();
     store = session.samples;
     recipes = session.recipes;
-    passcode = await openMemoryPasscode();
+    locks = await openMemoryLocks();
   });
 
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -49,7 +49,7 @@ void main() {
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      MaterialApp(home: AdminScreen(session: session, passcode: passcode)),
+      MaterialApp(home: AdminScreen(session: session, locks: locks)),
     );
   }
 
@@ -184,6 +184,26 @@ void main() {
 
     // 全部外すと子供の画面が空になり、何をする画面か分からなくなる。
     expect(session.current.visibleCharSets, hasLength(1));
+  });
+
+  testWidgets('ロックは 2 つ別々に掛けられる', (tester) async {
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(find.text('書く人の切り替えのロック'), 200);
+
+    // 掛け先が違うので、パスコードも別にする（SPEC 7.5 / 7.6）。
+    await tester.tap(find.text('書く人の切り替えのロック'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('書く人を切り替えるときに聞きます'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '4321');
+    await tester.runAsync(() async {
+      await tester.tap(find.text('決める'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pumpAndSettle();
+
+    expect(locks.switching.matches('4321'), isTrue);
+    expect(locks.admin.isSet, isFalse, reason: '管理画面のほうは掛かっていない');
   });
 }
 

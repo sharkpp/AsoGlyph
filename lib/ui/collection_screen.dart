@@ -26,13 +26,13 @@ class CollectionScreen extends StatefulWidget {
   const CollectionScreen({
     super.key,
     required this.session,
-    required this.passcode,
+    required this.locks,
     required this.speaker,
     required this.strokeOrders,
   });
 
   final Session session;
-  final Passcode passcode;
+  final Locks locks;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
 
@@ -49,7 +49,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
   Session get session => widget.session;
   SampleStore get store => session.samples;
   RecipeStore get recipes => session.recipes;
-  Passcode get passcode => widget.passcode;
+  Locks get locks => widget.locks;
   Speaker get speaker => widget.speaker;
   StrokeOrderLibrary get strokeOrders => widget.strokeOrders;
 
@@ -69,7 +69,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
         backgroundColor: const Color(0xfffaf7f0),
         title: const Text('あそんでフォント'),
         actions: [
-          CurrentUserButton(session: session),
+          CurrentUserButton(session: session, lock: locks.switching),
           IconButton(
             iconSize: 28,
             icon: const Icon(Icons.ios_share),
@@ -111,12 +111,12 @@ class _CollectionScreenState extends State<CollectionScreen> {
 
   Future<void> _openAdmin(BuildContext context) async {
     // パスコードが掛かっていなければ、そのまま通る（既定は無効）。
-    if (!await unlockAdmin(context, passcode)) return;
+    if (!await unlock(context, locks.admin)) return;
     if (!context.mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) =>
-            AdminScreen(session: session, passcode: passcode),
+            AdminScreen(session: session, locks: locks),
       ),
     );
   }

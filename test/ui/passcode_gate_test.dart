@@ -17,14 +17,14 @@ void main() {
           builder: (context) => Scaffold(
             body: TextButton(
               onPressed: () async =>
-                  passed.add(await unlockAdmin(context, passcode)),
-              child: const Text('入る'),
+                  passed.add(await unlock(context, passcode)),
+              child: const Text('はじめる'),
             ),
           ),
         ),
       ),
     );
-    await tester.tap(find.text('入る'));
+    await tester.tap(find.text('はじめる'));
     await tester.pumpAndSettle();
     return passed;
   }
@@ -50,7 +50,7 @@ void main() {
     final passed = await openGate(tester, passcode);
 
     await tester.enterText(find.byType(TextField), '1234');
-    await tester.tap(find.widgetWithText(FilledButton, '入る'));
+    await tester.tap(find.widgetWithText(FilledButton, 'あける'));
     await tester.pumpAndSettle();
 
     expect(find.text('パスコード'), findsNothing, reason: '閉じて通る');
@@ -62,7 +62,7 @@ void main() {
     await openGate(tester, passcode);
 
     await tester.enterText(find.byType(TextField), '9999');
-    await tester.tap(find.widgetWithText(FilledButton, '入る'));
+    await tester.tap(find.widgetWithText(FilledButton, 'あける'));
     await tester.pumpAndSettle();
 
     expect(find.text('ちがいます'), findsOneWidget);

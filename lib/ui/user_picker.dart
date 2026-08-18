@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../model/user.dart';
+import '../store/passcode.dart';
 import '../store/session.dart';
+import 'passcode_gate.dart';
 
 /// いま書いている人の印。押すと切り替えられる。
 ///
 /// 1 人しかいないうちは出さない。使いようのないボタンを子供向け画面に
 /// 置かない（SPEC 9）。
 class CurrentUserButton extends StatelessWidget {
-  const CurrentUserButton({super.key, required this.session});
+  const CurrentUserButton({
+    super.key,
+    required this.session,
+    required this.lock,
+  });
 
   final Session session;
+
+  /// 切り替えのロック（SPEC 7.5）。既定は掛かっていない。
+  final Passcode lock;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +30,7 @@ class CurrentUserButton extends StatelessWidget {
       iconSize: 28,
       tooltip: 'だれが かく？',
       icon: AvatarMark(avatar: user.avatar, size: 32),
-      onPressed: () => showUserPicker(context, session),
+      onPressed: () => showUserPicker(context, session, lock),
     );
   }
 }
@@ -29,7 +38,20 @@ class CurrentUserButton extends StatelessWidget {
 /// 誰が書くかを選ばせる。
 ///
 /// 字が読めない子のために、印を大きく出す。名前は下に添えるだけ。
-Future<void> showUserPicker(BuildContext context, Session session) async {
+///
+/// ロックが掛かっていれば、選ばせる前に聞く（SPEC 7.5）。選んでから断ると、
+/// 押した印が使えないものだったのか、間違えたのかが子供に分からない。
+///
+/// 管理画面の一覧からの切り替えでは聞かない。そこまで入れる人は版も
+/// 集める文字種も変えられる。そこを守るのは管理画面のパスコードの役目。
+Future<void> showUserPicker(
+  BuildContext context,
+  Session session,
+  Passcode lock,
+) async {
+  if (!await unlock(context, lock)) return;
+  if (!context.mounted) return;
+
   final picked = await showModalBottomSheet<String>(
     context: context,
     builder: (context) => SafeArea(

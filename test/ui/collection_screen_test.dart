@@ -37,7 +37,7 @@ final katakana = CharSet.katakana.chars.length;
 void main() {
   late Session session;
   late SampleStore store;
-  late Passcode passcode;
+  late Locks locks;
   late StrokeOrderLibrary strokeOrders;
 
   setUpAll(() async {
@@ -48,7 +48,7 @@ void main() {
   setUp(() async {
     session = await openMemorySession();
     store = session.samples;
-    passcode = await openMemoryPasscode();
+    locks = await openMemoryLocks();
   });
 
   /// sembast はタイマを使う。テストの疑似非同期環境では完了しないため、
@@ -65,7 +65,7 @@ void main() {
       MaterialApp(
         home: CollectionScreen(
           session: session,
-          passcode: passcode,
+          locks: locks,
           speaker: speaker ?? RecordingSpeaker(),
           strokeOrders: strokeOrders,
         ),
@@ -214,6 +214,42 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(countOf(tester, 'ひらがな'), '1 / $hiragana', reason: 'じぶんの字は残っている');
+  });
+
+  testWidgets('切り替えにロックが掛かっていれば、選ばせる前に聞く', (tester) async {
+    locks = await openMemoryLocks(switching: '1234');
+    await tester.runAsync(
+      () => session.addUser(name: 'いもうと', avatar: Avatar.rabbit),
+    );
+    await pumpScreen(tester);
+
+    await tester.tap(find.byType(AvatarMark));
+    await tester.pumpAndSettle();
+
+    // 選ばせる前に聞く。選んでから断ると、押した印が使えないものだったのか
+    // 間違えたのかが子供に分からない。
+    expect(find.text('パスコード'), findsOneWidget);
+    expect(find.text('だれが かく？'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), '1234');
+    await tester.tap(find.widgetWithText(FilledButton, 'あける'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('だれが かく？'), findsOneWidget);
+  });
+
+  testWidgets('切り替えのロックを掛けていなければ、そのまま選べる', (tester) async {
+    await tester.runAsync(
+      () => session.addUser(name: 'いもうと', avatar: Avatar.rabbit),
+    );
+    await pumpScreen(tester);
+
+    await tester.tap(find.byType(AvatarMark));
+    await tester.pumpAndSettle();
+
+    // 既定は無効（SPEC 7.5）。
+    expect(find.text('パスコード'), findsNothing);
+    expect(find.text('だれが かく？'), findsOneWidget);
   });
 
   testWidgets('KanjiVG のクレジットをアプリの中で読める', (tester) async {

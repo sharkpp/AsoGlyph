@@ -5,10 +5,10 @@ import 'package:flutter/services.dart';
 
 import '../store/passcode.dart';
 
-/// 管理画面へ入れるか確かめる（SPEC 7.6）。
+/// 掛かっているロックを開けてもらう（SPEC 7.5 / 7.6）。
 ///
 /// パスコードが掛かっていなければ、そのまま通す。既定は無効。
-Future<bool> unlockAdmin(BuildContext context, Passcode passcode) async {
+Future<bool> unlock(BuildContext context, Passcode passcode) async {
   if (!passcode.isSet) return true;
   final ok = await showDialog<bool>(
     context: context,
@@ -62,6 +62,12 @@ class _UnlockDialogState extends State<_UnlockDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          // 何のパスコードを聞かれているのかを出す。掛け先が 2 つあり、
+          // 見出しが「パスコード」だけだとどちらか分からない。
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(widget.passcode.kind.asked),
+          ),
           TextField(
             controller: _controller,
             autofocus: true,
@@ -88,7 +94,7 @@ class _UnlockDialogState extends State<_UnlockDialog> {
           onPressed: () => Navigator.of(context).pop(false),
           child: const Text('やめる'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('入る')),
+        FilledButton(onPressed: _submit, child: const Text('あける')),
       ],
     );
   }
@@ -154,7 +160,7 @@ Future<void> showPasscodeSettings(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('おうちの人の画面に入るときに聞きます。'),
+          Text('${passcode.kind.asked}。'),
           const SizedBox(height: 8),
           TextField(
             controller: controller,
