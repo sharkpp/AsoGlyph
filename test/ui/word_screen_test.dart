@@ -119,10 +119,10 @@ void main() {
     await tester.pump();
     await tapDone(tester);
 
-    // まだ続きがあるので「つぎ」。
-    expect(find.widgetWithText(FilledButton, 'つぎ'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'つぎ'));
-    await tester.pumpAndSettle();
+    // 押さずに次の字へ進む。字ごとに「つぎ」を押させると、書くより
+    // 押す回数のほうが多くなる。
+    expect(find.widgetWithText(FilledButton, 'つぎ'), findsNothing);
+    await advance(tester);
 
     final second = tester.widget<WritingScreen>(find.byType(WritingScreen));
     expect(second.char, 'こ');
@@ -131,11 +131,7 @@ void main() {
     await drawLine(tester);
     await tester.pump();
     await tapDone(tester);
-    await tester.runAsync(() async {
-      await tester.tap(find.widgetWithText(FilledButton, 'おわり'));
-      await Future<void>.delayed(Duration.zero);
-    });
-    await tester.pumpAndSettle();
+    await advance(tester);
 
     // 単語トライアルとして残る（SPEC 4.2）。書いた記録そのものは 1 字ずつ入る。
     expect(session.attempts.countOf('ねこ'), 1);
@@ -152,8 +148,7 @@ void main() {
     await drawLine(tester);
     await tester.pump();
     await tapDone(tester);
-    await tester.tap(find.widgetWithText(FilledButton, 'つぎ'));
-    await tester.pumpAndSettle();
+    await advance(tester);
 
     // 2 字めを書かずに閉じる。
     await tester.tap(find.byIcon(Icons.arrow_back));
@@ -254,6 +249,24 @@ void main() {
     // 出しておく字も画面に出る。何の語を書いているのかが分からなくなる。
     expect(find.text('ウ'), findsOneWidget);
     expect(find.text('マ'), findsOneWidget);
+  });
+
+  testWidgets('ほめ言葉を言い終わってから、次の字へ進む', (tester) async {
+    await pumpScreen(tester);
+    await tester.tap(find.text('ねこ'));
+    await tester.pumpAndSettle();
+
+    await drawLine(tester);
+    await tester.pump();
+    await tapDone(tester);
+
+    // 言い終わる前に画面を替えると、次の画面の読み上げが追い越して
+    // 声がぶつ切りになる。
+    expect(speaker.spoken.last, 'できたね！');
+    expect(speaker.stopped, 0, reason: 'ほめている途中で止めない');
+
+    await advance(tester);
+    expect(speaker.spoken.last, contains('こ を かいてね'));
   });
 
   test('書けない字を含む語は出題候補から外れる', () {

@@ -96,7 +96,7 @@ Future<bool> practiceWord(
                 : WordImageView(
                     image: word.image!,
                     books: session.books,
-                    size: 56,
+                    size: 96,
                   ),
           ),
         ),

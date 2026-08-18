@@ -23,6 +23,20 @@ Future<void> tapDone(WidgetTester tester) async {
   fail('字形が出ない');
 }
 
+/// 書き上げたあと、自分で次の字へ進むのを待つ（語を書いているとき）。
+///
+/// ほめ言葉を言い終わるまで進まないので、実時間を進める必要がある。
+Future<void> advance(WidgetTester tester) async {
+  for (var i = 0; i < 100; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+    if (find.byType(GlyphPreview).evaluate().isEmpty) return;
+  }
+  fail('つぎの字へ進まない');
+}
+
 /// キャンバスの中央を横切る線を引く。
 Future<void> drawLine(WidgetTester tester) async {
   final canvas = find.byType(InkCanvas);

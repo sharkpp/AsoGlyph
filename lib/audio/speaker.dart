@@ -7,6 +7,10 @@ import 'package:flutter_tts/flutter_tts.dart';
 /// ならない（SPEC 2）。画面が伝えることは、必ず音声でも伝える。
 abstract interface class Speaker {
   /// 読み上げる。読み上げ中なら打ち切って言い直す。
+  ///
+  /// **言い終わるまで返らない。** 声を聞かせてから次へ進みたい場面があり
+  /// （書けたときのほめ言葉）、言い始めた時点で返ると、次の画面が声を
+  /// 追い越して打ち切ってしまう。
   Future<void> speak(String text);
 
   /// 読み上げを止める。
@@ -25,6 +29,8 @@ class TtsSpeaker implements Speaker {
     final tts = FlutterTts();
     await _quietly(() async {
       await tts.setLanguage('ja-JP');
+      // 言い終わりまで待てるようにする。web・Android・iOS のどれも対応している。
+      await tts.awaitSpeakCompletion(true);
       await tts.setSpeechRate(_normalRate * _slowdown);
       await tts.setPitch(_pitch);
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
@@ -42,7 +48,9 @@ class TtsSpeaker implements Speaker {
   @override
   Future<void> speak(String text) => _quietly(() async {
     await _tts.stop();
-    await _tts.speak(text);
+    // 言い終わりを待つが、待ち続けはしない。読み上げの終わりを知らせない
+    // 端末があり、そこで画面が止まると字が書けなくなる。
+    await _tts.speak(text).timeout(_maxWait, onTimeout: () {});
   });
 
   @override
@@ -57,6 +65,9 @@ class TtsSpeaker implements Speaker {
 
   /// 少し高い声のほうが子供には届く。
   static const _pitch = 1.2;
+
+  /// 言い終わりを待つ上限。いちばん長い読み上げでも 4 秒あれば足りる。
+  static const _maxWait = Duration(seconds: 4);
 
   /// 読み上げの失敗で画面を止めない。
   ///

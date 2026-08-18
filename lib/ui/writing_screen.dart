@@ -118,9 +118,6 @@ class _WritingScreenState extends State<WritingScreen>
   /// 小書きの字。枠を小さくして、その中に書かせる（SPEC 5.3）。
   bool get _small => isSmallKana(widget.char);
 
-  /// ひとまとまりの途中で、まだ続きの字があるか。
-  bool get _continues => widget.steps != null && !widget.steps!.isLast;
-
   /// お手本を出すモードで、書き順のデータもある。
   bool get _showsStrokeOrder =>
       widget.mode != PracticeMode.free && widget.strokeOrder != null;
@@ -141,7 +138,10 @@ class _WritingScreenState extends State<WritingScreen>
 
   @override
   void dispose() {
-    widget.speaker.stop();
+    // 書き上げたあとは、ほめる声と次の案内が続く。ここで止めると、
+    // 画面が切り替わるたびに声がぶつ切りになる。
+    // 書かずに閉じたときだけ、言いかけを止める。
+    if (_savedId == null) widget.speaker.stop();
     _playback.dispose();
     _ink
       ..removeListener(_onInkChanged)
@@ -200,13 +200,33 @@ class _WritingScreenState extends State<WritingScreen>
       _savedId = sample.id;
       _busy = false;
     });
+
     // なぞりはフォントに入らない。ほめたうえで、次の段へ誘う（SPEC 7.1）。
-    widget.speaker.speak(
+    final praise = widget.speaker.speak(
       widget.mode == PracticeMode.trace
           ? 'なぞれたね！ こんどは じぶんで かいてみよう'
           : 'できたね！',
     );
+
+    // 1 字だけの練習は、ここで止まる。書けた字を見ていられるようにする。
+    if (widget.steps == null) return;
+
+    // 語を書いているときは、押さずに次の字へ進む。字ごとに「つぎ」を
+    // 押させると、書くより押す回数のほうが多くなる。
+    //
+    // ほめ言葉を言い終わってから進む。言い終わる前に画面を替えると、
+    // 次の画面の読み上げが追い越して声がぶつ切りになる。
+    await Future.wait([praise, Future<void>.delayed(_glimpse)]);
+    if (!mounted) return;
+    Navigator.of(context).pop(_savedId);
   }
+
+  /// 書けた字を見せておく最短の時間。
+  ///
+  /// 読み上げが無い端末では、ほめ言葉を待っても一瞬で返る。自分の書いた線が
+  /// フォントの字形に変わるところは、この製品でいちばん見せたいものなので
+  /// （SPEC 8.1）、声が出ないときでもここは見える。
+  static const _glimpse = Duration(milliseconds: 900);
 
   void _again() {
     _ink.clear();
@@ -238,7 +258,7 @@ class _WritingScreenState extends State<WritingScreen>
               child: Column(
                 children: [
                   if (widget.steps != null) ...[
-                    _buildSteps(widget.steps!),
+                    _buildSteps(widget.steps!, wide: wide),
                     const SizedBox(height: 12),
                   ],
                   Expanded(
@@ -275,16 +295,24 @@ class _WritingScreenState extends State<WritingScreen>
   ///
   /// 何も見ずに書くモードでは、まだ書いていない字を伏せる。字が出ていると
   /// 音を頼りに書くという前提が崩れる（SPEC 7.1）。
-  Widget _buildSteps(WritingSteps progress) {
+  Widget _buildSteps(WritingSteps progress, {required bool wide}) {
     final scheme = Theme.of(context).colorScheme;
     final chars = progress.chars;
     final hides = widget.mode == PracticeMode.free;
+
+    // 絵は大きいほど分かりやすいが、書き取り面を押しつぶしては本末転倒。
+    // 広い画面でだけ大きくする。
+    final picture = wide ? 132.0 : 76.0;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (progress.picture != null) ...[
-          progress.picture!,
+          SizedBox(
+            width: picture,
+            height: picture,
+            child: FittedBox(child: progress.picture),
+          ),
           const SizedBox(width: 12),
         ],
         Flexible(child: _buildStepBoxes(progress, chars, hides, scheme)),
@@ -482,6 +510,11 @@ class _WritingScreenState extends State<WritingScreen>
     return AnimatedBuilder(
       animation: _ink,
       builder: (context, _) {
+        // 語を書いているときは、書けた字を見せたら自分で次へ進む。
+        // 押すものが出ては消えると、押しに行った指が空振りする。
+        if (_glyph != null && widget.steps != null) {
+          return const SizedBox(height: 64);
+        }
         if (_glyph != null) {
           return Wrap(
             spacing: 16,
@@ -496,8 +529,8 @@ class _WritingScreenState extends State<WritingScreen>
               FilledButton.icon(
                 style: FilledButton.styleFrom(minimumSize: size),
                 onPressed: () => Navigator.of(context).pop(_savedId),
-                icon: Icon(_continues ? Icons.arrow_forward : Icons.check, size: 32),
-                label: Text(_continues ? 'つぎ' : 'おわり'),
+                icon: const Icon(Icons.check, size: 32),
+                label: const Text('おわり'),
               ),
             ],
           );

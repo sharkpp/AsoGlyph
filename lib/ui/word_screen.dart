@@ -150,39 +150,45 @@ class _WordTile extends StatelessWidget {
         child: Container(
           // タップターゲットは 64dp 以上（SPEC 9）。
           constraints: const BoxConstraints(minWidth: 96, minHeight: 68),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // 字が読めない子は、絵でしか語を選べない（SPEC 7.4）。
+              // 字の上に大きく置く。並びは崩れない（横に伸びず縦に伸びる）。
               if (word.image != null) ...[
-                WordImageView(image: word.image!, books: books, size: 56),
-                const SizedBox(width: 8),
+                WordImageView(image: word.image!, books: books, size: 120),
+                const SizedBox(height: 4),
               ],
-              // かっこの中は、書かない字なので薄く出す（SPEC 7.4）。
-              // どこを書くのかが、選ぶ前に分かるようにする。
-              Text.rich(
-                TextSpan(
-                  children: [
-                    for (final part in word.segments)
-                      TextSpan(
-                        text: part.text,
-                        style: TextStyle(
-                          color: part.given
-                              ? const Color(0xff9c948a)
-                              : done
-                              ? scheme.onPrimaryContainer
-                              : const Color(0xff6f665c),
-                        ),
-                      ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // かっこの中は、書かない字なので薄く出す（SPEC 7.4）。
+                  // どこを書くのかが、選ぶ前に分かるようにする。
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        for (final part in word.segments)
+                          TextSpan(
+                            text: part.text,
+                            style: TextStyle(
+                              color: part.given
+                                  ? const Color(0xff9c948a)
+                                  : done
+                                  ? scheme.onPrimaryContainer
+                                  : const Color(0xff6f665c),
+                            ),
+                          ),
+                      ],
+                    ),
+                    style: const TextStyle(fontSize: 28, height: 1.2),
+                  ),
+                  if (done) ...[
+                    const SizedBox(width: 6),
+                    Icon(Icons.star, size: 16, color: scheme.primary),
                   ],
-                ),
-                style: const TextStyle(fontSize: 28, height: 1.2),
+                ],
               ),
-              if (done) ...[
-                const SizedBox(width: 6),
-                Icon(Icons.star, size: 16, color: scheme.primary),
-              ],
             ],
           ),
         ),
