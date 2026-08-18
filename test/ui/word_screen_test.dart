@@ -74,11 +74,10 @@ void main() {
   });
 
   testWidgets('書ける語が 1 つも無ければ、そのことを言う', (tester) async {
-    await tester.runAsync(() async {
-      for (final book in [...session.books.all]) {
-        await session.books.remove(book.id);
-      }
-    });
+    // どの単語帳もこの人には割り振られていない状態にする。
+    await tester.runAsync(
+      () => session.users.save(session.current.copyWith(wordBooks: {'none'})),
+    );
     await pumpScreen(tester);
 
     expect(find.textContaining('書ける語がありません'), findsOneWidget);
@@ -201,12 +200,16 @@ void main() {
         ),
         fileName: 'cat.png',
       );
-      await session.books.add(
+      final book = await session.books.add(
         WordBook(
           id: '',
           name: 'えのあることば',
           words: [Word(text: 'ねこ', reading: 'ねこ', image: image)],
         ),
+      );
+      // ほかの単語帳を出さないようにして、この語だけを並べる。
+      await session.users.save(
+        session.current.copyWith(wordBooks: {book.id}),
       );
     });
     await pumpScreen(tester);
@@ -218,10 +221,7 @@ void main() {
 
   testWidgets('かっこの中は出しておくだけで、書かせない', (tester) async {
     await tester.runAsync(() async {
-      for (final book in [...session.books.all]) {
-        await session.books.remove(book.id);
-      }
-      await session.books.add(
+      final hero = await session.books.add(
         const WordBook(
           id: '',
           name: 'ヒーロー',
@@ -229,6 +229,10 @@ void main() {
             Word(text: '[ウルトラマン]オメガ', reading: 'うるとらまんおめが'),
           ],
         ),
+      );
+      // ほかの単語帳を出さないようにして、この語だけを並べる。
+      await session.users.save(
+        session.current.copyWith(wordBooks: {hero.id}),
       );
     });
     await collectOnly(tester, {CharSet.katakana});

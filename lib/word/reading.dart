@@ -7,8 +7,6 @@
 /// エンジンは字面をそのまま読むので、混ざったぶんだけ読まれ方も揺れる。
 library;
 
-import 'package:flutter/services.dart';
-
 /// 読みに使える字だけを残し、カタカナはひらがなに直す。
 ///
 /// - カタカナ … ひらがなに直す（バス → ばす）
@@ -31,36 +29,4 @@ String toReading(String input) {
     }
   }
   return out.toString();
-}
-
-/// 打ちながら直す。カタカナで打っても、その場でひらがなになる。
-///
-/// 決めたあとに黙って直すのではなく、打っている手元で直す。あとから
-/// 変わると、自分が打ったものと違うものが残ったように見える。
-class ReadingInputFormatter extends TextInputFormatter {
-  const ReadingInputFormatter();
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final text = toReading(newValue.text);
-    if (text == newValue.text) return newValue;
-
-    // 落とした字のぶんだけ、入力位置を戻す。
-    final removed = newValue.text.characters.length - text.characters.length;
-    final offset = (newValue.selection.baseOffset - removed).clamp(
-      0,
-      text.length,
-    );
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: offset),
-    );
-  }
-}
-
-extension on String {
-  List<String> get characters => runes.map(String.fromCharCode).toList();
 }

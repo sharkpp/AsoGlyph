@@ -44,3 +44,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 動作確認用の辞書（SPEC 7.4）。
+# ファイル名が _ で始まるものはデバッグでだけ読み込まれ、リポジトリには
+# 入れない。素の取得から作ったリリースには存在しない。
+assets/words/_*

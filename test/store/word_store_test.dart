@@ -4,6 +4,7 @@ import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/user.dart';
 import 'package:asoglyph/model/word.dart';
 import 'package:asoglyph/store/word_attempt_store.dart';
+import 'package:asoglyph/store/word_book_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/memory_store.dart';
@@ -30,8 +31,11 @@ void main() {
       final all = {for (final set in CharSet.values) ...set.chars};
 
       // 集める文字種に無い字が混じった語は出題候補から外れる（SPEC 7.4）。
-      // 同梱の単語帳がその条件で丸ごと消えては意味がない。
-      for (final book in books.all) {
+      // 内蔵の単語帳がその条件で丸ごと消えては意味がない。
+      //
+      // 動作確認用の辞書（`_` で始まる資産）は見ない。手元に置いたものが
+      // 何であれ、配るものの保証は変わらない。
+      for (final book in books.all.where((book) => !book.isDebugBook)) {
         expect(
           book.words.where((word) => !word.isWritable(all)),
           isEmpty,
@@ -42,7 +46,10 @@ void main() {
 
     test('おまかせで全部の字に行き着ける', () async {
       final books = await openMemoryWordBooks();
-      final covered = {for (final book in books.all) ...book.chars};
+      final covered = {
+        for (final book in books.all)
+          if (!book.isDebugBook) ...book.chars,
+      };
 
       // おまかせは語で出す（SPEC 7.3）。語に出てこない字は、その導線では
       // 永久に出てこない。はじめの単語帳だけでフォントが埋まるようにしておく。
@@ -91,38 +98,74 @@ void main() {
       expect(reopened.all, hasLength(bundled));
     });
 
-    test('同梱の単語帳も直せる', () async {
+    test('内蔵の単語帳は直せない・消せない', () async {
       final db = await openMemoryDatabase();
       final books = await openMemoryWordBooks(db);
       final book = books.all.first;
+      final before = books.all.length;
+      expect(book.isBundled, isTrue);
 
-      // 「同梱だから直せない」という段差を作ると、語を 1 つ足したいだけの
-      // 親がまるごと作り直すことになる。
+      // 直せると「元に戻す」道が要る。消せても開き直すと戻ってくるので、
+      // 消せたように見えて戻る、といういちばん分かりにくい振る舞いになる。
+      await books.save(book.copyWith(name: 'うちのひらがな'));
+      await books.remove(book.id);
+
+      final reopened = await openMemoryWordBooks(db);
+      expect(reopened.all.first.name, book.name);
+      expect(reopened.all, hasLength(before));
+    });
+
+    test('内蔵をもとに、直せるコピーを作れる', () async {
+      final books = await openMemoryWordBooks();
+      final book = books.all.first;
+
+      final copy = await books.copy(book, name: 'うちのひらがな');
       await books.save(
-        book.copyWith(
-          name: 'うちのひらがな',
-          words: [...book.words, const Word(text: 'ぱぱ', reading: 'ぱぱ')],
+        copy.copyWith(words: [...copy.words, const Word(text: 'ぱぱ', reading: 'ぱぱ')]),
+      );
+
+      // 語を 1 つ足したいだけの親が、まるごと作り直すことにならないように。
+      expect(copy.isBundled, isFalse);
+      expect(books.all.last.words.last.text, 'ぱぱ');
+      expect(books.all.first.words, book.words, reason: 'もとは変わらない');
+    });
+
+    test('開き直しても内蔵はそろっている', () async {
+      final db = await openMemoryDatabase();
+      final first = await openMemoryWordBooks(db);
+      final assets = [for (final book in first.all) book.source];
+
+      // 空のときだけ入れる作りにすると、あとからアプリに足した辞書が
+      // すでに使っている端末に出てこない。
+      final reopened = await openMemoryWordBooks(db);
+      expect([for (final book in reopened.all) book.source], assets);
+      expect(reopened.all.every((book) => book.isBundled), isTrue);
+    });
+
+    test('自分の単語帳は、内蔵を合わせるときに消えない', () async {
+      final db = await openMemoryDatabase();
+      final books = await openMemoryWordBooks(db);
+      await books.add(
+        const WordBook(
+          id: '',
+          name: 'うちのことば',
+          words: [Word(text: 'ぱぱ', reading: 'ぱぱ')],
         ),
       );
 
+      // 「アプリから外した辞書を片づける」が、自分のぶんまで巻き込まない。
       final reopened = await openMemoryWordBooks(db);
-      expect(reopened.all.first.name, 'うちのひらがな');
-      expect(reopened.all.first.words.last.text, 'ぱぱ');
+      expect(
+        reopened.all.where((book) => !book.isBundled).single.name,
+        'うちのことば',
+      );
     });
 
-    test('消した同梱の単語帳を入れ直せる', () async {
-      final db = await openMemoryDatabase();
-      final books = await openMemoryWordBooks(db);
-      final bundled = books.all.length;
-      await books.remove(books.all.first.id);
-
-      // 消せるのに戻せないと、親は消すのをためらう。
-      expect(books.bundledMissing, hasLength(1));
-      final added = await books.restoreBundled();
-
-      expect(added, hasLength(1));
-      expect(books.all, hasLength(bundled));
-      expect(books.bundledMissing, isEmpty);
+    test('動作確認用の辞書は、名前の先頭で見分ける', () {
+      // リリースには存在しない（.gitignore）。手元では内蔵と同じ場所に
+      // 並ぶので、見分けが付くようにする。
+      expect(WordBookStore.isDebugAsset('assets/words/_ためし.yaml'), isTrue);
+      expect(WordBookStore.isDebugAsset('assets/words/hiragana.yaml'), isFalse);
     });
   });
 
@@ -140,7 +183,14 @@ void main() {
       expect(id, endsWith('.png'));
       expect(await books.readImage(id), [1, 2, 3]);
 
-      // 開き直しても残る。
+      // 語から指していれば、開き直しても残る（指されない絵は片づく）。
+      await books.add(
+        WordBook(
+          id: '',
+          name: 'え',
+          words: [Word(text: 'ねこ', reading: 'ねこ', image: id)],
+        ),
+      );
       final reopened = await openMemoryWordBooks(db);
       expect(await reopened.readImage(id), [1, 2, 3]);
     });

@@ -24,7 +24,6 @@ class WordBookSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = session.current;
-    final missing = books.bundledMissing;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -40,11 +39,26 @@ class WordBookSection extends StatelessWidget {
             controlAffinity: ListTileControlAffinity.leading,
             value: user.uses(book.id),
             onChanged: (on) => _toggle(book.id, on ?? false),
-            title: Text(book.name),
+            title: Row(
+              children: [
+                Flexible(child: Text(book.name)),
+                // アプリに入っているものだと分かるようにする。直せない・
+                // 消せないのが、名前だけでは伝わらない。
+                if (book.isBundled) ...[
+                  const SizedBox(width: 8),
+                  _Badge(
+                    label: book.isDebugBook ? '動作確認用' : '内蔵',
+                    warn: book.isDebugBook,
+                  ),
+                ],
+              ],
+            ),
             subtitle: Text('${book.words.length} 語'),
             secondary: IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: 'ことばを直す',
+              icon: Icon(
+                book.isBundled ? Icons.visibility_outlined : Icons.edit_outlined,
+              ),
+              tooltip: book.isBundled ? 'ことばを見る' : 'ことばを直す',
               onPressed: () => _edit(context, book),
             ),
           ),
@@ -64,16 +78,6 @@ class WordBookSection extends StatelessWidget {
           ),
           onTap: () => _import(context),
         ),
-        // 消したものを取り戻す道を残しておく。消せるのに戻せないと、親は
-        // 消すのをためらう。
-        if (missing.isNotEmpty)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.restore),
-            title: const Text('はじめの単語帳を入れ直す'),
-            subtitle: Text('${missing.length} 冊ぶん'),
-            onTap: () => _restore(context),
-          ),
       ],
     );
   }
@@ -182,11 +186,31 @@ class WordBookSection extends StatelessWidget {
     );
   }
 
-  Future<void> _restore(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final added = await books.restoreBundled();
-    messenger.showSnackBar(
-      SnackBar(content: Text('${added.length} 冊を入れ直しました')),
+}
+
+/// 「内蔵」「動作確認用」の印。
+class _Badge extends StatelessWidget {
+  const _Badge({required this.label, required this.warn});
+
+  final String label;
+
+  /// 配るものには入らない辞書。目立たせて、混ぜたままにしない。
+  final bool warn;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = warn ? const Color(0xffc4553c) : const Color(0xff7a8f6a);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 11, color: color),
+      ),
     );
   }
 }

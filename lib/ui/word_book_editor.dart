@@ -12,6 +12,7 @@ import '../store/word_book_store.dart';
 import '../word/reading.dart';
 import '../word/word_book_export.dart';
 import '../word/word_image.dart';
+import 'reading_input.dart';
 import 'word_book_section.dart';
 import 'word_image_view.dart';
 
@@ -44,27 +45,31 @@ class _WordBookEditorState extends State<WordBookEditor> {
         backgroundColor: const Color(0xfffaf7f0),
         title: Text(_book.name),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.drive_file_rename_outline),
-            tooltip: '名前を変える',
-            onPressed: _rename,
-          ),
+          // 内蔵は直せない。名前も語も、消すこともできない。
+          if (!_book.isBundled)
+            IconButton(
+              icon: const Icon(Icons.drive_file_rename_outline),
+              tooltip: '名前を変える',
+              onPressed: _rename,
+            ),
           IconButton(
             icon: const Icon(Icons.ios_share),
             tooltip: '書き出す',
             onPressed: _export,
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'この単語帳を消す',
-            onPressed: _remove,
-          ),
+          if (!_book.isBundled)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'この単語帳を消す',
+              onPressed: _remove,
+            ),
         ],
       ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (_book.isBundled) _buildBundledNote(),
             if (_book.words.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
@@ -78,18 +83,73 @@ class _WordBookEditorState extends State<WordBookEditor> {
               _WordRow(
                 word: word,
                 books: widget.books,
-                onEdit: () => _editWord(index),
-                onRemove: () => _removeWord(index),
+                onEdit: _book.isBundled ? null : () => _editWord(index),
+                onRemove: _book.isBundled ? null : () => _removeWord(index),
               ),
             const SizedBox(height: 8),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
-              onPressed: _addWord,
-              icon: const Icon(Icons.add),
-              label: const Text('ことばを足す'),
+            if (!_book.isBundled)
+              FilledButton.icon(
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
+                onPressed: _addWord,
+                icon: const Icon(Icons.add),
+                label: const Text('ことばを足す'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 内蔵だと分かるようにし、直したい人をコピーへ導く。
+  Widget _buildBundledNote() {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      color: const Color(0xfff2efe8),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _book.isDebugBook
+                  ? 'これは動作確認用の辞書です'
+                  : 'これはアプリに入っている単語帳です',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _book.isDebugBook
+                  ? '手元でだけ読み込まれます。配るアプリには入りません。'
+                  : '直したり消したりはできません。要らない人にはチェックを '
+                        '外してください。語を足したいときはコピーを作ります。',
+              style: const TextStyle(color: Color(0xff6f665c)),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _copy,
+              icon: const Icon(Icons.copy_all_outlined),
+              label: const Text('コピーを作る'),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 直せるコピーを作って、そのまま開く。
+  Future<void> _copy() async {
+    final name = await askWordBookName(
+      context,
+      title: 'コピーの名前',
+      initial: '${_book.name} のコピー',
+    );
+    if (name == null) return;
+    final copy = await widget.books.copy(_book, name: name);
+    if (!mounted) return;
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (context) => WordBookEditor(book: copy, books: widget.books),
       ),
     );
   }
@@ -218,8 +278,10 @@ class _WordRow extends StatelessWidget {
 
   final Word word;
   final WordBookStore books;
-  final VoidCallback onEdit;
-  final VoidCallback onRemove;
+
+  /// 内蔵の単語帳では null。見るだけになる。
+  final VoidCallback? onEdit;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -258,11 +320,13 @@ class _WordRow extends StatelessWidget {
         ),
       ),
       onTap: onEdit,
-      trailing: IconButton(
-        icon: const Icon(Icons.close),
-        tooltip: 'この ことばを消す',
-        onPressed: onRemove,
-      ),
+      trailing: onRemove == null
+          ? null
+          : IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: 'この ことばを消す',
+              onPressed: onRemove,
+            ),
     );
   }
 }

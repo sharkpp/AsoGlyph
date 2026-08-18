@@ -1,3 +1,4 @@
+import 'package:asoglyph/ui/reading_input.dart';
 import 'package:asoglyph/word/reading.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

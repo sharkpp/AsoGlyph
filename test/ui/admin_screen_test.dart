@@ -209,14 +209,21 @@ void main() {
 
     // 単語帳そのものは、みんなで使う 1 つ。分けるのは誰に出すかだけ。
     expect(session.current.uses(katakanaBookId(session)), isFalse);
-    expect(session.books.all, hasLength(3), reason: '単語帳は消えていない');
+    expect(
+      session.books.all.map((book) => book.name),
+      contains('カタカナのことば'),
+      reason: '単語帳は消えていない',
+    );
   });
 
   testWidgets('出す単語帳を全部は外せない', (tester) async {
     await pumpScreen(tester);
     await tester.scrollUntilVisible(find.text('カタカナのことば'), 200);
 
-    for (final name in ['カタカナのことば', 'すうじのことば', 'ひらがなのことば']) {
+    // 手元に動作確認用の辞書があっても効くよう、いま出ているものを全部外す。
+    for (final name in [
+      for (final book in session.books.all) book.name,
+    ]) {
       await tester.runAsync(() async {
         await tester.tap(
           find.descendant(

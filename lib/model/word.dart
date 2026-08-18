@@ -139,11 +139,18 @@ class WordBook {
   final String name;
   final List<Word> words;
 
-  /// どこから来たか。同梱の単語帳だけが持つ（資産のパス）。
-  ///
-  /// 消したものを入れ直せるようにするためだけに持つ。中身は直せるし、
-  /// 直したあともここは変わらない。
+  /// どこから来たか。内蔵の単語帳だけが持つ（資産のパス）。
   final String? source;
+
+  /// アプリに入っている単語帳か。直せないし消せない（SPEC 7.4）。
+  bool get isBundled => source != null;
+
+  /// 動作確認用の辞書か。ファイル名が `_` で始まるもの。
+  ///
+  /// デバッグでだけ読み、リポジトリにも入れない。配るものには入らないが、
+  /// 手元では内蔵と同じ場所に並ぶので、見分けが付くようにする。
+  bool get isDebugBook =>
+      isBundled && source!.split('/').last.startsWith('_');
 
   WordBook copyWith({String? name, List<Word>? words}) => WordBook(
     id: id,
