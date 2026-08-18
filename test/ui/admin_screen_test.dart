@@ -275,7 +275,8 @@ void main() {
     final book = session.books.all.last;
     expect(book.name, 'どうぶつ');
     expect(book.words.single.text, 'ぱんだ');
-    expect(book.words.single.reading, 'パンダ');
+    // 読みはひらがなに揃える。打っている手元で直る（SPEC 7.4）。
+    expect(book.words.single.reading, 'ぱんだ');
   });
 
   testWidgets('ロックは 2 つ別々に掛けられる', (tester) async {

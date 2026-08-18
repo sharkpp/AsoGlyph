@@ -2,6 +2,7 @@ import 'package:csv/csv.dart';
 import 'package:yaml/yaml.dart';
 
 import '../model/word.dart';
+import 'reading.dart';
 
 /// 単語帳を読めなかった。親に見せる文言をそのまま持つ。
 class WordBookFormatException implements Exception {
@@ -60,13 +61,19 @@ Word _word(Object? entry, int line) {
     throw WordBookFormatException('$line 個めの語が読めません');
   }
   final text = (entry['text'] as Object?)?.toString().trim() ?? '';
-  final reading = (entry['reading'] as Object?)?.toString().trim() ?? '';
+  final written = (entry['reading'] as Object?)?.toString().trim() ?? '';
+  // 読みはひらがなに揃える。読み上げるためだけのものなので、表記は要らない。
+  final reading = toReading(written).trim();
   if (text.isEmpty) {
     throw WordBookFormatException('$line 個めの語に text がありません');
   }
   // 読みを必須にするのは、子供が読めない語を出さないため（SPEC 7.4）。
   if (reading.isEmpty) {
-    throw WordBookFormatException('「$text」に reading がありません');
+    throw WordBookFormatException(
+      written.isEmpty
+          ? '「$text」に reading がありません'
+          : '「$text」の reading をひらがなで書いてください',
+    );
   }
   final tags = entry['tags'];
   // 絵は名前だけが載る。中身は単語帳ファイル（.asodict）の側にある。
@@ -103,12 +110,17 @@ WordBook parseWordBookCsv(
     if (index == 0 && _isHeader(cells)) continue;
 
     final text = cells.isEmpty ? '' : cells[0];
-    final reading = cells.length > 1 ? cells[1] : '';
+    final written = cells.length > 1 ? cells[1] : '';
+    final reading = toReading(written).trim();
     if (text.isEmpty) {
       throw WordBookFormatException('${index + 1} 行めに ことば がありません');
     }
     if (reading.isEmpty) {
-      throw WordBookFormatException('${index + 1} 行め「$text」に よみ がありません');
+      throw WordBookFormatException(
+        written.isEmpty
+            ? '${index + 1} 行め「$text」に よみ がありません'
+            : '${index + 1} 行め「$text」の よみ をひらがなで書いてください',
+      );
     }
     words.add(
       Word(

@@ -34,6 +34,34 @@ words:
       expect(book.name, 'ファイル名');
     });
 
+    test('読みはひらがなに揃える', () {
+      final book = parseWordBookYaml(
+        'words:\n  - {text: バス, reading: バス}\n',
+        id: 'test',
+        fallbackName: 'x',
+      );
+
+      // 読みは声で読み上げるためだけのもの。表記は要らない。
+      expect(book.words.single.reading, 'ばす');
+    });
+
+    test('ひらがなにならない読みは、そう言って断る', () {
+      expect(
+        () => parseWordBookYaml(
+          'words:\n  - {text: 鼻血, reading: hanaji}\n',
+          id: 'test',
+          fallbackName: 'x',
+        ),
+        throwsA(
+          isA<WordBookFormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('ひらがなで'),
+          ),
+        ),
+      );
+    });
+
     test('読みが無い語は受けない', () {
       // 子供が読めない語を出さないため、reading は必須（SPEC 7.4）。
       expect(

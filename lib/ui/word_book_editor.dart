@@ -9,6 +9,7 @@ import '../export/font_export.dart';
 import '../model/char_set.dart';
 import '../model/word.dart';
 import '../store/word_book_store.dart';
+import '../word/reading.dart';
 import '../word/word_book_export.dart';
 import '../word/word_image.dart';
 import 'word_book_section.dart';
@@ -403,10 +404,13 @@ class _WordDialogState extends State<_WordDialog> {
             const SizedBox(height: 8),
             TextField(
               controller: _reading,
+              // 打っている手元で直す。決めたあとに黙って直すと、自分が
+              // 打ったものと違うものが残ったように見える。
+              inputFormatters: const [ReadingInputFormatter()],
               decoration: const InputDecoration(
                 labelText: 'よみ',
                 // 読みを必須にするのは、子供が読めない語を出さないため（SPEC 7.4）。
-                helperText: '声で読み上げます。書けなくても、聞けば分かるように',
+                helperText: '声で読み上げます。ひらがなで（カタカナは直ります）',
               ),
             ),
             const SizedBox(height: 16),
@@ -494,12 +498,15 @@ class _WordDialogState extends State<_WordDialog> {
             // 書かせる字が 1 つも無い語は、練習に出しようがない。
             if (word.isEmpty || _writable.isEmpty) return;
             // 読みを書かなかったら、ことばをそのまま読む。かなの語では
-            // それで足りるし、ここで止めると入力が進まない。
+            // それで足りるし、ここで止めると入力が進まない。かっこは外し、
+            // カタカナはひらがなに直したものを読みにする。
             final how = _reading.text.trim();
             Navigator.of(context).pop(
               Word(
                 text: word,
-                reading: how.isEmpty ? word : how,
+                reading: how.isEmpty
+                    ? toReading(Word(text: word, reading: '').display)
+                    : how,
                 tags: widget.initial?.tags ?? const [],
                 image: _image,
               ),

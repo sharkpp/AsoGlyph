@@ -175,6 +175,59 @@ void main() {
     expect(books.all.last.words, hasLength(1));
   });
 
+  testWidgets('読みはカタカナで打ってもひらがなになる', (tester) async {
+    final book = await tester.runAsync(makeBook) as WordBook;
+    await pumpEditor(tester, book);
+
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'よみ'), 'ウルトラマンアーク');
+    await tester.pump();
+
+    // 長音符は残す。落とすと「あーく」が「あく」になる。
+    expect(
+      tester.widget<TextField>(find.widgetWithText(TextField, 'よみ')).controller!.text,
+      'うるとらまんあーく',
+    );
+  });
+
+  testWidgets('読みに使えない字は入らない', (tester) async {
+    final book = await tester.runAsync(makeBook) as WordBook;
+    await pumpEditor(tester, book);
+
+    await tester.tap(find.byType(ListTile).first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'よみ'), 'はな血 100');
+    await tester.runAsync(() async {
+      await tester.tap(find.text('決める'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pumpAndSettle();
+
+    // 読み上げられない字を残しても、読まれ方が揺れるだけ。
+    expect(books.all.last.words.single.reading, 'はな');
+  });
+
+  testWidgets('読みを書かなければ、ことばをひらがなにして読む', (tester) async {
+    final book = await tester.runAsync(makeBook) as WordBook;
+    await pumpEditor(tester, book);
+
+    await tester.tap(find.text('ことばを足す'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'ことば'),
+      '[ウルトラマン]オメガ',
+    );
+    await tester.runAsync(() async {
+      await tester.tap(find.text('決める'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pumpAndSettle();
+
+    // かっこは外し、カタカナはひらがなに直したものを読みにする。
+    expect(books.all.last.words.last.reading, 'うるとらまんおめが');
+  });
+
   test('書き出した単語帳ファイルを、絵ごと戻せる', () async {
     final image = await books.addImage(_png, fileName: 'cat.png');
     final book = await makeBook(image: image);
