@@ -6,6 +6,7 @@ import 'kanjivg/stroke_order.dart';
 import 'store/app_database.dart';
 import 'store/passcode.dart';
 import 'store/session.dart';
+import 'store/word_book_store.dart';
 import 'ui/about.dart';
 import 'ui/collection_screen.dart';
 
@@ -18,6 +19,7 @@ Future<void> main() async {
     AsoGlyphApp(
       session: await Session.open(database),
       locks: await Locks.open(),
+      books: await WordBookStore.open(database),
       speaker: await TtsSpeaker.open(),
       strokeOrders: await StrokeOrderLibrary.load(),
     ),
@@ -29,12 +31,14 @@ class AsoGlyphApp extends StatelessWidget {
     super.key,
     required this.session,
     required this.locks,
+    required this.books,
     required this.speaker,
     required this.strokeOrders,
   });
 
   final Session session;
   final Locks locks;
+  final WordBookStore books;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
 
@@ -60,6 +64,7 @@ class AsoGlyphApp extends StatelessWidget {
       home: CollectionScreen(
         session: session,
         locks: locks,
+        books: books,
         speaker: speaker,
         strokeOrders: strokeOrders,
       ),

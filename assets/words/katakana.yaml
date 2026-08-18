@@ -1,0 +1,49 @@
+# カタカナだけで書ける語。長音符「ー」を含む語も入れてある。
+version: 1
+name: カタカナのことば
+words:
+  - text: バス
+    reading: バス
+    tags: [のりもの]
+  - text: タクシー
+    reading: タクシー
+    tags: [のりもの]
+  - text: ロケット
+    reading: ロケット
+    tags: [のりもの]
+  - text: パン
+    reading: パン
+    tags: [たべもの]
+  - text: ケーキ
+    reading: ケーキ
+    tags: [たべもの]
+  - text: カレー
+    reading: カレー
+    tags: [たべもの]
+  - text: ジュース
+    reading: ジュース
+    tags: [たべもの]
+  - text: アイス
+    reading: アイス
+    tags: [たべもの]
+  - text: ボール
+    reading: ボール
+    tags: [あそび]
+  - text: ブランコ
+    reading: ブランコ
+    tags: [あそび]
+  - text: プール
+    reading: プール
+    tags: [あそび]
+  - text: ノート
+    reading: ノート
+    tags: [まいにち]
+  - text: テレビ
+    reading: テレビ
+    tags: [まいにち]
+  - text: コップ
+    reading: コップ
+    tags: [まいにち]
+  - text: シャツ
+    reading: シャツ
+    tags: [まいにち]

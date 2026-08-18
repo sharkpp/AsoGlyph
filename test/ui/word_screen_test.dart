@@ -1,0 +1,184 @@
+import 'package:asoglyph/kanjivg/stroke_order.dart';
+import 'package:asoglyph/model/char_set.dart';
+import 'package:asoglyph/model/sample.dart';
+import 'package:asoglyph/model/word.dart';
+import 'package:asoglyph/store/session.dart';
+import 'package:asoglyph/store/word_book_store.dart';
+import 'package:asoglyph/ui/word_screen.dart';
+import 'package:asoglyph/ui/writing_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../support/memory_store.dart';
+import '../support/recording_speaker.dart';
+import '../support/writing_actions.dart';
+
+void main() {
+  late Session session;
+  late WordBookStore books;
+  late RecordingSpeaker speaker;
+  late StrokeOrderLibrary strokeOrders;
+
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    strokeOrders = await StrokeOrderLibrary.load();
+  });
+
+  setUp(() async {
+    session = await openMemorySession();
+    books = await openMemoryWordBooks();
+    speaker = RecordingSpeaker();
+  });
+
+  Future<void> pumpScreen(
+    WidgetTester tester, {
+    PracticeMode mode = PracticeMode.copy,
+  }) async {
+    tester.view
+      ..physicalSize = const Size(1200, 2400)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WordScreen(
+          session: session,
+          books: books,
+          speaker: speaker,
+          strokeOrders: strokeOrders,
+          mode: mode,
+        ),
+      ),
+    );
+  }
+
+  /// 集める文字種を絞る。
+  Future<void> collectOnly(WidgetTester tester, Set<CharSet> sets) =>
+      tester.runAsync(
+        () => session.users.save(session.current.copyWith(collecting: sets)),
+      );
+
+  testWidgets('同梱の単語帳が並ぶ', (tester) async {
+    await pumpScreen(tester);
+
+    expect(find.text('ひらがなのことば'), findsOneWidget);
+    expect(find.text('ねこ'), findsOneWidget);
+  });
+
+  testWidgets('集める文字種で書けない語は出さない', (tester) async {
+    await collectOnly(tester, {CharSet.hiragana});
+    await pumpScreen(tester);
+
+    // 書けない字が 1 つでも混じると、その語は最後まで書けない（SPEC 7.4）。
+    expect(find.text('ねこ'), findsOneWidget);
+    expect(find.text('カタカナのことば'), findsNothing);
+    expect(find.text('バス'), findsNothing);
+  });
+
+  testWidgets('書ける語が 1 つも無ければ、そのことを言う', (tester) async {
+    await collectOnly(tester, {CharSet.digits});
+    books = WordBookStore(await openMemoryDatabase());
+    await pumpScreen(tester);
+
+    expect(find.textContaining('書ける語がありません'), findsOneWidget);
+  });
+
+  testWidgets('語を書くと、1 字ずつ書かせて履歴に残る', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.tap(find.text('ねこ'));
+    await tester.pumpAndSettle();
+
+    // いま何字めかが見えている。3 字めまで書いたのに何の語か分からない、
+    // という状態を作らない（SPEC 7.4）。
+    final first = tester.widget<WritingScreen>(find.byType(WritingScreen));
+    expect(first.char, 'ね');
+    expect(first.word!.index, 0);
+    expect(first.word!.isLast, isFalse);
+    expect(speaker.spoken.last, contains('ねこ の ね'));
+
+    await drawLine(tester);
+    await tester.pump();
+    await tapDone(tester);
+
+    // まだ続きがあるので「つぎ」。
+    expect(find.widgetWithText(FilledButton, 'つぎ'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'つぎ'));
+    await tester.pumpAndSettle();
+
+    final second = tester.widget<WritingScreen>(find.byType(WritingScreen));
+    expect(second.char, 'こ');
+    expect(second.word!.isLast, isTrue);
+
+    await drawLine(tester);
+    await tester.pump();
+    await tapDone(tester);
+    await tester.runAsync(() async {
+      await tester.tap(find.widgetWithText(FilledButton, 'おわり'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pumpAndSettle();
+
+    // 単語トライアルとして残る（SPEC 4.2）。書いた記録そのものは 1 字ずつ入る。
+    expect(session.attempts.countOf('ねこ'), 1);
+    expect(session.attempts.all.single.sampleIds, hasLength(2));
+    expect(session.samples.collectedChars(includeTraced: false), {'ね', 'こ'});
+    expect(find.text('ねこ'), findsOneWidget, reason: '一覧に戻る');
+  });
+
+  testWidgets('途中でやめたら、単語トライアルは残らない', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.tap(find.text('ねこ'));
+    await tester.pumpAndSettle();
+    await drawLine(tester);
+    await tester.pump();
+    await tapDone(tester);
+    await tester.tap(find.widgetWithText(FilledButton, 'つぎ'));
+    await tester.pumpAndSettle();
+
+    // 2 字めを書かずに閉じる。
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+
+    expect(session.attempts.all, isEmpty);
+    // 書いた字は残る。記録は追記のみで消さない（SPEC 4.1）。
+    expect(session.samples.collectedChars(includeTraced: false), {'ね'});
+  });
+
+  testWidgets('何も見ずに書くモードでは、まだ書いていない字を伏せる', (tester) async {
+    await pumpScreen(tester, mode: PracticeMode.free);
+
+    await tester.tap(find.text('ねこ'));
+    await tester.pumpAndSettle();
+
+    // 字が出ていると、音を頼りに書くという前提が崩れる（SPEC 7.1）。
+    expect(find.text('？'), findsNWidgets(2));
+    expect(find.text('ね'), findsNothing);
+  });
+
+  testWidgets('書き終えた語には印が付く', (tester) async {
+    await tester.runAsync(
+      () => session.attempts.finish(word: 'ねこ', sampleIds: ['a', 'b']),
+    );
+    await pumpScreen(tester);
+
+    expect(
+      find.descendant(
+        of: find.ancestor(
+          of: find.text('ねこ'),
+          matching: find.byType(InkWell),
+        ),
+        matching: find.byIcon(Icons.star),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  test('書けない字を含む語は出題候補から外れる', () {
+    const word = Word(text: 'ねこ', reading: 'ねこ');
+
+    expect(word.isWritable({'ね', 'こ'}), isTrue);
+    expect(word.isWritable({'ね'}), isFalse);
+    expect(word.chars, ['ね', 'こ']);
+  });
+}

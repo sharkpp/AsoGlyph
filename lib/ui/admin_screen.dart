@@ -8,11 +8,13 @@ import '../store/passcode.dart';
 import '../store/recipe_store.dart';
 import '../store/sample_store.dart';
 import '../store/session.dart';
+import '../store/word_book_store.dart';
 import 'backup_section.dart';
 import 'char_set_screen.dart';
 import 'passcode_gate.dart';
 import 'recipe_editor.dart';
 import 'user_picker.dart';
+import 'word_book_section.dart';
 
 /// 保護者向けの画面（SPEC 7.6）。
 ///
@@ -23,10 +25,12 @@ class AdminScreen extends StatelessWidget {
     super.key,
     required this.session,
     required this.locks,
+    required this.books,
   });
 
   final Session session;
   final Locks locks;
+  final WordBookStore books;
 
   SampleStore get store => session.samples;
   RecipeStore get recipes => session.recipes;
@@ -97,6 +101,9 @@ class AdminScreen extends StatelessWidget {
                   onChanged: (on) => _toggleCollecting(charSet, on ?? false),
                   title: Text(charSet.label),
                 ),
+              const SizedBox(height: 24),
+              const _Heading('単語帳'),
+              WordBookSection(books: books),
               const SizedBox(height: 24),
               Row(
                 children: [

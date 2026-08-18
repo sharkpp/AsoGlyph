@@ -1,0 +1,99 @@
+# 同梱の単語帳。ひらがなだけで書ける語を集めてある。
+#
+# 語の選びかた:
+#   - 4 歳が意味の分かる、身のまわりの語
+#   - 2〜3 字。1 セッション（3〜5 分）で書き終わる長さ
+#   - 濁音・半濁音・小書きは、清音だけの語のうしろに置く
+version: 1
+name: ひらがなのことば
+words:
+  - text: ねこ
+    reading: ねこ
+    tags: [どうぶつ]
+  - text: いぬ
+    reading: いぬ
+    tags: [どうぶつ]
+  - text: うさぎ
+    reading: うさぎ
+    tags: [どうぶつ]
+  - text: きりん
+    reading: きりん
+    tags: [どうぶつ]
+  - text: くま
+    reading: くま
+    tags: [どうぶつ]
+  - text: さかな
+    reading: さかな
+    tags: [どうぶつ]
+  - text: とり
+    reading: とり
+    tags: [どうぶつ]
+  - text: あり
+    reading: あり
+    tags: [どうぶつ]
+  - text: りんご
+    reading: りんご
+    tags: [たべもの]
+  - text: みかん
+    reading: みかん
+    tags: [たべもの]
+  - text: いちご
+    reading: いちご
+    tags: [たべもの]
+  - text: ぱん
+    reading: ぱん
+    tags: [たべもの]
+  - text: たまご
+    reading: たまご
+    tags: [たべもの]
+  - text: おにぎり
+    reading: おにぎり
+    tags: [たべもの]
+  - text: くるま
+    reading: くるま
+    tags: [のりもの]
+  - text: でんしゃ
+    reading: でんしゃ
+    tags: [のりもの]
+  - text: ひこうき
+    reading: ひこうき
+    tags: [のりもの]
+  - text: ふね
+    reading: ふね
+    tags: [のりもの]
+  - text: おはよう
+    reading: おはよう
+    tags: [あいさつ]
+  - text: ありがとう
+    reading: ありがとう
+    tags: [あいさつ]
+  - text: おやすみ
+    reading: おやすみ
+    tags: [あいさつ]
+  - text: そら
+    reading: そら
+    tags: [しぜん]
+  - text: つき
+    reading: つき
+    tags: [しぜん]
+  - text: ほし
+    reading: ほし
+    tags: [しぜん]
+  - text: やま
+    reading: やま
+    tags: [しぜん]
+  - text: はな
+    reading: はな
+    tags: [しぜん]
+  - text: がっこう
+    reading: がっこう
+    tags: [まいにち]
+  - text: せんせい
+    reading: せんせい
+    tags: [まいにち]
+  - text: きょうしつ
+    reading: きょうしつ
+    tags: [まいにち]
+  - text: ぼうし
+    reading: ぼうし
+    tags: [まいにち]

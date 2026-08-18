@@ -1,0 +1,16 @@
+# すうじだけの語。数を書く練習になる。
+version: 1
+name: すうじ
+words:
+  - text: "1"
+    reading: いち
+  - text: "2"
+    reading: に
+  - text: "3"
+    reading: さん
+  - text: "10"
+    reading: じゅう
+  - text: "100"
+    reading: ひゃく
+  - text: "123"
+    reading: いち に さん

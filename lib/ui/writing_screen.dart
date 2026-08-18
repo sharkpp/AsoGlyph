@@ -7,16 +7,34 @@ import '../ink/ink_controller.dart';
 import '../kanjivg/stroke_order.dart';
 import '../model/char_set.dart';
 import '../model/sample.dart';
+import '../model/word.dart';
 import '../store/sample_store.dart';
 import '../trace/glyph_builder.dart';
 import 'glyph_preview.dart';
 import 'stroke_order_view.dart';
 import 'writing_guide.dart';
 
+/// 単語のうち、いま何字めを書いているか（SPEC 7.4）。
+///
+/// 語を書く導線でだけ渡す。1 字だけ練習するときは null。
+class WordProgress {
+  const WordProgress({required this.word, required this.index});
+
+  final Word word;
+
+  /// 0 始まり。
+  final int index;
+
+  bool get isLast => index == word.chars.length - 1;
+}
+
 /// 1 文字を書く画面。
 ///
 /// 「できた！」を押した時点で必ず記録する。字の巧拙で採否を決めないのが
 /// この製品の中核であり（SPEC 1）、子供に judge させる導線を作らない。
+///
+/// 書けたら記録の id を返して閉じる。語を書く導線が、書いた順に集める
+/// ため（SPEC 4.2）。書かずに閉じたときは null。
 class WritingScreen extends StatefulWidget {
   const WritingScreen({
     super.key,
@@ -25,9 +43,13 @@ class WritingScreen extends StatefulWidget {
     required this.store,
     required this.speaker,
     this.strokeOrder,
+    this.word,
   });
 
   final String char;
+
+  /// 語の中の何字めか。1 字だけ練習するときは null（SPEC 7.4）。
+  final WordProgress? word;
 
   /// お手本を出すか、音だけで書かせるか（SPEC 7.1）。
   final PracticeMode mode;
@@ -49,8 +71,14 @@ class _WritingScreenState extends State<WritingScreen>
   Glyph? _glyph;
   bool _busy = false;
 
+  /// 書けた記録の id。書き直すたびに新しいものに入れ替わる。
+  String? _savedId;
+
   /// 小書きの字。枠を小さくして、その中に書かせる（SPEC 5.3）。
   bool get _small => isSmallKana(widget.char);
+
+  /// 語の途中で、まだ続きの字があるか。
+  bool get _continues => widget.word != null && !widget.word!.isLast;
 
   /// お手本を出すモードで、書き順のデータもある。
   bool get _showsStrokeOrder =>
@@ -86,8 +114,15 @@ class _WritingScreenState extends State<WritingScreen>
 
   /// 何を書けばいいかを伝える。字が読めなくても始められるように、
   /// 声で読みを言い、同時に書き順を頭から見せる（SPEC 2 / 7.1）。
+  ///
+  /// 語を書いているときは語の読みから言う。「ねこ の ね」と言われて
+  /// はじめて、いま書いている字がどこの字なのか分かる。
   void _prompt() {
-    widget.speaker.speak('${readingOf(widget.char)}、かいてね');
+    final word = widget.word;
+    final char = readingOf(widget.char);
+    widget.speaker.speak(
+      word == null ? '$char、かいてね' : '${word.word.reading} の $char、かいてね',
+    );
     if (_showsStrokeOrder) _playback.forward(from: 0);
   }
 
@@ -101,13 +136,17 @@ class _WritingScreenState extends State<WritingScreen>
     setState(() => _busy = true);
 
     final glyph = await buildGlyph(char: widget.char, strokes: strokes);
-    await widget.store.add(
-      Sample.now(char: widget.char, mode: widget.mode, strokes: strokes),
+    final sample = Sample.now(
+      char: widget.char,
+      mode: widget.mode,
+      strokes: strokes,
     );
+    await widget.store.add(sample);
 
     if (!mounted) return;
     setState(() {
       _glyph = glyph;
+      _savedId = sample.id;
       _busy = false;
     });
     // なぞりはフォントに入らない。ほめたうえで、次の段へ誘う（SPEC 7.1）。
@@ -142,25 +181,82 @@ class _WritingScreenState extends State<WritingScreen>
             final wide = constraints.biggest.shortestSide >= 600;
             return Padding(
               padding: const EdgeInsets.all(16),
-              child: wide
-                  ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(child: Center(child: _buildModel())),
-                        Expanded(flex: 2, child: _buildCanvasArea()),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        _buildModel(),
-                        const SizedBox(height: 12),
-                        Expanded(child: _buildCanvasArea()),
-                      ],
-                    ),
+              child: Column(
+                children: [
+                  if (widget.word != null) ...[
+                    _buildWordStrip(widget.word!),
+                    const SizedBox(height: 12),
+                  ],
+                  Expanded(
+                    child: wide
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(child: Center(child: _buildModel())),
+                              Expanded(flex: 2, child: _buildCanvasArea()),
+                            ],
+                          )
+                        : Column(
+                            children: [
+                              _buildModel(),
+                              const SizedBox(height: 12),
+                              Expanded(child: _buildCanvasArea()),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
             );
           },
         ),
       ),
+    );
+  }
+
+  /// いま書いている語と、その中のどこを書いているか（SPEC 7.4）。
+  ///
+  /// 3 字めまで書いたのに何の語か分からない、という状態を作らない。
+  /// 何も見ずに書くモードでは、まだ書いていない字を伏せる。字が出ていると
+  /// 音を頼りに書くという前提が崩れる（SPEC 7.1）。
+  Widget _buildWordStrip(WordProgress progress) {
+    final scheme = Theme.of(context).colorScheme;
+    final chars = progress.word.chars;
+    final hides = widget.mode == PracticeMode.free;
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: [
+        for (final (index, char) in chars.indexed)
+          Container(
+            width: 44,
+            height: 52,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: index == progress.index
+                  ? scheme.primaryContainer
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: index == progress.index
+                    ? scheme.primary
+                    : const Color(0xffe4dfd4),
+                width: 2,
+              ),
+            ),
+            child: Text(
+              hides && index >= progress.index ? '？' : char,
+              style: TextStyle(
+                fontSize: 28,
+                height: 1,
+                color: index <= progress.index
+                    ? const Color(0xff6f665c)
+                    : const Color(0xffbdb4a6),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -307,9 +403,9 @@ class _WritingScreenState extends State<WritingScreen>
               ),
               FilledButton.icon(
                 style: FilledButton.styleFrom(minimumSize: size),
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.check, size: 32),
-                label: const Text('おわり'),
+                onPressed: () => Navigator.of(context).pop(_savedId),
+                icon: Icon(_continues ? Icons.arrow_forward : Icons.check, size: 32),
+                label: Text(_continues ? 'つぎ' : 'おわり'),
               ),
             ],
           );

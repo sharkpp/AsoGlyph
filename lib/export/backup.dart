@@ -13,13 +13,15 @@ import 'dart:typed_data';
 import 'package:sembast/blob.dart';
 import 'package:sembast/sembast.dart';
 
-const _backupVersion = 1;
+// 単語トライアルを足したときに 2 へ上げた。古い控えは読まない（AGENTS.md）。
+const _backupVersion = 2;
 
 final _users = stringMapStoreFactory.store('users');
 final _settings = stringMapStoreFactory.store('settings');
 final _samples = stringMapStoreFactory.store('samples');
 final _strokes = StoreRef<String, Blob>('strokes');
 final _recipes = stringMapStoreFactory.store('recipes');
+final _attempts = stringMapStoreFactory.store('wordAttempts');
 
 /// 控えを作る。
 Future<Uint8List> exportBackup(Database db) async {
@@ -32,6 +34,8 @@ Future<Uint8List> exportBackup(Database db) async {
     // 誰が書いていたかも戻す。「戻す」は端末をその時の姿に返すこと。
     'settings': await _records(db, _settings),
     'recipes': await _records(db, _recipes),
+    // 単語トライアルも記録のうち（SPEC 4.2）。
+    'wordAttempts': await _records(db, _attempts),
     'samples': await _records(db, _samples),
     // 運筆はバイト列なので base64 にする。
     'strokes': {
@@ -60,6 +64,7 @@ Future<void> importBackup(Database db, Uint8List bytes) async {
     await _put(txn, _users, backup['users']);
     await _put(txn, _settings, backup['settings']);
     await _put(txn, _recipes, backup['recipes']);
+    await _put(txn, _attempts, backup['wordAttempts']);
     await _put(txn, _samples, backup['samples']);
     for (final entry in strokes.entries) {
       await _strokes

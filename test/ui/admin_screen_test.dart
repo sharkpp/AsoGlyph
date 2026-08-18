@@ -6,6 +6,7 @@ import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/store/session.dart';
+import 'package:asoglyph/store/word_book_store.dart';
 import 'package:asoglyph/ui/admin_screen.dart';
 import 'package:asoglyph/ui/char_set_screen.dart';
 import 'package:asoglyph/ui/recipe_editor.dart';
@@ -28,6 +29,8 @@ Sample _written(String char, {required DateTime at}) => Sample(
 );
 
 void main() {
+  setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
+
   final spring = DateTime(2026, 4, 1);
   final autumn = DateTime(2026, 10, 1);
 
@@ -35,12 +38,14 @@ void main() {
   late SampleStore store;
   late RecipeStore recipes;
   late Locks locks;
+  late WordBookStore books;
 
   setUp(() async {
     session = await openMemorySession();
     store = session.samples;
     recipes = session.recipes;
     locks = await openMemoryLocks();
+    books = await openMemoryWordBooks();
   });
 
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -49,7 +54,9 @@ void main() {
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      MaterialApp(home: AdminScreen(session: session, locks: locks)),
+      MaterialApp(
+        home: AdminScreen(session: session, locks: locks, books: books),
+      ),
     );
   }
 
@@ -184,6 +191,21 @@ void main() {
 
     // 全部外すと子供の画面が空になり、何をする画面か分からなくなる。
     expect(session.current.visibleCharSets, hasLength(1));
+  });
+
+  testWidgets('単語帳の一覧が出て、同梱のものは消させない', (tester) async {
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(find.text('ひらがなのことば'), 200);
+
+    // 同梱のものは消しても取り戻す導線が無い。
+    expect(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'ひらがなのことば'),
+        matching: find.byIcon(Icons.delete_outline),
+      ),
+      findsNothing,
+    );
+    expect(find.text('単語帳を取り込む'), findsOneWidget);
   });
 
   testWidgets('ロックは 2 つ別々に掛けられる', (tester) async {

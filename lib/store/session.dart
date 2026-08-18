@@ -6,6 +6,7 @@ import '../model/user.dart';
 import 'recipe_store.dart';
 import 'sample_store.dart';
 import 'user_store.dart';
+import 'word_attempt_store.dart';
 
 /// いま誰が書いているか、と、その人の記録・版（SPEC 7.5）。
 ///
@@ -18,6 +19,7 @@ class Session extends ChangeNotifier {
     required this.users,
     required this.samples,
     required this.recipes,
+    required this.attempts,
   }) {
     // 名前・印・集める文字種が変わったことも、ここを見ていれば分かるようにする。
     // 画面ごとに users を別途購読させると、購読し忘れた画面だけ古いままになる。
@@ -37,6 +39,7 @@ class Session extends ChangeNotifier {
       users: users,
       samples: await SampleStore.open(db, userId: users.current.id),
       recipes: await RecipeStore.open(db, userId: users.current.id),
+      attempts: await WordAttemptStore.open(db, userId: users.current.id),
     );
   }
 
@@ -47,6 +50,9 @@ class Session extends ChangeNotifier {
   final SampleStore samples;
   final RecipeStore recipes;
 
+  /// 単語を書き終えた履歴（SPEC 4.2）。
+  final WordAttemptStore attempts;
+
   User get current => users.current;
 
   /// 書く人を切り替える。
@@ -55,6 +61,7 @@ class Session extends ChangeNotifier {
     await users.select(userId);
     await samples.useUser(userId);
     await recipes.useUser(userId);
+    await attempts.useUser(userId);
     notifyListeners();
   }
 
@@ -64,8 +71,10 @@ class Session extends ChangeNotifier {
     final id = users.current.id;
     samples.userId = id;
     recipes.userId = id;
+    attempts.userId = id;
     await samples.load();
     await recipes.load();
+    await attempts.load();
     notifyListeners();
   }
 

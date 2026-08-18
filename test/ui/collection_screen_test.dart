@@ -7,6 +7,7 @@ import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/store/session.dart';
+import 'package:asoglyph/store/word_book_store.dart';
 import 'package:asoglyph/ui/char_set_screen.dart';
 import 'package:asoglyph/model/user.dart';
 import 'package:asoglyph/ui/collection_screen.dart';
@@ -38,6 +39,7 @@ void main() {
   late Session session;
   late SampleStore store;
   late Locks locks;
+  late WordBookStore books;
   late StrokeOrderLibrary strokeOrders;
 
   setUpAll(() async {
@@ -49,6 +51,7 @@ void main() {
     session = await openMemorySession();
     store = session.samples;
     locks = await openMemoryLocks();
+    books = await openMemoryWordBooks();
   });
 
   /// sembast はタイマを使う。テストの疑似非同期環境では完了しないため、
@@ -66,6 +69,7 @@ void main() {
         home: CollectionScreen(
           session: session,
           locks: locks,
+          books: books,
           speaker: speaker ?? RecordingSpeaker(),
           strokeOrders: strokeOrders,
         ),

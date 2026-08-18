@@ -8,16 +8,19 @@ import '../kanjivg/stroke_order.dart';
 import '../model/char_set.dart';
 import '../model/font_recipe.dart';
 import '../model/sample.dart';
+import '../model/word.dart';
 import '../store/passcode.dart';
 import '../store/recipe_store.dart';
 import '../store/sample_store.dart';
 import '../store/session.dart';
+import '../store/word_book_store.dart';
 import 'about.dart';
 import 'admin_screen.dart';
 import 'char_set_screen.dart';
 import 'export_sheet.dart';
 import 'passcode_gate.dart';
 import 'user_picker.dart';
+import 'word_screen.dart';
 
 /// 文字種の一覧。アプリの入口。
 ///
@@ -27,12 +30,17 @@ class CollectionScreen extends StatefulWidget {
     super.key,
     required this.session,
     required this.locks,
+    required this.books,
     required this.speaker,
     required this.strokeOrders,
   });
 
   final Session session;
   final Locks locks;
+
+  /// 単語帳（SPEC 7.4）。人ごとには分かれない。
+  final WordBookStore books;
+
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
 
@@ -50,6 +58,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
   SampleStore get store => session.samples;
   RecipeStore get recipes => session.recipes;
   Locks get locks => widget.locks;
+  WordBookStore get books => widget.books;
   Speaker get speaker => widget.speaker;
   StrokeOrderLibrary get strokeOrders => widget.strokeOrders;
 
@@ -58,7 +67,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
     // 画面ぜんぶを包む。人が増えたときに出る切り替えボタンは AppBar にあり、
     // 本文だけを包むと、人を足しても現れないままになる。
     return AnimatedBuilder(
-      animation: Listenable.merge([store, session]),
+      animation: Listenable.merge([store, session, books, session.attempts]),
       builder: (context, _) => _buildScreen(context),
     );
   }
@@ -97,6 +106,12 @@ class _CollectionScreenState extends State<CollectionScreen> {
           children: [
             _ModeChoice(mode: _mode, onChanged: _chooseMode),
             const SizedBox(height: 24),
+            if (_wordCount > 0)
+              _WordCard(
+                total: _wordCount,
+                done: _wordsDone,
+                onTap: () => _openWords(context),
+              ),
             for (final charSet in session.current.visibleCharSets)
               _CharSetCard(
                 charSet: charSet,
@@ -116,7 +131,38 @@ class _CollectionScreenState extends State<CollectionScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) =>
-            AdminScreen(session: session, locks: locks),
+            AdminScreen(session: session, locks: locks, books: books),
+      ),
+    );
+  }
+
+  /// いま書ける語の数。集める文字種に無い字を含む語は数えない（SPEC 7.4）。
+  int get _wordCount => _writableWords.length;
+
+  /// そのうち、最後まで書けたことのある語の数。
+  int get _wordsDone => _writableWords
+      .where((word) => session.attempts.countOf(word.text) > 0)
+      .length;
+
+  List<Word> get _writableWords {
+    final chars = writableChars(session);
+    return [
+      for (final book in books.all)
+        for (final word in book.words)
+          if (word.isWritable(chars)) word,
+    ];
+  }
+
+  void _openWords(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => WordScreen(
+          session: session,
+          books: books,
+          speaker: speaker,
+          strokeOrders: strokeOrders,
+          mode: _mode,
+        ),
       ),
     );
   }
@@ -265,6 +311,82 @@ class _ModeLabel extends StatelessWidget {
         const SizedBox(height: 2),
         Text(text, style: const TextStyle(fontSize: 13)),
       ],
+    );
+  }
+}
+
+/// 単語で練習する入口（SPEC 7.4）。
+///
+/// 文字種の束と並べて置く。字を 1 つずつ埋めるのと、語をまるごと書くのとは
+/// どちらも「書く」入口で、子供にとっては同じ高さにある。
+class _WordCard extends StatelessWidget {
+  const _WordCard({
+    required this.total,
+    required this.done,
+    required this.onTap,
+  });
+
+  final int total;
+  final int done;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xffe4dfd4), width: 2),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        value: done / total,
+                        strokeWidth: 6,
+                        backgroundColor: const Color(0xffe4dfd4),
+                      ),
+                      Icon(
+                        Icons.chat_bubble_outline,
+                        size: 24,
+                        color: done == 0
+                            ? const Color(0xff9c948a)
+                            : scheme.primary,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Text(
+                  'ことば',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  '$done / $total',
+                  style: const TextStyle(color: Color(0xff9c948a)),
+                ),
+                const Spacer(),
+                const Icon(Icons.chevron_right, size: 32),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
