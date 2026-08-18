@@ -69,9 +69,12 @@ Word _word(Object? entry, int line) {
     throw WordBookFormatException('「$text」に reading がありません');
   }
   final tags = entry['tags'];
+  // 絵は名前だけが載る。中身は単語帳ファイル（.asodict）の側にある。
+  final image = (entry['image'] as Object?)?.toString().trim();
   return Word(
     text: text,
     reading: reading,
+    image: image == null || image.isEmpty ? null : image,
     tags: [
       if (tags is List)
         for (final tag in tags) tag.toString(),

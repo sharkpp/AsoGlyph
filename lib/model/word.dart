@@ -2,7 +2,12 @@
 ///
 /// 単語帳は「練習用の文字列の供給源」であり、意味の学習が目的ではない。
 class Word {
-  const Word({required this.text, required this.reading, this.tags = const []});
+  const Word({
+    required this.text,
+    required this.reading,
+    this.tags = const [],
+    this.image,
+  });
 
   /// 書かせる文字列。
   final String text;
@@ -11,6 +16,25 @@ class Word {
   final String reading;
 
   final List<String> tags;
+
+  /// 絵（SPEC 7.4）。任意。
+  ///
+  /// 端末に入っている単語帳では画像の id、単語帳ファイルの中ではファイル名。
+  /// どちらも `<名前>.png` の形で、拡張子がそのまま形式になる。
+  ///
+  /// 字が読めない子は、絵でしか語を選べない。読みを声で聞かせるだけでは、
+  /// 一覧から選ぶという操作が成り立たない。
+  final String? image;
+
+  Word copyWith({String? text, String? reading, String? image}) => Word(
+    text: text ?? this.text,
+    reading: reading ?? this.reading,
+    tags: tags,
+    image: image ?? this.image,
+  );
+
+  /// 絵を外した語。[copyWith] では null を渡せない。
+  Word withoutImage() => Word(text: text, reading: reading, tags: tags);
 
   /// 1 字ずつに分ける。書く順はこの並び。
   List<String> get chars => text.characters;

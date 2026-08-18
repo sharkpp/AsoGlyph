@@ -7,6 +7,7 @@ import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/font_recipe.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/model/user.dart';
+import 'package:asoglyph/model/word.dart';
 import 'package:asoglyph/store/session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -134,4 +135,30 @@ void main() {
       throwsA(isA<FormatException>()),
     );
   });
+  test('単語帳と、語の絵もまとめて戻せる', () async {
+    final source = await openMemorySession();
+    final id = await source.books.addImage(
+      Uint8List.fromList([9, 8, 7]),
+      fileName: 'ねこ.png',
+    );
+    await source.books.add(
+      WordBook(
+        id: '',
+        name: 'うちのことば',
+        words: [Word(text: 'ぱぱ', reading: 'ぱぱ', image: id)],
+      ),
+    );
+
+    final bytes = await exportBackup(source.db);
+    final target = await openMemorySession();
+    await target.restoreFrom(bytes);
+
+    // 単語帳は親が作って直すもの。端末が壊れたら作り直しになる。
+    final restored = target.books.all.firstWhere(
+      (book) => book.name == 'うちのことば',
+    );
+    expect(restored.words.single.text, 'ぱぱ');
+    expect(await target.books.readImage(restored.words.single.image!), [9, 8, 7]);
+  });
+
 }

@@ -8,6 +8,7 @@ import '../practice/question_picker.dart';
 import '../store/session.dart';
 import '../store/word_book_store.dart';
 import 'practice_session.dart';
+import 'word_image_view.dart';
 
 /// 単語で練習する画面（SPEC 7.4）。
 ///
@@ -93,6 +94,7 @@ class WordScreen extends StatelessWidget {
               for (final word in words)
                 _WordTile(
                   word: word,
+                  books: books,
                   done: session.attempts.countOf(word.text) > 0,
                   onTap: () => practiceWord(
                     context,
@@ -116,11 +118,13 @@ class WordScreen extends StatelessWidget {
 class _WordTile extends StatelessWidget {
   const _WordTile({
     required this.word,
+    required this.books,
     required this.done,
     required this.onTap,
   });
 
   final Word word;
+  final WordBookStore books;
 
   /// 最後まで書けたことがあるか。
   final bool done;
@@ -150,6 +154,11 @@ class _WordTile extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 字が読めない子は、絵でしか語を選べない（SPEC 7.4）。
+              if (word.image != null) ...[
+                WordImageView(image: word.image!, books: books, size: 56),
+                const SizedBox(width: 8),
+              ],
               Text(
                 word.text,
                 style: TextStyle(

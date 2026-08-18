@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/user.dart';
 import 'package:asoglyph/model/word.dart';
@@ -121,6 +123,83 @@ void main() {
       expect(added, hasLength(1));
       expect(books.all, hasLength(bundled));
       expect(books.bundledMissing, isEmpty);
+    });
+  });
+
+  group('語の絵', () {
+    test('入れて読み戻せる。id は拡張子を残す', () async {
+      final db = await openMemoryDatabase();
+      final books = await openMemoryWordBooks(db);
+
+      final id = await books.addImage(
+        Uint8List.fromList([1, 2, 3]),
+        fileName: 'ねこの絵.PNG',
+      );
+
+      // 拡張子がそのまま形式になる。SVG だけ描き方が違う。
+      expect(id, endsWith('.png'));
+      expect(await books.readImage(id), [1, 2, 3]);
+
+      // 開き直しても残る。
+      final reopened = await openMemoryWordBooks(db);
+      expect(await reopened.readImage(id), [1, 2, 3]);
+    });
+
+    test('一度読んだ絵は持っておく', () async {
+      final books = await openMemoryWordBooks();
+      final id = await books.addImage(
+        Uint8List.fromList([1]),
+        fileName: 'a.png',
+      );
+
+      // 一覧では同じ絵が何度も並ぶ。毎回読み直さない。
+      expect(books.cachedImage(id), isNotNull);
+    });
+
+    test('どの語からも指されていない絵は片づける', () async {
+      final books = await openMemoryWordBooks();
+      final kept = await books.addImage(
+        Uint8List.fromList([1]),
+        fileName: 'a.png',
+      );
+      final orphan = await books.addImage(
+        Uint8List.fromList([2]),
+        fileName: 'b.png',
+      );
+
+      final book = await books.add(
+        WordBook(
+          id: '',
+          name: 'え',
+          words: [Word(text: 'ねこ', reading: 'ねこ', image: kept)],
+        ),
+      );
+      await books.save(book);
+
+      // 絵は記録ではなく持ち物。放っておくと端末の中に溜まる。
+      expect(await books.readImage(kept), isNotNull);
+      expect(await books.readImage(orphan), isNull);
+    });
+
+    test('絵を外すと、その絵も片づく', () async {
+      final books = await openMemoryWordBooks();
+      final id = await books.addImage(
+        Uint8List.fromList([1]),
+        fileName: 'a.png',
+      );
+      final book = await books.add(
+        WordBook(
+          id: '',
+          name: 'え',
+          words: [Word(text: 'ねこ', reading: 'ねこ', image: id)],
+        ),
+      );
+
+      await books.save(
+        book.copyWith(words: [book.words.single.withoutImage()]),
+      );
+
+      expect(await books.readImage(id), isNull);
     });
   });
 

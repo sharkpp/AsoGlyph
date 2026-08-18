@@ -13,9 +13,9 @@ import 'dart:typed_data';
 import 'package:sembast/blob.dart';
 import 'package:sembast/sembast.dart';
 
-// 単語トライアル（2）、単語帳（3）を足したときに上げた。
+// 単語トライアル（2）、単語帳（3）、語の絵（4）を足したときに上げた。
 // 古い控えは読まない（AGENTS.md）。
-const _backupVersion = 3;
+const _backupVersion = 4;
 
 final _users = stringMapStoreFactory.store('users');
 final _settings = stringMapStoreFactory.store('settings');
@@ -24,6 +24,7 @@ final _strokes = StoreRef<String, Blob>('strokes');
 final _recipes = stringMapStoreFactory.store('recipes');
 final _attempts = stringMapStoreFactory.store('wordAttempts');
 final _wordBooks = stringMapStoreFactory.store('wordBooks');
+final _wordImages = StoreRef<String, Blob>('wordImages');
 
 /// 控えを作る。
 Future<Uint8List> exportBackup(Database db) async {
@@ -41,9 +42,13 @@ Future<Uint8List> exportBackup(Database db) async {
     // 単語帳は親が作って直すもの。端末が壊れたら作り直しになる（SPEC 7.4）。
     'wordBooks': await _records(db, _wordBooks),
     'samples': await _records(db, _samples),
-    // 運筆はバイト列なので base64 にする。
+    // 運筆と絵はバイト列なので base64 にする。
     'strokes': {
       for (final record in strokes) record.key: base64Encode(record.value.bytes),
+    },
+    'wordImages': {
+      for (final record in await _wordImages.find(db))
+        record.key: base64Encode(record.value.bytes),
     },
   };
 
@@ -73,6 +78,13 @@ Future<void> importBackup(Database db, Uint8List bytes) async {
     await _put(txn, _samples, backup['samples']);
     for (final entry in strokes.entries) {
       await _strokes
+          .record(entry.key)
+          .put(txn, Blob(base64Decode(entry.value! as String)));
+    }
+    for (final entry in (backup['wordImages']! as Map)
+        .cast<String, Object?>()
+        .entries) {
+      await _wordImages
           .record(entry.key)
           .put(txn, Blob(base64Decode(entry.value! as String)));
     }

@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:asoglyph/kanjivg/stroke_order.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/model/word.dart';
 import 'package:asoglyph/store/session.dart';
+import 'package:asoglyph/ui/word_image_view.dart';
 import 'package:asoglyph/ui/word_screen.dart';
 import 'package:asoglyph/ui/writing_screen.dart';
 import 'package:flutter/material.dart';
@@ -187,6 +190,30 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('絵のある語は、絵つきで並ぶ', (tester) async {
+    await tester.runAsync(() async {
+      final image = await session.books.addImage(
+        base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGA'
+          'hKmMIQAAAABJRU5ErkJggg==',
+        ),
+        fileName: 'cat.png',
+      );
+      await session.books.add(
+        WordBook(
+          id: '',
+          name: 'えのあることば',
+          words: [Word(text: 'ねこ', reading: 'ねこ', image: image)],
+        ),
+      );
+    });
+    await pumpScreen(tester);
+    await tester.pumpAndSettle();
+
+    // 字が読めない子は、絵でしか語を選べない（SPEC 7.4）。
+    expect(find.byType(WordImageView), findsOneWidget);
   });
 
   test('書けない字を含む語は出題候補から外れる', () {

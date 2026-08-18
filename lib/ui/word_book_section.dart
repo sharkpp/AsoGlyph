@@ -5,7 +5,9 @@ import '../model/word.dart';
 import '../practice/question_picker.dart';
 import '../store/session.dart';
 import '../store/word_book_store.dart';
+import '../word/word_image.dart';
 import '../word/word_book_codec.dart';
+import '../word/word_book_export.dart';
 import 'word_book_editor.dart';
 
 /// 単語帳の割り振りと手入れ（SPEC 7.4）。おうちの人の画面に置く。
@@ -57,7 +59,9 @@ class WordBookSection extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.file_open_outlined),
           title: const Text('単語帳を取り込む'),
-          subtitle: const Text('YAML か、Excel で作った CSV（ことば・よみ・タグ の順）'),
+          subtitle: const Text(
+            '単語帳ファイル（.asodict）・YAML・Excel で作った CSV',
+          ),
           onTap: () => _import(context),
         ),
         // 消したものを取り戻す道を残しておく。消せるのに戻せないと、親は
@@ -112,18 +116,17 @@ class WordBookSection extends StatelessWidget {
     final file = await openFile(
       acceptedTypeGroups: [
         // 拡張子で絞る。web では uniformTypeIdentifiers が効かない。
-        const XTypeGroup(label: '単語帳', extensions: ['yaml', 'yml', 'csv']),
+        const XTypeGroup(
+          label: '単語帳',
+          extensions: [wordBookBundleExtension, 'yaml', 'yml', 'csv'],
+        ),
       ],
     );
     if (file == null || !context.mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final book = parseWordBookFile(
-        fileName: file.name,
-        source: await file.readAsString(),
-      );
-      await books.add(book);
+      final book = await _read(file);
       messenger.showSnackBar(
         SnackBar(
           content: Text('「${book.name}」を取り込みました（${book.words.length} 語）'),
@@ -136,6 +139,47 @@ class WordBookSection extends StatelessWidget {
       debugPrint('単語帳の取り込みに失敗: $error');
       messenger.showSnackBar(const SnackBar(content: Text('この単語帳は読み込めません')));
     }
+  }
+
+  /// 取り込んだファイルを単語帳にする。
+  ///
+  /// 単語帳ファイルだけは絵が入っているので、先に絵を端末へ入れてから、
+  /// 語の指す先を端末の中の id に付け替える。
+  Future<WordBook> _read(XFile file) async {
+    if (extensionOf(file.name) != wordBookBundleExtension) {
+      return books.add(
+        parseWordBookFile(
+          fileName: file.name,
+          source: await file.readAsString(),
+        ),
+      );
+    }
+
+    final bundle = parseWordBookBundle(
+      await file.readAsBytes(),
+      name: file.name.replaceAll(RegExp(r'\.[^.]*$'), ''),
+    );
+    final ids = <String, String>{};
+    for (final entry in bundle.images.entries) {
+      // 大きすぎる絵は入れない。取り込みでも同じ物差しで測る。
+      if (entry.value.length > maxImageBytes) continue;
+      ids[entry.key] = await books.addImage(
+        entry.value,
+        fileName: entry.key,
+      );
+    }
+    return books.add(
+      bundle.book.copyWith(
+        words: [
+          for (final word in bundle.book.words)
+            word.image == null
+                ? word
+                : ids[word.image!] == null
+                ? word.withoutImage()
+                : word.copyWith(image: ids[word.image!]),
+        ],
+      ),
+    );
   }
 
   Future<void> _restore(BuildContext context) async {

@@ -23,6 +23,7 @@ class WritingSteps {
     required this.chars,
     required this.index,
     this.reading,
+    this.picture,
   });
 
   /// 書く順に並んだ字。
@@ -33,6 +34,12 @@ class WritingSteps {
 
   /// つながった語としての読み。おまかせのときは null（語ではない）。
   final String? reading;
+
+  /// 語に添えた絵（SPEC 7.4）。
+  ///
+  /// 何を書いているのかを、字に頼らず示せる唯一のもの。何も見ずに書く
+  /// モードでも出す。絵は字を教えないので、音だけで書くという前提は崩れない。
+  final Widget? picture;
 
   bool get isLast => index == chars.length - 1;
 }
@@ -249,6 +256,24 @@ class _WritingScreenState extends State<WritingScreen>
     final chars = progress.chars;
     final hides = widget.mode == PracticeMode.free;
 
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (progress.picture != null) ...[
+          progress.picture!,
+          const SizedBox(width: 12),
+        ],
+        Flexible(child: _buildStepBoxes(progress, chars, hides, scheme)),
+      ],
+    );
+  }
+
+  Widget _buildStepBoxes(
+    WritingSteps progress,
+    List<String> chars,
+    bool hides,
+    ColorScheme scheme,
+  ) {
     return Wrap(
       spacing: 8,
       runSpacing: 8,

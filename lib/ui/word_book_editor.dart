@@ -1,9 +1,17 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../export/font_export.dart';
 import '../model/char_set.dart';
 import '../model/word.dart';
 import '../store/word_book_store.dart';
+import '../word/word_book_export.dart';
+import '../word/word_image.dart';
 import 'word_book_section.dart';
+import 'word_image_view.dart';
 
 /// 単語帳を直す画面（SPEC 7.4）。
 ///
@@ -40,6 +48,11 @@ class _WordBookEditorState extends State<WordBookEditor> {
             onPressed: _rename,
           ),
           IconButton(
+            icon: const Icon(Icons.ios_share),
+            tooltip: '書き出す',
+            onPressed: _export,
+          ),
+          IconButton(
             icon: const Icon(Icons.delete_outline),
             tooltip: 'この単語帳を消す',
             onPressed: _remove,
@@ -62,6 +75,7 @@ class _WordBookEditorState extends State<WordBookEditor> {
             for (final (index, word) in _book.words.indexed)
               _WordRow(
                 word: word,
+                books: widget.books,
                 onEdit: () => _editWord(index),
                 onRemove: () => _removeWord(index),
               ),
@@ -89,16 +103,77 @@ class _WordBookEditorState extends State<WordBookEditor> {
   }
 
   Future<void> _addWord() async {
-    final word = await _askWord(context);
+    final word = await _askWord(context, books: widget.books);
     if (word == null) return;
     await _update(_book.copyWith(words: [..._book.words, word]));
   }
 
   Future<void> _editWord(int index) async {
-    final word = await _askWord(context, initial: _book.words[index]);
+    final word = await _askWord(
+      context,
+      books: widget.books,
+      initial: _book.words[index],
+    );
     if (word == null) return;
     final words = [..._book.words]..[index] = word;
     await _update(_book.copyWith(words: words));
+  }
+
+  /// 単語帳を持ち出す（SPEC 7.4）。
+  ///
+  /// 絵を入れている単語帳では、YAML 1 枚だと絵が落ちる。どちらを出すかは
+  /// 使い道で変わる（人に渡すなら絵ごと、自分で直すなら YAML）ので選ばせる。
+  Future<void> _export() async {
+    final withImages = _book.words.any((word) => word.image != null);
+    final bundle = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('どの形で書き出しますか', style: TextStyle(fontSize: 18)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.folder_zip_outlined),
+              title: const Text('単語帳ファイル（.asodict）'),
+              subtitle: const Text('絵ごと 1 つのファイルにまとめます'),
+              onTap: () => Navigator.of(context).pop(true),
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('YAML'),
+              subtitle: Text(
+                withImages
+                    ? '文字だけ。絵は入りません'
+                    : 'テキストエディタで直せます',
+              ),
+              onTap: () => Navigator.of(context).pop(false),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+    if (bundle == null) return;
+
+    final name = sanitizeFileName(_book.name);
+    if (bundle) {
+      await shareBytes(
+        bytes: await encodeWordBookBundle(_book, widget.books.readImage),
+        fileName: '$name.$wordBookBundleExtension',
+        mimeType: 'application/zip',
+        text: 'あそんでフォントの単語帳',
+      );
+    } else {
+      await shareBytes(
+        bytes: Uint8List.fromList(utf8.encode(encodeWordBookYaml(_book))),
+        fileName: '$name.yaml',
+        mimeType: 'text/yaml',
+        text: 'あそんでフォントの単語帳',
+      );
+    }
   }
 
   Future<void> _removeWord(int index) async {
@@ -134,20 +209,30 @@ class _WordBookEditorState extends State<WordBookEditor> {
 class _WordRow extends StatelessWidget {
   const _WordRow({
     required this.word,
+    required this.books,
     required this.onEdit,
     required this.onRemove,
   });
 
   final Word word;
+  final WordBookStore books;
   final VoidCallback onEdit;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
     final unwritable = unwritableChars(word);
+    final image = word.image;
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      leading: SizedBox(
+        width: 48,
+        height: 48,
+        child: image == null
+            ? const Icon(Icons.image_outlined, color: Color(0xffbdb4a6))
+            : WordImageView(image: image, books: books, size: 48),
+      ),
       title: Text(word.text, style: const TextStyle(fontSize: 20)),
       subtitle: Text(
         unwritable.isEmpty
@@ -176,36 +261,152 @@ List<String> unwritableChars(Word word) => [
     if (charSetOf(char) == null) char,
 ];
 
-/// ことばと読みを聞く。
-Future<Word?> _askWord(BuildContext context, {Word? initial}) {
-  final text = TextEditingController(text: initial?.text ?? '');
-  final reading = TextEditingController(text: initial?.reading ?? '');
+/// ことばと読みと絵を聞く。
+Future<Word?> _askWord(
+  BuildContext context, {
+  required WordBookStore books,
+  Word? initial,
+}) => showDialog<Word>(
+  context: context,
+  builder: (context) => _WordDialog(books: books, initial: initial),
+);
 
-  return showDialog<Word>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(initial == null ? 'ことばを足す' : 'ことばを直す'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: text,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'ことば',
-              hintText: 'ねこ',
-            ),
+class _WordDialog extends StatefulWidget {
+  const _WordDialog({required this.books, this.initial});
+
+  final WordBookStore books;
+  final Word? initial;
+
+  @override
+  State<_WordDialog> createState() => _WordDialogState();
+}
+
+class _WordDialogState extends State<_WordDialog> {
+  late final _text = TextEditingController(text: widget.initial?.text ?? '');
+  late final _reading = TextEditingController(
+    text: widget.initial?.reading ?? '',
+  );
+  late String? _image = widget.initial?.image;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    _reading.dispose();
+    super.dispose();
+  }
+
+  /// 絵を選ぶ（SPEC 7.4）。
+  ///
+  /// 大きすぎる絵は断る。縮めない。勝手に縮めると、親が選んだ絵と出てくる絵が
+  /// 違うものになる。何 KB あったかを見せて、選び直してもらう。
+  Future<void> _pickImage() async {
+    final file = await openFile(
+      acceptedTypeGroups: [
+        // 拡張子で絞る。web では uniformTypeIdentifiers が効かない。
+        const XTypeGroup(label: 'え', extensions: imageExtensions),
+      ],
+    );
+    if (file == null || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    if (!isSupportedImage(file.name)) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('入れられるのは PNG・JPEG・SVG です')),
+      );
+      return;
+    }
+
+    final bytes = await file.readAsBytes();
+    if (bytes.length > maxImageBytes) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'この絵は ${describeSize(bytes.length)} あります。'
+            '${describeSize(maxImageBytes)} までの絵を選んでください',
           ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: reading,
-            decoration: const InputDecoration(
-              labelText: 'よみ',
-              // 読みを必須にするのは、子供が読めない語を出さないため（SPEC 7.4）。
-              helperText: '声で読み上げます。書けなくても、聞けば分かるように',
+        ),
+      );
+      return;
+    }
+
+    final id = await widget.books.addImage(bytes, fileName: file.name);
+    if (mounted) setState(() => _image = id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final image = _image;
+
+    return AlertDialog(
+      title: Text(widget.initial == null ? 'ことばを足す' : 'ことばを直す'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _text,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'ことば',
+                hintText: 'ねこ',
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            TextField(
+              controller: _reading,
+              decoration: const InputDecoration(
+                labelText: 'よみ',
+                // 読みを必須にするのは、子供が読めない語を出さないため（SPEC 7.4）。
+                helperText: '声で読み上げます。書けなくても、聞けば分かるように',
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: image == null
+                      ? const Icon(
+                          Icons.image_outlined,
+                          size: 40,
+                          color: Color(0xffbdb4a6),
+                        )
+                      : WordImageView(
+                          image: image,
+                          books: widget.books,
+                          size: 64,
+                        ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _pickImage,
+                        icon: const Icon(Icons.add_photo_alternate_outlined),
+                        label: Text(image == null ? '絵を選ぶ' : '絵を変える'),
+                      ),
+                      if (image != null)
+                        TextButton(
+                          onPressed: () => setState(() => _image = null),
+                          child: const Text('絵を外す'),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              // 字が読めない子は、絵でしか語を選べない。
+              '絵があると、字が読めなくても自分で語を選べます。'
+              '${describeSize(maxImageBytes)} まで。',
+              style: const TextStyle(fontSize: 12, color: Color(0xff9c948a)),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -214,18 +415,23 @@ Future<Word?> _askWord(BuildContext context, {Word? initial}) {
         ),
         FilledButton(
           onPressed: () {
-            final word = text.text.trim();
+            final word = _text.text.trim();
             if (word.isEmpty) return;
             // 読みを書かなかったら、ことばをそのまま読む。かなの語では
             // それで足りるし、ここで止めると入力が進まない。
-            final how = reading.text.trim();
+            final how = _reading.text.trim();
             Navigator.of(context).pop(
-              Word(text: word, reading: how.isEmpty ? word : how),
+              Word(
+                text: word,
+                reading: how.isEmpty ? word : how,
+                tags: widget.initial?.tags ?? const [],
+                image: _image,
+              ),
             );
           },
           child: const Text('決める'),
         ),
       ],
-    ),
-  );
+    );
+  }
 }

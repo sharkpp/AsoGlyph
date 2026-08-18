@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:sembast/blob.dart';
 import 'package:sembast/sembast.dart';
 import 'package:uuid/uuid.dart';
 
 import '../model/word.dart';
 import '../word/word_book_codec.dart';
+import '../word/word_image.dart';
 
 /// 単語帳の置き場（SPEC 7.4）。
 ///
@@ -35,6 +37,10 @@ class WordBookStore extends ChangeNotifier {
 
   static final _books = stringMapStoreFactory.store('wordBooks');
 
+  /// 語に添える絵（SPEC 7.4）。運筆と同じく、実体は別ストアに置く。
+  /// 一覧を出すのに要るのは語だけで、全部の絵をメモリに載せる理由がない。
+  static final _images = StoreRef<String, Blob>('wordImages');
+
   final Database _db;
 
   final List<WordBook> _all = [];
@@ -55,6 +61,8 @@ class WordBookStore extends ChangeNotifier {
   }
 
   Future<void> load() async {
+    // 控えから戻したときは、同じ id で中身が入れ替わっていることがある。
+    _imageCache.clear();
     _all
       ..clear()
       ..addAll(
@@ -105,6 +113,7 @@ class WordBookStore extends ChangeNotifier {
     await _books.record(book.id).update(_db, _encode(book));
     final index = _all.indexWhere((entry) => entry.id == book.id);
     if (index >= 0) _all[index] = book;
+    await _sweepImages();
     notifyListeners();
   }
 
@@ -112,7 +121,52 @@ class WordBookStore extends ChangeNotifier {
   Future<void> remove(String id) async {
     await _books.record(id).delete(_db);
     _all.removeWhere((book) => book.id == id);
+    await _sweepImages();
     notifyListeners();
+  }
+
+  /// 絵を入れる。返るのは語に付ける id。
+  ///
+  /// 大きすぎる絵は断る。呼ぶ前に [maxImageBytes] で確かめること。
+  Future<String> addImage(Uint8List bytes, {required String fileName}) async {
+    final extension = extensionOf(fileName);
+    final id = '${const Uuid().v7()}.$extension';
+    await _images.record(id).put(_db, Blob(bytes));
+    _imageCache[id] = bytes;
+    return id;
+  }
+
+  /// 一度読んだ絵は持っておく。一覧では同じ絵を何度も出す。
+  final Map<String, Uint8List?> _imageCache = {};
+
+  /// 絵を読み出す。無ければ null。
+  Future<Uint8List?> readImage(String id) async {
+    if (_imageCache.containsKey(id)) return _imageCache[id];
+    final bytes = (await _images.record(id).get(_db))?.bytes;
+    _imageCache[id] = bytes;
+    return bytes;
+  }
+
+  /// もう読んである絵。まだなら null（[readImage] で読む）。
+  Uint8List? cachedImage(String id) => _imageCache[id];
+
+  /// どの語からも指されていない絵を片づける。
+  ///
+  /// 絵は記録ではなく持ち物なので、消えても失われるものはない（SPEC 4.1 の
+  /// 「削除しない」は書いた記録の話）。放っておくと端末の中に溜まる。
+  Future<void> _sweepImages() async {
+    final used = {
+      for (final book in _all)
+        for (final word in book.words)
+          if (word.image != null) word.image!,
+    };
+    final stored = await _images.findKeys(_db);
+    final orphans = stored.where((id) => !used.contains(id)).toList();
+    if (orphans.isEmpty) return;
+    await _images.records(orphans).delete(_db);
+    for (final id in orphans) {
+      _imageCache.remove(id);
+    }
   }
 
   Map<String, Object?> _encode(WordBook book) => {
@@ -120,7 +174,12 @@ class WordBookStore extends ChangeNotifier {
     'source': book.source,
     'words': [
       for (final word in book.words)
-        {'text': word.text, 'reading': word.reading, 'tags': word.tags},
+        {
+          'text': word.text,
+          'reading': word.reading,
+          'tags': word.tags,
+          'image': word.image,
+        },
     ],
   };
 
@@ -134,6 +193,7 @@ class WordBookStore extends ChangeNotifier {
           text: word['text']! as String,
           reading: word['reading']! as String,
           tags: (word['tags'] as List? ?? const []).cast<String>(),
+          image: word['image'] as String?,
         ),
     ],
   );

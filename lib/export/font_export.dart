@@ -38,6 +38,27 @@ Future<void> shareFont({
   );
 }
 
+/// 単語帳の出口（SPEC 7.4）。
+///
+/// 送り先は共有シートに任せる。こちらからどこかへ送ることはしない（SPEC 3）。
+Future<void> shareBytes({
+  required Uint8List bytes,
+  required String fileName,
+  required String mimeType,
+  String? text,
+}) async {
+  final file = kIsWeb
+      ? XFile.fromData(bytes, name: fileName, mimeType: mimeType)
+      : XFile(
+          (await _writeTemporary(bytes, fileName)).path,
+          mimeType: mimeType,
+        );
+
+  await SharePlus.instance.share(
+    ShareParams(files: [file], fileNameOverrides: [fileName], text: text),
+  );
+}
+
 Future<File> _writeTemporary(Uint8List bytes, String fileName) async {
   final directory = await getTemporaryDirectory();
   final file = File('${directory.path}/$fileName');

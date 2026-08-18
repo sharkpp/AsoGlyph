@@ -6,6 +6,7 @@ import '../model/sample.dart';
 import '../model/word.dart';
 import '../practice/question_picker.dart';
 import '../store/session.dart';
+import 'word_image_view.dart';
 import 'writing_screen.dart';
 
 /// ひとまとまりで書く字数の目安。
@@ -85,6 +86,13 @@ Future<bool> practiceWord(
             chars: word.chars,
             index: index,
             reading: word.reading,
+            picture: word.image == null
+                ? null
+                : WordImageView(
+                    image: word.image!,
+                    books: session.books,
+                    size: 56,
+                  ),
           ),
         ),
       ),
