@@ -25,6 +25,7 @@ class WritingSteps {
     this.given = const {},
     this.reading,
     this.picture,
+    this.canSkip = false,
   });
 
   /// 出す並び。書かせない字（[given]）も入る。
@@ -49,6 +50,13 @@ class WritingSteps {
   /// モードでも出す。絵は字を教えないので、音だけで書くという前提は崩れない。
   final Widget? picture;
 
+  /// この語をやめて、次の語へ行けるか。
+  ///
+  /// おまかせ（SPEC 7.3）でだけ立てる。出された語が書けない・知らないときに、
+  /// そこで手が止まる。自分で選んだ語なら戻ればいいので、置かない。
+  /// 同じことをする道を 2 つ置くと、子供向け画面では迷いになる（SPEC 9）。
+  final bool canSkip;
+
   /// これが最後に書く字か。うしろに書く字が残っていない。
   bool get isLast {
     for (var i = index + 1; i < chars.length; i++) {
@@ -66,13 +74,27 @@ class WritingSteps {
   }
 }
 
+/// 書き取り画面から返るもの。
+///
+/// 書けた（記録の id）・この語はやめた・何もせず閉じた、の 3 つを分ける。
+/// 語を書く導線が、次の字へ行くか・次の語へ行くか・やめるかを決める。
+class WritingResult {
+  const WritingResult.written(String this.sampleId) : skipped = false;
+  const WritingResult.skipped() : sampleId = null, skipped = true;
+
+  /// 書けた記録の id。やめたときは null。
+  final String? sampleId;
+
+  /// この語はやめて、次の語へ行きたい。
+  final bool skipped;
+}
+
 /// 1 文字を書く画面。
 ///
 /// 「できた！」を押した時点で必ず記録する。字の巧拙で採否を決めないのが
 /// この製品の中核であり（SPEC 1）、子供に judge させる導線を作らない。
 ///
-/// 書けたら記録の id を返して閉じる。語を書く導線が、書いた順に集める
-/// ため（SPEC 4.2）。書かずに閉じたときは null。
+/// 閉じるときに [WritingResult] を返す。何もせず閉じたときは null。
 class WritingScreen extends StatefulWidget {
   const WritingScreen({
     super.key,
@@ -218,7 +240,16 @@ class _WritingScreenState extends State<WritingScreen>
     // 次の画面の読み上げが追い越して声がぶつ切りになる。
     await Future.wait([praise, Future<void>.delayed(_glimpse)]);
     if (!mounted) return;
-    Navigator.of(context).pop(_savedId);
+    Navigator.of(context).pop(WritingResult.written(_savedId!));
+  }
+
+  /// この語はやめて、次の語へ（SPEC 7.3）。
+  ///
+  /// 何が起きたかを声でも言う。黙って別の字に変わると、自分が何かを
+  /// 間違えたのかと思う子がいる。
+  Future<void> _skip() async {
+    await widget.speaker.speak('つぎの ことばに するね');
+    if (mounted) Navigator.of(context).pop(const WritingResult.skipped());
   }
 
   /// 書けた字を見せておく最短の時間。
@@ -247,6 +278,16 @@ class _WritingScreenState extends State<WritingScreen>
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          // 出された語が書けない・知らないときに、そこで手が止まる。
+          if (widget.steps?.canSkip ?? false)
+            IconButton(
+              iconSize: 32,
+              icon: const Icon(Icons.skip_next),
+              tooltip: 'この ことばは やめる',
+              onPressed: _busy ? null : _skip,
+            ),
+        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -528,7 +569,8 @@ class _WritingScreenState extends State<WritingScreen>
               ),
               FilledButton.icon(
                 style: FilledButton.styleFrom(minimumSize: size),
-                onPressed: () => Navigator.of(context).pop(_savedId),
+                onPressed: () =>
+                    Navigator.of(context).pop(WritingResult.written(_savedId!)),
                 icon: const Icon(Icons.check, size: 32),
                 label: const Text('おわり'),
               ),

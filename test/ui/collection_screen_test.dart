@@ -4,6 +4,7 @@ import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/kanjivg/stroke_order.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
+import 'package:asoglyph/model/word.dart';
 import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/store/session.dart';
@@ -267,6 +268,46 @@ void main() {
     expect(screen.steps!.reading, isNotNull, reason: '語として読み上げる');
     expect(words[screen.steps!.chars.join()], screen.steps!.reading);
     expect(screen.steps!.index, 0);
+  });
+
+  testWidgets('おまかせでは、出された語をやめて次へ行ける', (tester) async {
+    // 2 語ちょうどのまとまりになるようにする。長い語が 1 つ選ばれると
+    // それだけでひとまとまりになり、やめた先が無くなる。
+    await tester.runAsync(() async {
+      final book = await session.books.add(
+        const WordBook(
+          id: '',
+          name: 'ふたつ',
+          words: [
+            Word(text: 'ねこ', reading: 'ねこ'),
+            Word(text: 'いぬ', reading: 'いぬ'),
+          ],
+        ),
+      );
+      await session.users.save(
+        session.current.copyWith(wordBooks: {book.id}),
+      );
+    });
+
+    final speaker = RecordingSpeaker();
+    await pumpScreen(tester, speaker: speaker);
+    await tester.tap(find.text('おまかせで かく'));
+    await tester.pumpAndSettle();
+
+    final first = tester.widget<WritingScreen>(find.byType(WritingScreen));
+    expect(first.steps!.canSkip, isTrue, reason: '書けない語で手が止まらないように');
+
+    await tester.runAsync(() async {
+      await tester.tap(find.byIcon(Icons.skip_next));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pumpAndSettle();
+
+    // 別の語の 1 字めから始まる。おまかせは終わらない。
+    final next = tester.widget<WritingScreen>(find.byType(WritingScreen));
+    expect(next.steps!.reading, isNot(first.steps!.reading));
+    expect(next.steps!.index, 0);
+    expect(speaker.spoken, contains('つぎの ことばに するね'));
   });
 
   testWidgets('KanjiVG のクレジットをアプリの中で読める', (tester) async {

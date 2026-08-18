@@ -101,7 +101,8 @@ class WordBookStore extends ChangeNotifier {
 
     final have = {for (final book in _all) book.source};
     for (final asset in assets) {
-      if (!have.contains(asset)) await _addFromAsset(asset);
+      if (have.contains(asset)) continue;
+      await _addFromAsset(asset);
     }
     await _sweepImages();
     notifyListeners();
@@ -135,22 +136,33 @@ class WordBookStore extends ChangeNotifier {
   }
 
   /// 資産 1 つを単語帳にする。絵の入った単語帳ファイルも読む。
-  Future<WordBook> _addFromAsset(String asset) async {
+  ///
+  /// **読めなければ、その 1 冊が出ないだけにする。** 手で直した単語帳ファイルを
+  /// 置くこともある（動作確認用の辞書）。それでアプリが開かなくなってはいけない。
+  ///
+  /// 読み取りは資産を取り終えてから、同期のまま行う。await をまたいで投げると、
+  /// 捕まえてもテストの土台が「拾われなかった例外」として拾ってしまう。
+  Future<WordBook?> _addFromAsset(String asset) async {
     if (!asset.endsWith('.$wordBookBundleExtension')) {
-      return add(
-        parseWordBookYaml(
-          await rootBundle.loadString(asset),
-          id: asset,
-          fallbackName: asset,
-        ),
-        source: asset,
-      );
+      final source = await rootBundle.loadString(asset);
+      final WordBook book;
+      try {
+        book = parseWordBookYaml(source, id: asset, fallbackName: asset);
+      } catch (error) {
+        debugPrint('単語帳を読めませんでした: $asset ($error)');
+        return null;
+      }
+      return add(book, source: asset);
     }
 
-    final bundle = parseWordBookBundle(
-      (await rootBundle.load(asset)).buffer.asUint8List(),
-      name: asset,
-    );
+    final bytes = (await rootBundle.load(asset)).buffer.asUint8List();
+    final WordBookBundle bundle;
+    try {
+      bundle = parseWordBookBundle(bytes, name: asset);
+    } catch (error) {
+      debugPrint('単語帳を読めませんでした: $asset ($error)');
+      return null;
+    }
     final ids = <String, String>{};
     for (final entry in bundle.images.entries) {
       if (entry.value.length > maxImageBytes) continue;

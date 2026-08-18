@@ -37,8 +37,9 @@ Future<void> practiceSession(
   );
   if (words.isEmpty) return;
 
+  var written = 0;
   for (final word in words) {
-    final done = await practiceWord(
+    final outcome = await practiceWord(
       context,
       word: word,
       mode: mode,
@@ -46,21 +47,35 @@ Future<void> practiceSession(
       speaker: speaker,
       strokeOrders: strokeOrders,
       praise: false,
+      // 出された語が書けない・知らないときに、そこで手が止まる。
+      canSkip: true,
     );
-    // 途中でやめた。続きは出さない。
-    if (!done) return;
+    // 閉じた。続きは出さない。
+    if (outcome == WordOutcome.quit) return;
+    if (outcome == WordOutcome.done) written++;
   }
 
-  await speaker.speak('ぜんぶ かけたね！');
+  // 1 つも書かずに飛ばし続けたときは、ほめない。
+  if (written > 0) await speaker.speak('ぜんぶ かけたね！');
+}
+
+/// 語を書き終えたときの結末。
+enum WordOutcome {
+  /// 最後まで書けた。
+  done,
+
+  /// この語はやめて、次の語へ行きたい（SPEC 7.3）。
+  skipped,
+
+  /// 画面を閉じた。続きも出さない。
+  quit,
 }
 
 /// 語を 1 字ずつ書かせる（SPEC 7.4）。
 ///
 /// 最後まで書けたら単語トライアルとして残す（SPEC 4.2）。途中でやめたときは
 /// 残さない。書いた字そのものは 1 字ずつ記録に入っているので、何も失われない。
-///
-/// 最後まで書けたかを返す。おまかせが、続きを出すかの判断に使う。
-Future<bool> practiceWord(
+Future<WordOutcome> practiceWord(
   BuildContext context, {
   required Word word,
   required PracticeMode mode,
@@ -68,6 +83,7 @@ Future<bool> practiceWord(
   required Speaker speaker,
   required StrokeOrderLibrary strokeOrders,
   bool praise = true,
+  bool canSkip = false,
 }) async {
   final sampleIds = <String>[];
   final chars = word.displayChars;
@@ -77,8 +93,8 @@ Future<bool> practiceWord(
     // かっこの中は出しておくだけ。書かせない（SPEC 7.4）。
     if (given.contains(index)) continue;
     // 続けて押されて画面ごと閉じられていたら、そこで終わる。
-    if (!context.mounted) return false;
-    final id = await Navigator.of(context).push<String>(
+    if (!context.mounted) return WordOutcome.quit;
+    final result = await Navigator.of(context).push<WritingResult>(
       MaterialPageRoute(
         builder: (context) => WritingScreen(
           char: char,
@@ -91,6 +107,7 @@ Future<bool> practiceWord(
             index: index,
             given: given,
             reading: word.reading,
+            canSkip: canSkip,
             picture: word.image == null
                 ? null
                 : WordImageView(
@@ -103,12 +120,14 @@ Future<bool> practiceWord(
       ),
     );
     // 書かずに閉じた。やめたところで打ち切る。
-    if (id == null) return false;
-    sampleIds.add(id);
+    if (result == null) return WordOutcome.quit;
+    // この語はやめる。書いた字はそのまま残る（SPEC 4.1）。
+    if (result.skipped) return WordOutcome.skipped;
+    sampleIds.add(result.sampleId!);
   }
 
   await session.attempts.finish(word: word.text, sampleIds: sampleIds);
   // おまかせは語をまたいで続くので、1 語ごとにほめると声が渋滞する。
   if (praise) await speaker.speak('${word.reading}、かけたね！');
-  return true;
+  return WordOutcome.done;
 }

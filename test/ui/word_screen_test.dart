@@ -269,6 +269,19 @@ void main() {
     expect(speaker.spoken.last, contains('こ を かいてね'));
   });
 
+  testWidgets('自分で選んだ語には、やめる道を出さない', (tester) async {
+    await pumpScreen(tester);
+    await tester.tap(find.text('ねこ'));
+    await tester.pumpAndSettle();
+
+    // 戻ればいいので置かない。同じことをする道を 2 つ置くと迷いになる。
+    expect(find.byIcon(Icons.skip_next), findsNothing);
+    expect(
+      tester.widget<WritingScreen>(find.byType(WritingScreen)).steps!.canSkip,
+      isFalse,
+    );
+  });
+
   test('書けない字を含む語は出題候補から外れる', () {
     const word = Word(text: 'ねこ', reading: 'ねこ');
 
