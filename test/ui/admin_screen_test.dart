@@ -6,9 +6,10 @@ import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/store/session.dart';
-import 'package:asoglyph/store/word_book_store.dart';
+import 'package:asoglyph/practice/question_picker.dart';
 import 'package:asoglyph/ui/admin_screen.dart';
 import 'package:asoglyph/ui/char_set_screen.dart';
+import 'package:asoglyph/ui/word_book_section.dart';
 import 'package:asoglyph/ui/recipe_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,14 +39,12 @@ void main() {
   late SampleStore store;
   late RecipeStore recipes;
   late Locks locks;
-  late WordBookStore books;
 
   setUp(() async {
     session = await openMemorySession();
     store = session.samples;
     recipes = session.recipes;
     locks = await openMemoryLocks();
-    books = await openMemoryWordBooks();
   });
 
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -55,7 +54,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        home: AdminScreen(session: session, locks: locks, books: books),
+        home: AdminScreen(session: session, locks: locks),
       ),
     );
   }
@@ -193,19 +192,90 @@ void main() {
     expect(session.current.visibleCharSets, hasLength(1));
   });
 
-  testWidgets('単語帳の一覧が出て、同梱のものは消させない', (tester) async {
+  testWidgets('単語帳を、この人に出すかどうかで選べる', (tester) async {
     await pumpScreen(tester);
-    await tester.scrollUntilVisible(find.text('ひらがなのことば'), 200);
+    await tester.scrollUntilVisible(find.text('カタカナのことば'), 200);
 
-    // 同梱のものは消しても取り戻す導線が無い。
-    expect(
-      find.descendant(
-        of: find.widgetWithText(ListTile, 'ひらがなのことば'),
-        matching: find.byIcon(Icons.delete_outline),
-      ),
-      findsNothing,
-    );
-    expect(find.text('単語帳を取り込む'), findsOneWidget);
+    await tester.runAsync(() async {
+      await tester.tap(
+        find.descendant(
+          of: find.byType(WordBookSection),
+          matching: find.widgetWithText(CheckboxListTile, 'カタカナのことば'),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pump();
+
+    // 単語帳そのものは、みんなで使う 1 つ。分けるのは誰に出すかだけ。
+    expect(session.current.uses(katakanaBookId(session)), isFalse);
+    expect(session.books.all, hasLength(3), reason: '単語帳は消えていない');
+  });
+
+  testWidgets('出す単語帳を全部は外せない', (tester) async {
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(find.text('カタカナのことば'), 200);
+
+    for (final name in ['カタカナのことば', 'すうじのことば', 'ひらがなのことば']) {
+      await tester.runAsync(() async {
+        await tester.tap(
+          find.descendant(
+            of: find.byType(WordBookSection),
+            matching: find.widgetWithText(CheckboxListTile, name),
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pump();
+    }
+
+    // 全部外すと、おまかせも ことば も子供の画面から消える。
+    final using = session.books.all
+        .where((book) => session.current.uses(book.id))
+        .length;
+    expect(using, 1);
+  });
+
+  testWidgets('語に出てこない字を数えて見せる', (tester) async {
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(find.text('ことばに出てこない字'), 200);
+
+    // おまかせは語で出すので、ここに挙がった字はその導線では出てこない。
+    final missing = charsMissingFromWords(session.current, session.books.all);
+    expect(missing, isNotEmpty, reason: 'はじめの単語帳では全部は埋まらない');
+    expect(find.textContaining('${missing.length} 字'), findsOneWidget);
+  });
+
+  testWidgets('単語帳を作って、ことばを足せる', (tester) async {
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(find.text('単語帳を作る'), 200);
+
+    await tester.tap(find.text('単語帳を作る'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'どうぶつ');
+    await tester.runAsync(() async {
+      await tester.tap(find.text('決める'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pumpAndSettle();
+
+    // 作ったらそのまま語を足せる。空の単語帳だけ残っても使えない。
+    expect(find.textContaining('まだ ことばがありません'), findsOneWidget);
+
+    await tester.tap(find.text('ことばを足す'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'ことば'), 'ぱんだ');
+    await tester.enterText(find.widgetWithText(TextField, 'よみ'), 'パンダ');
+    await tester.runAsync(() async {
+      await tester.tap(find.text('決める'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pumpAndSettle();
+
+    final book = session.books.all.last;
+    expect(book.name, 'どうぶつ');
+    expect(book.words.single.text, 'ぱんだ');
+    expect(book.words.single.reading, 'パンダ');
   });
 
   testWidgets('ロックは 2 つ別々に掛けられる', (tester) async {
@@ -232,3 +302,7 @@ void main() {
 /// 版の対象字数。テストの期待値を実装と揃えるために使う。
 int totalOf(FontRecipe recipe) =>
     recipe.charSets.fold(0, (sum, set) => sum + set.chars.length);
+
+/// カタカナの単語帳の id。同梱の単語帳も id は端末ごとに振り直される。
+String katakanaBookId(Session session) =>
+    session.books.all.firstWhere((book) => book.name == 'カタカナのことば').id;

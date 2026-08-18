@@ -21,7 +21,7 @@ Future<RecipeStore> openMemoryRecipes() async =>
 Future<Session> openMemorySession() async =>
     Session.open(await openMemoryDatabase());
 
-/// テスト用の単語帳。同梱の単語帳を資産から読む。
+/// テスト用の単語帳。はじめの単語帳が入った状態で開く。
 Future<WordBookStore> openMemoryWordBooks([Database? db]) async =>
     WordBookStore.open(db ?? await openMemoryDatabase());
 

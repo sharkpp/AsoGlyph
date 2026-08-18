@@ -5,6 +5,7 @@ import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/model/score.dart';
 import 'package:asoglyph/model/user.dart';
+import 'package:asoglyph/model/word.dart';
 import 'package:asoglyph/practice/question_picker.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -149,37 +150,132 @@ void main() {
     });
   });
 
-  group('抽選', () {
-    test('求めた字数を、重複なく選ぶ', () {
-      final picked = pickQuestions(_user, store, count: 5, random: Random(1));
+  group('語の抽選', () {
+    final books = [
+      const WordBook(
+        id: 'b1',
+        name: 'テスト',
+        words: [
+          Word(text: 'ねこ', reading: 'ねこ'),
+          Word(text: 'いぬ', reading: 'いぬ'),
+          Word(text: 'ありがとう', reading: 'ありがとう'),
+        ],
+      ),
+    ];
 
-      expect(picked, hasLength(5));
-      expect(picked.toSet(), hasLength(5), reason: '同じ字を 2 度出さない');
+    test('字数のぶんだけ語を採る', () {
+      final picked = pickWords(_user, store, books, chars: 5, random: Random(1));
+
+      // 語数ではなく字数で区切る。1 セッションの長さを、語の長さに
+      // よらず一定に保つため（SPEC 7.1）。
+      expect(picked, isNotEmpty);
+      expect(
+        picked.fold(0, (sum, word) => sum + word.chars.length),
+        greaterThanOrEqualTo(5),
+      );
     });
 
-    test('文字種の字数より多くは選べない', () {
-      final user = _user.copyWith(collecting: {CharSet.digits});
-      final picked = pickQuestions(user, store, count: 99, random: Random(1));
+    test('同じ語を 2 度出さない', () {
+      final picked = pickWords(_user, store, books, chars: 99, random: Random(1));
 
-      expect(picked, hasLength(CharSet.digits.chars.length));
+      expect(picked.map((word) => word.text).toSet(), hasLength(picked.length));
+      expect(picked, hasLength(3), reason: '語が尽きたら終わる');
     });
 
-    test('苦手な字ほど多く出る', () async {
-      final user = _user.copyWith(collecting: {CharSet.digits});
-      for (final char in CharSet.digits.chars) {
-        await store.add(_written(char, overall: char == '7' ? 0 : 1));
+    test('出したい字を多く含む語ほど出やすい', () async {
+      for (final char in CharSet.hiragana.chars) {
+        await store.add(_written(char, overall: 1));
       }
+      // 「ねこ」の字だけ苦手にする。
+      await store.add(_written('ね', overall: 0));
+      await store.add(_written('こ', overall: 0));
 
-      var seven = 0;
-      final random = Random(7);
+      var neko = 0;
+      final random = Random(3);
       for (var i = 0; i < 200; i++) {
-        if (pickQuestions(user, store, count: 1, random: random).first == '7') {
-          seven++;
+        if (pickWords(_user, store, books, chars: 1, random: random).first.text ==
+            'ねこ') {
+          neko++;
         }
       }
 
-      // 10 字から等確率で選べば 20 回。苦手な字はそれより多く出る。
-      expect(seven, greaterThan(30));
+      // 3 語から等確率なら 67 回。
+      expect(neko, greaterThan(100));
+    });
+
+    test('長い語というだけでは出やすくならない', () {
+      // 合計にすると長い語ばかりが出る。「ありがとう」が「そら」より
+      // 2.5 倍出やすい、という理由が無い。
+      var long = 0;
+      final random = Random(5);
+      for (var i = 0; i < 200; i++) {
+        if (pickWords(_user, store, books, chars: 1, random: random).first.text ==
+            'ありがとう') {
+          long++;
+        }
+      }
+
+      expect(long, lessThan(100));
+    });
+
+    test('割り振られていない単語帳からは出さない', () {
+      final user = _user.copyWith(wordBooks: {'other'});
+
+      expect(pickWords(user, store, books, random: Random(1)), isEmpty);
+      expect(writableWords(user, books), isEmpty);
+    });
+
+    test('集める文字種で書けない語は出さない', () {
+      final user = _user.copyWith(collecting: {CharSet.digits});
+
+      expect(writableWords(user, books), isEmpty);
+    });
+
+    test('同じ語が 2 冊にあっても 1 つにまとめる', () {
+      final twice = [
+        ...books,
+        const WordBook(
+          id: 'b2',
+          name: 'もう 1 冊',
+          words: [Word(text: 'ねこ', reading: 'ねこ')],
+        ),
+      ];
+
+      expect(
+        writableWords(_user, twice).where((word) => word.text == 'ねこ'),
+        hasLength(1),
+      );
+    });
+  });
+
+  group('語に出てこない字', () {
+    test('語に無い字を並べる', () {
+      final books = [
+        const WordBook(
+          id: 'b1',
+          name: 'テスト',
+          words: [Word(text: 'ねこ', reading: 'ねこ')],
+        ),
+      ];
+
+      final missing = charsMissingFromWords(_user, books);
+
+      expect(missing, isNot(contains('ね')));
+      expect(missing, isNot(contains('こ')));
+      expect(missing, contains('あ'));
+      expect(missing, hasLength(CharSet.hiragana.chars.length - 2));
+    });
+
+    test('集めない文字種の字は数えない', () {
+      final books = [
+        const WordBook(
+          id: 'b1',
+          name: 'テスト',
+          words: [Word(text: 'ねこ', reading: 'ねこ')],
+        ),
+      ];
+
+      expect(charsMissingFromWords(_user, books), isNot(contains('ア')));
     });
   });
 }

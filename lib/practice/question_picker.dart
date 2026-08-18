@@ -13,6 +13,7 @@ library;
 import 'dart:math';
 
 import '../model/user.dart';
+import '../model/word.dart';
 import '../store/sample_store.dart';
 
 /// 1 字ぶんの出しやすさ。
@@ -117,32 +118,94 @@ List<Question> questionsFor(
   ];
 }
 
-/// 次に出す字を [count] 字選ぶ。
+/// その人が書ける語（SPEC 7.4）。
 ///
-/// 重みつきの抽選にする。上位から順に出すと、同じ字ばかりが続いて飽きる。
-/// 同じ字は 1 回のまとまりの中で 2 度出さない。
-List<String> pickQuestions(
+/// 使う単語帳はその人に割り振られたものだけ。集める文字種に無い字を含む語は
+/// 外す。書けない字が 1 つ混じると、その語は最後まで書けない。
+///
+/// 同じ語が複数の単語帳にあることがある（「ねこ」はどうぶつにも、はじめの
+/// 単語帳にもある）。同じ語は 1 つにまとめる。
+List<Word> writableWords(User user, List<WordBook> books) {
+  final chars = {for (final charSet in user.visibleCharSets) ...charSet.chars};
+  final seen = <String>{};
+  return [
+    for (final book in books)
+      if (user.uses(book.id))
+        for (final word in book.words)
+          if (word.isWritable(chars) && seen.add(word.text)) word,
+  ];
+}
+
+/// 次に書かせる語を選ぶ（SPEC 7.3 / 7.4）。
+///
+/// **おまかせは語で出す。** 1 字ずつ出すより、書いた字がことばになるほうが
+/// 子供には手応えがある。出したい字（未収集・苦手）を多く含む語ほど出やすい。
+///
+/// [chars] 字ぶんに届くまで語を採る。1 セッション 3〜5 分（SPEC 7.1）に
+/// 収まる長さを、語の長さによらず一定に保つため。
+///
+/// 語に出てこない字は、この導線では永久に出てこない。どの字が出てこないかは
+/// 管理画面で親に見せる（SPEC 7.6）。
+List<Word> pickWords(
   User user,
-  SampleStore store, {
-  int count = 5,
+  SampleStore store,
+  List<WordBook> books, {
+  int chars = 5,
   Random? random,
 }) {
-  final pool = questionsFor(user, store).toList();
-  final rng = random ?? Random();
-  final picked = <String>[];
+  final pool = writableWords(user, books);
+  if (pool.isEmpty) return const [];
 
-  while (picked.length < count && pool.isNotEmpty) {
-    final total = pool.fold(0.0, (sum, question) => sum + question.weight);
+  final weights = {
+    for (final question in questionsFor(user, store))
+      question.char: question.weight,
+  };
+  final rng = random ?? Random();
+  final picked = <Word>[];
+  var written = 0;
+
+  while (written < chars && pool.isNotEmpty) {
+    final scores = [
+      for (final word in pool) _wordWeight(word, weights),
+    ];
+    final total = scores.fold(0.0, (sum, weight) => sum + weight);
     var threshold = rng.nextDouble() * total;
     var index = pool.length - 1;
     for (var i = 0; i < pool.length; i++) {
-      threshold -= pool[i].weight;
+      threshold -= scores[i];
       if (threshold <= 0) {
         index = i;
         break;
       }
     }
-    picked.add(pool.removeAt(index).char);
+    final word = pool.removeAt(index);
+    picked.add(word);
+    written += word.chars.length;
   }
   return picked;
+}
+
+/// 語の出しやすさ。中の字の出しやすさの平均。
+///
+/// 合計にすると長い語ばかりが出る。「ありがとう」は「そら」より 2.5 倍
+/// 出やすい、という理由が無い。
+double _wordWeight(Word word, Map<String, double> weights) {
+  var total = 0.0;
+  for (final char in word.chars) {
+    total += weights[char] ?? 0.05;
+  }
+  return total / word.chars.length;
+}
+
+/// その人が集めている字のうち、語に 1 度も出てこないもの（SPEC 7.6）。
+///
+/// おまかせは語で出すので、ここに挙がった字はその導線では出てこない。
+/// 親が語を足すか、一覧から直に選ばせることになる。
+List<String> charsMissingFromWords(User user, List<WordBook> books) {
+  final covered = {for (final word in writableWords(user, books)) ...word.chars};
+  return [
+    for (final charSet in user.visibleCharSets)
+      for (final char in charSet.chars)
+        if (!covered.contains(char)) char,
+  ];
 }

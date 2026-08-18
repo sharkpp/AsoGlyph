@@ -1,6 +1,6 @@
 # すうじだけの語。数を書く練習になる。
 version: 1
-name: すうじ
+name: すうじのことば
 words:
   - text: "1"
     reading: いち
@@ -8,9 +8,25 @@ words:
     reading: に
   - text: "3"
     reading: さん
+  - text: "4"
+    reading: よん
+  - text: "5"
+    reading: ご
+  - text: "6"
+    reading: ろく
+  - text: "7"
+    reading: なな
+  - text: "8"
+    reading: はち
+  - text: "9"
+    reading: きゅう
   - text: "10"
     reading: じゅう
   - text: "100"
     reading: ひゃく
   - text: "123"
     reading: いち に さん
+  - text: "456"
+    reading: よん ご ろく
+  - text: "789"
+    reading: なな はち きゅう

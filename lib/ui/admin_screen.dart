@@ -25,15 +25,14 @@ class AdminScreen extends StatelessWidget {
     super.key,
     required this.session,
     required this.locks,
-    required this.books,
   });
 
   final Session session;
   final Locks locks;
-  final WordBookStore books;
 
   SampleStore get store => session.samples;
   RecipeStore get recipes => session.recipes;
+  WordBookStore get books => session.books;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +46,7 @@ class AdminScreen extends StatelessWidget {
           animation: Listenable.merge([
             store,
             recipes,
+            books,
             locks.admin,
             locks.switching,
             session,
@@ -103,7 +103,10 @@ class AdminScreen extends StatelessWidget {
                 ),
               const SizedBox(height: 24),
               const _Heading('単語帳'),
-              WordBookSection(books: books),
+              WordBookSection(session: session),
+              const SizedBox(height: 24),
+              const _Heading('ことばに出てこない字'),
+              MissingCharsSection(session: session),
               const SizedBox(height: 24),
               Row(
                 children: [

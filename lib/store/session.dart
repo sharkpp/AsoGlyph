@@ -7,6 +7,7 @@ import 'recipe_store.dart';
 import 'sample_store.dart';
 import 'user_store.dart';
 import 'word_attempt_store.dart';
+import 'word_book_store.dart';
 
 /// いま誰が書いているか、と、その人の記録・版（SPEC 7.5）。
 ///
@@ -20,6 +21,7 @@ class Session extends ChangeNotifier {
     required this.samples,
     required this.recipes,
     required this.attempts,
+    required this.books,
   }) {
     // 名前・印・集める文字種が変わったことも、ここを見ていれば分かるようにする。
     // 画面ごとに users を別途購読させると、購読し忘れた画面だけ古いままになる。
@@ -40,6 +42,7 @@ class Session extends ChangeNotifier {
       samples: await SampleStore.open(db, userId: users.current.id),
       recipes: await RecipeStore.open(db, userId: users.current.id),
       attempts: await WordAttemptStore.open(db, userId: users.current.id),
+      books: await WordBookStore.open(db),
     );
   }
 
@@ -52,6 +55,13 @@ class Session extends ChangeNotifier {
 
   /// 単語を書き終えた履歴（SPEC 4.2）。
   final WordAttemptStore attempts;
+
+  /// 単語帳（SPEC 7.4）。人ごとには分かれない。
+  ///
+  /// 人ごとに分かれないのにここへ置くのは、控えから戻したときに読み直す
+  /// 必要があるから。戻す手順が 1 か所にまとまっていないと、単語帳だけ
+  /// 前の中身のまま残る。
+  final WordBookStore books;
 
   User get current => users.current;
 
@@ -75,6 +85,7 @@ class Session extends ChangeNotifier {
     await samples.load();
     await recipes.load();
     await attempts.load();
+    await books.load();
     notifyListeners();
   }
 

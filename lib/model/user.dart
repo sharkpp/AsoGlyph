@@ -13,6 +13,7 @@ class User {
     required this.createdAt,
     this.birthMonth,
     this.collecting = const {},
+    this.wordBooks = const {},
   });
 
   final String id;
@@ -37,17 +38,28 @@ class User {
   /// まだ書かせない文字種は、子供向け画面から丸ごと消す。
   final Set<CharSet> collecting;
 
+  /// この人が使う単語帳（SPEC 7.4）。id で持つ。
+  ///
+  /// 単語帳そのものは人ごとに分けない（親が 1 か所で作る）。分けるのは
+  /// 「誰にどれを出すか」だけ。上の子には漢字入りの語、下の子にはひらがなの語、
+  /// という使い分けができる。空のときは全部の単語帳を使う。
+  final Set<String> wordBooks;
+
   /// 子供向け画面に出す文字種。
   List<CharSet> get visibleCharSets => [
     for (final charSet in CharSet.values)
       if (collecting.isEmpty || collecting.contains(charSet)) charSet,
   ];
 
+  /// その単語帳をこの人に出すか。
+  bool uses(String bookId) => wordBooks.isEmpty || wordBooks.contains(bookId);
+
   User copyWith({
     String? displayName,
     Avatar? avatar,
     DateTime? birthMonth,
     Set<CharSet>? collecting,
+    Set<String>? wordBooks,
   }) => User(
     id: id,
     displayName: displayName ?? this.displayName,
@@ -55,6 +67,7 @@ class User {
     createdAt: createdAt,
     birthMonth: birthMonth ?? this.birthMonth,
     collecting: collecting ?? this.collecting,
+    wordBooks: wordBooks ?? this.wordBooks,
   );
 }
 

@@ -3,7 +3,6 @@ import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/model/word.dart';
 import 'package:asoglyph/store/session.dart';
-import 'package:asoglyph/store/word_book_store.dart';
 import 'package:asoglyph/ui/word_screen.dart';
 import 'package:asoglyph/ui/writing_screen.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +14,6 @@ import '../support/writing_actions.dart';
 
 void main() {
   late Session session;
-  late WordBookStore books;
   late RecordingSpeaker speaker;
   late StrokeOrderLibrary strokeOrders;
 
@@ -26,7 +24,6 @@ void main() {
 
   setUp(() async {
     session = await openMemorySession();
-    books = await openMemoryWordBooks();
     speaker = RecordingSpeaker();
   });
 
@@ -42,7 +39,6 @@ void main() {
       MaterialApp(
         home: WordScreen(
           session: session,
-          books: books,
           speaker: speaker,
           strokeOrders: strokeOrders,
           mode: mode,
@@ -75,11 +71,30 @@ void main() {
   });
 
   testWidgets('書ける語が 1 つも無ければ、そのことを言う', (tester) async {
-    await collectOnly(tester, {CharSet.digits});
-    books = WordBookStore(await openMemoryDatabase());
+    await tester.runAsync(() async {
+      for (final book in [...session.books.all]) {
+        await session.books.remove(book.id);
+      }
+    });
     await pumpScreen(tester);
 
     expect(find.textContaining('書ける語がありません'), findsOneWidget);
+  });
+
+  testWidgets('この人に割り振られた単語帳だけを出す', (tester) async {
+    final hiragana = session.books.all
+        .firstWhere((book) => book.name == 'ひらがなのことば')
+        .id;
+    await tester.runAsync(
+      () => session.users.save(
+        session.current.copyWith(wordBooks: {hiragana}),
+      ),
+    );
+    await pumpScreen(tester);
+
+    // 上の子には漢字入りの語、下の子にはひらがなの語、という使い分け（SPEC 7.4）。
+    expect(find.text('ひらがなのことば'), findsOneWidget);
+    expect(find.text('カタカナのことば'), findsNothing);
   });
 
   testWidgets('語を書くと、1 字ずつ書かせて履歴に残る', (tester) async {

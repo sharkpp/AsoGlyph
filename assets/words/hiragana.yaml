@@ -97,3 +97,108 @@ words:
   - text: ぼうし
     reading: ぼうし
     tags: [まいにち]
+  - text: えき
+    reading: えき
+    tags: [まいにち]
+  - text: けむり
+    reading: けむり
+    tags: [しぜん]
+  - text: てがみ
+    reading: てがみ
+    tags: [まいにち]
+  - text: のり
+    reading: のり
+    tags: [たべもの]
+  - text: へや
+    reading: へや
+    tags: [まいにち]
+  - text: めがね
+    reading: めがね
+    tags: [まいにち]
+  - text: もも
+    reading: もも
+    tags: [たべもの]
+  - text: ゆき
+    reading: ゆき
+    tags: [しぜん]
+  - text: れいぞうこ
+    reading: れいぞうこ
+    tags: [まいにち]
+  - text: ろうそく
+    reading: ろうそく
+    tags: [まいにち]
+  - text: わに
+    reading: わに
+    tags: [どうぶつ]
+  - text: ほんをよむ
+    reading: ほんをよむ
+    tags: [まいにち]
+  - text: ぐみ
+    reading: ぐみ
+    tags: [たべもの]
+  - text: げんき
+    reading: げんき
+    tags: [まいにち]
+  - text: ざぶとん
+    reading: ざぶとん
+    tags: [まいにち]
+  - text: じてんしゃ
+    reading: じてんしゃ
+    tags: [のりもの]
+  - text: ちず
+    reading: ちず
+    tags: [まいにち]
+  - text: かぜ
+    reading: かぜ
+    tags: [しぜん]
+  - text: だんご
+    reading: だんご
+    tags: [たべもの]
+  - text: はなぢ
+    reading: はなぢ
+    tags: [からだ]
+  - text: みかづき
+    reading: みかづき
+    tags: [しぜん]
+  - text: どんぐり
+    reading: どんぐり
+    tags: [しぜん]
+  - text: ばなな
+    reading: ばなな
+    tags: [たべもの]
+  - text: へび
+    reading: へび
+    tags: [どうぶつ]
+  - text: べんとう
+    reading: べんとう
+    tags: [たべもの]
+  - text: ぴかぴか
+    reading: ぴかぴか
+    tags: [ようす]
+  - text: ぷりん
+    reading: ぷりん
+    tags: [たべもの]
+  - text: ぺんぎん
+    reading: ぺんぎん
+    tags: [どうぶつ]
+  - text: たんぽぽ
+    reading: たんぽぽ
+    tags: [しぜん]
+  - text: きゅうり
+    reading: きゅうり
+    tags: [たべもの]
+  - text: ばぁば
+    reading: ばあば
+    tags: [かぞく]
+  - text: じぃじ
+    reading: じいじ
+    tags: [かぞく]
+  - text: ふぅ
+    reading: ふう
+    tags: [ようす]
+  - text: へぇ
+    reading: へえ
+    tags: [ようす]
+  - text: おぉ
+    reading: おお
+    tags: [ようす]

@@ -98,6 +98,7 @@ Map<String, Object?> _encode(User user) => {
   'createdAt': user.createdAt.millisecondsSinceEpoch,
   'birthMonth': user.birthMonth?.millisecondsSinceEpoch,
   'collecting': [for (final set in user.collecting) set.name],
+  'wordBooks': [...user.wordBooks],
 };
 
 User _decode(String id, Map<String, Object?> record) {
@@ -114,5 +115,6 @@ User _decode(String id, Map<String, Object?> record) {
       for (final name in (record['collecting'] as List? ?? []).cast<String>())
         CharSet.values.byName(name),
     },
+    wordBooks: (record['wordBooks'] as List? ?? []).cast<String>().toSet(),
   );
 }

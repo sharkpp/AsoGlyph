@@ -9,6 +9,7 @@ import '../model/char_set.dart';
 import '../model/font_recipe.dart';
 import '../model/sample.dart';
 import '../model/word.dart';
+import '../practice/question_picker.dart';
 import '../store/passcode.dart';
 import '../store/recipe_store.dart';
 import '../store/sample_store.dart';
@@ -31,17 +32,12 @@ class CollectionScreen extends StatefulWidget {
     super.key,
     required this.session,
     required this.locks,
-    required this.books,
     required this.speaker,
     required this.strokeOrders,
   });
 
   final Session session;
   final Locks locks;
-
-  /// 単語帳（SPEC 7.4）。人ごとには分かれない。
-  final WordBookStore books;
-
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
 
@@ -59,7 +55,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
   SampleStore get store => session.samples;
   RecipeStore get recipes => session.recipes;
   Locks get locks => widget.locks;
-  WordBookStore get books => widget.books;
+  WordBookStore get books => session.books;
   Speaker get speaker => widget.speaker;
   StrokeOrderLibrary get strokeOrders => widget.strokeOrders;
 
@@ -107,13 +103,15 @@ class _CollectionScreenState extends State<CollectionScreen> {
           children: [
             _ModeChoice(mode: _mode, onChanged: _chooseMode),
             const SizedBox(height: 24),
-            _PracticeCard(onTap: () => _practice(context)),
-            if (_wordCount > 0)
+            // 語が 1 つも無ければ、おまかせも出しようがない（SPEC 7.3）。
+            if (_wordCount > 0) ...[
+              _PracticeCard(onTap: () => _practice(context)),
               _WordCard(
                 total: _wordCount,
                 done: _wordsDone,
                 onTap: () => _openWords(context),
               ),
+            ],
             for (final charSet in session.current.visibleCharSets)
               _CharSetCard(
                 charSet: charSet,
@@ -133,7 +131,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) =>
-            AdminScreen(session: session, locks: locks, books: books),
+            AdminScreen(session: session, locks: locks),
       ),
     );
   }
@@ -155,21 +153,14 @@ class _CollectionScreenState extends State<CollectionScreen> {
       .where((word) => session.attempts.countOf(word.text) > 0)
       .length;
 
-  List<Word> get _writableWords {
-    final chars = writableChars(session);
-    return [
-      for (final book in books.all)
-        for (final word in book.words)
-          if (word.isWritable(chars)) word,
-    ];
-  }
+  List<Word> get _writableWords =>
+      writableWords(session.current, books.all);
 
   void _openWords(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => WordScreen(
           session: session,
-          books: books,
           speaker: speaker,
           strokeOrders: strokeOrders,
           mode: _mode,

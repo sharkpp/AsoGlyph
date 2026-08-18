@@ -3,47 +3,146 @@ version: 1
 name: カタカナのことば
 words:
   - text: バス
-    reading: バス
+    reading: ばす
     tags: [のりもの]
   - text: タクシー
-    reading: タクシー
+    reading: たくしー
     tags: [のりもの]
   - text: ロケット
-    reading: ロケット
+    reading: ろけっと
     tags: [のりもの]
   - text: パン
-    reading: パン
+    reading: ぱん
     tags: [たべもの]
   - text: ケーキ
-    reading: ケーキ
+    reading: けーき
     tags: [たべもの]
   - text: カレー
-    reading: カレー
+    reading: かれー
     tags: [たべもの]
   - text: ジュース
-    reading: ジュース
+    reading: じゅーす
     tags: [たべもの]
   - text: アイス
-    reading: アイス
+    reading: あいす
     tags: [たべもの]
   - text: ボール
-    reading: ボール
+    reading: ぼーる
     tags: [あそび]
   - text: ブランコ
-    reading: ブランコ
+    reading: ぶらんこ
     tags: [あそび]
   - text: プール
-    reading: プール
+    reading: ぷーる
     tags: [あそび]
   - text: ノート
-    reading: ノート
+    reading: のーと
     tags: [まいにち]
   - text: テレビ
-    reading: テレビ
+    reading: てれび
     tags: [まいにち]
   - text: コップ
-    reading: コップ
+    reading: こっぷ
     tags: [まいにち]
   - text: シャツ
-    reading: シャツ
+    reading: しゃつ
     tags: [まいにち]
+  - text: ウサギ
+    reading: うさぎ
+    tags: [どうぶつ]
+  - text: ゾウ
+    reading: ぞう
+    tags: [どうぶつ]
+  - text: ゴリラ
+    reading: ごりら
+    tags: [どうぶつ]
+  - text: パンダ
+    reading: ぱんだ
+    tags: [どうぶつ]
+  - text: ペンギン
+    reading: ぺんぎん
+    tags: [どうぶつ]
+  - text: エレベーター
+    reading: えれべーたー
+    tags: [のりもの]
+  - text: ヘリコプター
+    reading: へりこぷたー
+    tags: [のりもの]
+  - text: タイヤ
+    reading: たいや
+    tags: [のりもの]
+  - text: オムライス
+    reading: おむらいす
+    tags: [たべもの]
+  - text: チョコレート
+    reading: ちょこれーと
+    tags: [たべもの]
+  - text: バナナ
+    reading: ばなな
+    tags: [たべもの]
+  - text: ニンジン
+    reading: にんじん
+    tags: [たべもの]
+  - text: ヌードル
+    reading: ぬーどる
+    tags: [たべもの]
+  - text: ハンバーガー
+    reading: はんばーがー
+    tags: [たべもの]
+  - text: ホットケーキ
+    reading: ほっとけーき
+    tags: [たべもの]
+  - text: ミルク
+    reading: みるく
+    tags: [たべもの]
+  - text: メロン
+    reading: めろん
+    tags: [たべもの]
+  - text: ヨーグルト
+    reading: よーぐると
+    tags: [たべもの]
+  - text: ピザ
+    reading: ぴざ
+    tags: [たべもの]
+  - text: ゼリー
+    reading: ぜりー
+    tags: [たべもの]
+  - text: デザート
+    reading: でざーと
+    tags: [たべもの]
+  - text: キャンディ
+    reading: きゃんでぃ
+    tags: [たべもの]
+  - text: セーター
+    reading: せーたー
+    tags: [まいにち]
+  - text: ソファ
+    reading: そふぁ
+    tags: [まいにち]
+  - text: ネクタイ
+    reading: ねくたい
+    tags: [まいにち]
+  - text: リモコン
+    reading: りもこん
+    tags: [まいにち]
+  - text: ズボン
+    reading: ずぼん
+    tags: [まいにち]
+  - text: ポケット
+    reading: ぽけっと
+    tags: [まいにち]
+  - text: カフェ
+    reading: かふぇ
+    tags: [まいにち]
+  - text: フォーク
+    reading: ふぉーく
+    tags: [まいにち]
+  - text: ヒマワリ
+    reading: ひまわり
+    tags: [しぜん]
+  - text: ユリ
+    reading: ゆり
+    tags: [しぜん]
+  - text: ゲーム
+    reading: げーむ
+    tags: [あそび]

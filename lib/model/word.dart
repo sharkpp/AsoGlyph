@@ -23,13 +23,39 @@ class Word {
       chars.every(collectable.contains);
 }
 
-/// 語のまとまり。同梱のものと、親が取り込んだものがある（SPEC 7.4）。
+/// 語のまとまり（SPEC 7.4）。
+///
+/// 「どうぶつ」「たべもの」のように、親がいくつでも作れる。誰にどれを出すかは
+/// [User.wordBooks] が持つ。
 class WordBook {
-  const WordBook({required this.id, required this.name, required this.words});
+  const WordBook({
+    required this.id,
+    required this.name,
+    required this.words,
+    this.source,
+  });
 
   final String id;
   final String name;
   final List<Word> words;
+
+  /// どこから来たか。同梱の単語帳だけが持つ（資産のパス）。
+  ///
+  /// 消したものを入れ直せるようにするためだけに持つ。中身は直せるし、
+  /// 直したあともここは変わらない。
+  final String? source;
+
+  WordBook copyWith({String? name, List<Word>? words}) => WordBook(
+    id: id,
+    name: name ?? this.name,
+    words: words ?? this.words,
+    source: source,
+  );
+
+  /// この単語帳に出てくる字。
+  Set<String> get chars => {
+    for (final word in words) ...word.chars,
+  };
 }
 
 /// 1 回の単語トライアル（SPEC 4.2）。

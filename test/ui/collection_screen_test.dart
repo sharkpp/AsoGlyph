@@ -7,7 +7,6 @@ import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/store/session.dart';
-import 'package:asoglyph/store/word_book_store.dart';
 import 'package:asoglyph/ui/char_set_screen.dart';
 import 'package:asoglyph/model/user.dart';
 import 'package:asoglyph/ui/collection_screen.dart';
@@ -39,7 +38,6 @@ void main() {
   late Session session;
   late SampleStore store;
   late Locks locks;
-  late WordBookStore books;
   late StrokeOrderLibrary strokeOrders;
 
   setUpAll(() async {
@@ -51,7 +49,6 @@ void main() {
     session = await openMemorySession();
     store = session.samples;
     locks = await openMemoryLocks();
-    books = await openMemoryWordBooks();
   });
 
   /// sembast はタイマを使う。テストの疑似非同期環境では完了しないため、
@@ -69,7 +66,6 @@ void main() {
         home: CollectionScreen(
           session: session,
           locks: locks,
-          books: books,
           speaker: speaker ?? RecordingSpeaker(),
           strokeOrders: strokeOrders,
         ),
@@ -256,22 +252,21 @@ void main() {
     expect(find.text('だれが かく？'), findsOneWidget);
   });
 
-  testWidgets('おまかせで、まだ書いていない字から出す', (tester) async {
+  testWidgets('おまかせは、ことばの中から出す', (tester) async {
     await pumpScreen(tester);
 
     await tester.tap(find.text('おまかせで かく'));
     await tester.pumpAndSettle();
 
-    // 何を書くかを選ばせない。選ばせると書ける字ばかりを選ぶ（SPEC 7.3）。
+    // 1 字ずつ出すより、書いた字がことばになるほうが手応えがある（SPEC 7.3）。
     final screen = tester.widget<WritingScreen>(find.byType(WritingScreen));
-    expect(screen.steps!.chars, hasLength(5), reason: '1 まとまりは 5 字');
+    final words = {
+      for (final book in session.books.all)
+        for (final word in book.words) word.text: word.reading,
+    };
+    expect(screen.steps!.reading, isNotNull, reason: '語として読み上げる');
+    expect(words[screen.steps!.chars.join()], screen.steps!.reading);
     expect(screen.steps!.index, 0);
-    expect(screen.steps!.reading, isNull, reason: 'つながった語ではない');
-    expect(
-      screen.steps!.chars,
-      everyElement(isIn(CharSet.hiragana.chars + CharSet.katakana.chars +
-          CharSet.digits.chars)),
-    );
   });
 
   testWidgets('KanjiVG のクレジットをアプリの中で読める', (tester) async {

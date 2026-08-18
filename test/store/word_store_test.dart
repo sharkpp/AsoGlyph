@@ -38,6 +38,25 @@ void main() {
       }
     });
 
+    test('おまかせで全部の字に行き着ける', () async {
+      final books = await openMemoryWordBooks();
+      final covered = {for (final book in books.all) ...book.chars};
+
+      // おまかせは語で出す（SPEC 7.3）。語に出てこない字は、その導線では
+      // 永久に出てこない。はじめの単語帳だけでフォントが埋まるようにしておく。
+      //
+      // ヲヂヅゥ は今の日本語の語に出てこない。管理画面の「ことばに
+      // 出てこない字」に挙がるので、親が語を足すか一覧から選ばせる。
+      const unused = {'ヲ', 'ヂ', 'ヅ', 'ゥ'};
+      for (final set in CharSet.values) {
+        expect(
+          set.chars.where((char) => !covered.contains(char)),
+          unused.where(set.chars.contains),
+          reason: '${set.label} に、語から行き着けない字がある',
+        );
+      }
+    });
+
     test('ひらがなの単語帳は、ひらがなだけで書ける', () async {
       final books = await openMemoryWordBooks();
       final book = books.all.firstWhere((book) => book.name == 'ひらがなのことば');
@@ -47,12 +66,12 @@ void main() {
       expect(book.words.where((word) => !word.isWritable(hiragana)), isEmpty);
     });
 
-    test('取り込んだ単語帳は残り、消せる', () async {
+    test('足した単語帳は残り、消せる', () async {
       final db = await openMemoryDatabase();
       final books = await openMemoryWordBooks(db);
       final bundled = books.all.length;
 
-      final added = await books.add(
+      await books.add(
         const WordBook(
           id: 'ignored',
           name: 'うちのことば',
@@ -60,7 +79,6 @@ void main() {
         ),
       );
       expect(books.all, hasLength(bundled + 1));
-      expect(books.isImported(added.id), isTrue);
 
       // 開き直しても残る。
       final reopened = await openMemoryWordBooks(db);
@@ -71,13 +89,38 @@ void main() {
       expect(reopened.all, hasLength(bundled));
     });
 
-    test('同梱の単語帳は消させない', () async {
-      final books = await openMemoryWordBooks();
-      final bundled = books.all.first;
+    test('同梱の単語帳も直せる', () async {
+      final db = await openMemoryDatabase();
+      final books = await openMemoryWordBooks(db);
+      final book = books.all.first;
 
-      expect(books.isImported(bundled.id), isFalse);
-      await books.remove(bundled.id);
-      expect(books.all, contains(bundled));
+      // 「同梱だから直せない」という段差を作ると、語を 1 つ足したいだけの
+      // 親がまるごと作り直すことになる。
+      await books.save(
+        book.copyWith(
+          name: 'うちのひらがな',
+          words: [...book.words, const Word(text: 'ぱぱ', reading: 'ぱぱ')],
+        ),
+      );
+
+      final reopened = await openMemoryWordBooks(db);
+      expect(reopened.all.first.name, 'うちのひらがな');
+      expect(reopened.all.first.words.last.text, 'ぱぱ');
+    });
+
+    test('消した同梱の単語帳を入れ直せる', () async {
+      final db = await openMemoryDatabase();
+      final books = await openMemoryWordBooks(db);
+      final bundled = books.all.length;
+      await books.remove(books.all.first.id);
+
+      // 消せるのに戻せないと、親は消すのをためらう。
+      expect(books.bundledMissing, hasLength(1));
+      final added = await books.restoreBundled();
+
+      expect(added, hasLength(1));
+      expect(books.all, hasLength(bundled));
+      expect(books.bundledMissing, isEmpty);
     });
   });
 

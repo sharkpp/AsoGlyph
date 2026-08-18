@@ -4,9 +4,10 @@ import '../audio/speaker.dart';
 import '../kanjivg/stroke_order.dart';
 import '../model/sample.dart';
 import '../model/word.dart';
+import '../practice/question_picker.dart';
 import '../store/session.dart';
 import '../store/word_book_store.dart';
-import 'writing_screen.dart';
+import 'practice_session.dart';
 
 /// 単語で練習する画面（SPEC 7.4）。
 ///
@@ -16,17 +17,17 @@ class WordScreen extends StatelessWidget {
   const WordScreen({
     super.key,
     required this.session,
-    required this.books,
     required this.speaker,
     required this.strokeOrders,
     required this.mode,
   });
 
   final Session session;
-  final WordBookStore books;
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
   final PracticeMode mode;
+
+  WordBookStore get books => session.books;
 
   @override
   Widget build(BuildContext context) {
@@ -50,10 +51,14 @@ class WordScreen extends StatelessWidget {
   }
 
   Widget _buildBody(BuildContext context) {
-    final writable = writableChars(session);
+    // 出すのはその人に割り振られた単語帳だけ（SPEC 7.4）。
+    final writable = writableWords(session.current, books.all).map(
+      (word) => word.text,
+    ).toSet();
     final shown = [
       for (final book in books.all)
-        (book, book.words.where((word) => word.isWritable(writable)).toList()),
+        if (session.current.uses(book.id))
+          (book, book.words.where((word) => writable.contains(word.text)).toList()),
     ].where((entry) => entry.$2.isNotEmpty).toList();
 
     if (shown.isEmpty) {
@@ -61,8 +66,8 @@ class WordScreen extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(32),
           child: Text(
-            'いま集めている文字種で書ける語がありません。\n'
-            'おうちの人の画面で、集める文字種を足すか単語帳を取り込んでください。',
+            'いま書ける語がありません。\n'
+            'おうちの人の画面で、使う単語帳か集める文字種を足してください。',
             textAlign: TextAlign.center,
             style: TextStyle(color: Color(0xff9c948a)),
           ),
@@ -105,56 +110,6 @@ class WordScreen extends StatelessWidget {
       ],
     );
   }
-}
-
-/// いま集めている文字種の字ぜんぶ。
-///
-/// これに無い字を含む語は出さない（SPEC 7.4）。書けない字が 1 つ混じると、
-/// その語は最後まで書けない。
-Set<String> writableChars(Session session) => {
-  for (final charSet in session.current.visibleCharSets) ...charSet.chars,
-};
-
-/// 語を 1 字ずつ書かせる（SPEC 7.4）。
-///
-/// 最後まで書けたら単語トライアルとして残す（SPEC 4.2）。途中でやめたときは
-/// 残さない。書いた字そのものは 1 字ずつ記録に入っているので、何も失われない。
-Future<void> practiceWord(
-  BuildContext context, {
-  required Word word,
-  required PracticeMode mode,
-  required Session session,
-  required Speaker speaker,
-  required StrokeOrderLibrary strokeOrders,
-}) async {
-  final sampleIds = <String>[];
-
-  for (final (index, char) in word.chars.indexed) {
-    // 続けて押されて画面ごと閉じられていたら、そこで終わる。
-    if (!context.mounted) return;
-    final id = await Navigator.of(context).push<String>(
-      MaterialPageRoute(
-        builder: (context) => WritingScreen(
-          char: char,
-          mode: mode,
-          store: session.samples,
-          speaker: speaker,
-          strokeOrder: strokeOrders[char],
-          steps: WritingSteps(
-            chars: word.chars,
-            index: index,
-            reading: word.reading,
-          ),
-        ),
-      ),
-    );
-    // 書かずに閉じた。やめたところで打ち切る。
-    if (id == null) return;
-    sampleIds.add(id);
-  }
-
-  await session.attempts.finish(word: word.text, sampleIds: sampleIds);
-  await speaker.speak('${word.reading}、かけたね！');
 }
 
 /// 一覧に並ぶ 1 語。押すとその語の書き取りに入る。

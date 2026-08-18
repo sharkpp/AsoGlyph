@@ -24,6 +24,9 @@ Sample _written(String char) => Sample.now(
 );
 
 void main() {
+  // Session が同梱の単語帳を資産から読む。
+  setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
+
   late Session source;
   setUp(() async => source = await openMemorySession());
 
