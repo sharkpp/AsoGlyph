@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show AssetManifest, rootBundle;
 import 'package:sembast/blob.dart';
 import 'package:sembast/sembast.dart';
 import 'package:uuid/uuid.dart';
@@ -10,6 +9,7 @@ import '../model/word.dart';
 import '../word/word_book_codec.dart';
 import '../word/word_book_export.dart';
 import '../word/word_image.dart';
+import 'bundled_assets.dart';
 
 /// 単語帳の置き場（SPEC 7.4）。
 ///
@@ -25,26 +25,17 @@ import '../word/word_image.dart';
 /// 内蔵を直せなくしているのは、直せると「元に戻す」道が要るため。
 /// 直したいときはコピーを作る（[copy]）。1 タップで済む。
 class WordBookStore extends ChangeNotifier {
-  WordBookStore(this._db);
+  WordBookStore(this._db, {BundledAssets? assets})
+    : _assets = assets ?? const AppBundledAssets();
 
-  static Future<WordBookStore> open(Database db) async {
-    final store = WordBookStore(db);
+  static Future<WordBookStore> open(Database db, {BundledAssets? assets}) async {
+    final store = WordBookStore(db, assets: assets);
     await store.load();
     // 開くたびに内蔵の辞書を合わせる。空のときだけ入れる作りにすると、
     // あとからアプリに足した辞書が、すでに使っている端末に出てこない。
     await store.syncBundled();
     return store;
   }
-
-  /// 内蔵の辞書を置く場所。
-  static const bundledDir = 'assets/words/';
-
-  /// 動作確認用の辞書の目印。
-  ///
-  /// **ファイル名が `_` で始まるものは、デバッグでだけ読む。**
-  /// リポジトリにも入れない（`.gitignore`）ので、素の取得から作った
-  /// リリースには存在しない。手元で試す辞書を、配るものに混ぜないため。
-  static bool isDebugAsset(String path) => path.split('/').last.startsWith('_');
 
   static final _books = stringMapStoreFactory.store('wordBooks');
 
@@ -53,11 +44,17 @@ class WordBookStore extends ChangeNotifier {
   static final _images = StoreRef<String, Blob>('wordImages');
 
   final Database _db;
+  final BundledAssets _assets;
 
   final List<WordBook> _all = [];
 
   /// いちばん最後に入れた時刻。次に入れるものを必ずそのうしろに置く。
   int _lastAddedAt = 0;
+
+  /// 内蔵の辞書の id -> 資産の中身の指紋。
+  ///
+  /// 中身が変わったかを、開くたびに読み比べるために持つ。
+  final Map<String, int> _fingerprints = {};
 
   /// 作った順に並ぶ。
   List<WordBook> get all => List.unmodifiable(_all);
@@ -77,6 +74,16 @@ class WordBookStore extends ChangeNotifier {
       0,
       (last, record) => max(last, record.value['addedAt']! as int),
     );
+    _fingerprints
+      ..clear()
+      ..addEntries(
+        records
+            .where((record) => record.value['fingerprint'] != null)
+            .map(
+              (record) =>
+                  MapEntry(record.key, record.value['fingerprint']! as int),
+            ),
+      );
     _all
       ..clear()
       ..addAll(records.map((record) => _decode(record.key, record.value)));
@@ -85,11 +92,13 @@ class WordBookStore extends ChangeNotifier {
 
   /// アプリに入っている辞書に合わせる。
   ///
-  /// 足りないものを入れ、無くなったものを片づける。**中身は上書きしない。**
-  /// 内蔵は直せないので中身が変わることはないが、アプリを新しくしたときに
-  /// 名前だけ変えて別物に入れ替わる、といったことも起こさない。
+  /// 足りないものを入れ、無くなったものを片づけ、**中身が変わったものは
+  /// 入れ替える**。辞書を直したら、開き直せばそれが出る。
+  ///
+  /// 入れ替えるときも **id は変えない**。誰にどれを出すかは id で覚えている
+  /// （[User.wordBooks]）ので、id が変わると割り振りが外れる。並びも変えない。
   Future<void> syncBundled() async {
-    final assets = await bundledAssets();
+    final assets = await _assets.list();
 
     // アプリから外した辞書は片づける。動作確認用の辞書を手元から外したとき、
     // その端末に残り続けないようにする。
@@ -99,92 +108,105 @@ class WordBookStore extends ChangeNotifier {
       }
     }
 
-    final have = {for (final book in _all) book.source};
+    final byAsset = {
+      for (final book in _all)
+        if (book.source != null) book.source!: book,
+    };
     for (final asset in assets) {
-      if (have.contains(asset)) continue;
-      await _addFromAsset(asset);
+      await _syncAsset(asset, byAsset[asset]);
     }
     await _sweepImages();
     notifyListeners();
   }
 
-  /// アプリに入っている辞書ファイル。
+  /// 資産 1 つを、いま入っているものと突き合わせる。
   ///
-  /// 一覧は資産そのものから引く。並びを手で持つと、辞書を足したときに
-  /// 書き足し忘れて出てこない。
-  Future<List<String>> bundledAssets() async {
-    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-    final assets =
-        manifest
-            .listAssets()
-            .where((path) => path.startsWith(bundledDir))
-            .where(
-              (path) =>
-                  path.endsWith('.yaml') ||
-                  path.endsWith('.yml') ||
-                  path.endsWith('.$wordBookBundleExtension'),
-            )
-            // 動作確認用はデバッグでだけ読む。
-            .where((path) => kDebugMode || !isDebugAsset(path))
-            .toList()
-          ..sort();
-    // 動作確認用はうしろに寄せる。配る辞書の並びを、手元の都合で崩さない。
-    return [
-      ...assets.where((path) => !isDebugAsset(path)),
-      ...assets.where(WordBookStore.isDebugAsset),
-    ];
+  /// 指紋が同じなら何もしない。**中身の読み取りはここで初めて行う。**
+  /// 絵の入った辞書は開くのに手間が掛かるので、変わっていないうちは開かない。
+  Future<void> _syncAsset(String asset, WordBook? existing) async {
+    final isBundle = asset.endsWith('.$wordBookBundleExtension');
+    // 指紋のために中身は毎回読む。読むだけなら安いが、開くのは高い。
+    final Uint8List? bytes;
+    final String? text;
+    if (isBundle) {
+      bytes = await _assets.load(asset);
+      text = null;
+    } else {
+      bytes = null;
+      text = await _assets.loadString(asset);
+    }
+    final fingerprint = Object.hash(
+      asset,
+      bytes?.length ?? text!.length,
+      bytes == null ? text.hashCode : Object.hashAll(bytes),
+    );
+    if (existing != null && _fingerprints[existing.id] == fingerprint) return;
+
+    // 読み取りは資産を取り終えてから、同期のまま行う。await をまたいで投げると、
+    // 捕まえてもテストの土台が「拾われなかった例外」として拾ってしまう。
+    final WordBook parsed;
+    try {
+      parsed = isBundle
+          ? _fromBundle(bytes!, asset)
+          : parseWordBookYaml(text!, id: asset, fallbackName: asset);
+    } catch (error) {
+      // 読めない辞書 1 つで、アプリが開かなくなってはいけない。
+      // 手で直した単語帳ファイルを置くこともある（動作確認用の辞書）。
+      debugPrint('単語帳を読めませんでした: $asset ($error)');
+      return;
+    }
+
+    final images = isBundle ? await _storeImages(bytes!, asset) : null;
+    final book = images == null ? parsed : _relinked(parsed, images);
+
+    if (existing == null) {
+      await add(book, source: asset, fingerprint: fingerprint);
+      return;
+    }
+    // 中身だけを入れ替える。id・並び・割り振りはそのまま。
+    final replaced = book.copyWith(id: existing.id);
+    await _books.record(existing.id).update(_db, {
+      ..._encode(replaced),
+      'fingerprint': fingerprint,
+    });
+    _fingerprints[existing.id] = fingerprint;
+    _all[_all.indexWhere((entry) => entry.id == existing.id)] = replaced;
   }
 
-  /// 資産 1 つを単語帳にする。絵の入った単語帳ファイルも読む。
-  ///
-  /// **読めなければ、その 1 冊が出ないだけにする。** 手で直した単語帳ファイルを
-  /// 置くこともある（動作確認用の辞書）。それでアプリが開かなくなってはいけない。
-  ///
-  /// 読み取りは資産を取り終えてから、同期のまま行う。await をまたいで投げると、
-  /// 捕まえてもテストの土台が「拾われなかった例外」として拾ってしまう。
-  Future<WordBook?> _addFromAsset(String asset) async {
-    if (!asset.endsWith('.$wordBookBundleExtension')) {
-      final source = await rootBundle.loadString(asset);
-      final WordBook book;
-      try {
-        book = parseWordBookYaml(source, id: asset, fallbackName: asset);
-      } catch (error) {
-        debugPrint('単語帳を読めませんでした: $asset ($error)');
-        return null;
-      }
-      return add(book, source: asset);
-    }
+  /// 単語帳ファイル（zip）を開く。
+  WordBook _fromBundle(Uint8List bytes, String asset) =>
+      parseWordBookBundle(bytes, name: asset).book;
 
-    final bytes = (await rootBundle.load(asset)).buffer.asUint8List();
-    final WordBookBundle bundle;
-    try {
-      bundle = parseWordBookBundle(bytes, name: asset);
-    } catch (error) {
-      debugPrint('単語帳を読めませんでした: $asset ($error)');
-      return null;
-    }
+  /// 単語帳ファイルの中の絵を端末へ入れる。返るのは 中の名前 -> 端末の id。
+  Future<Map<String, String>> _storeImages(Uint8List bytes, String asset) async {
+    final bundle = parseWordBookBundle(bytes, name: asset);
     final ids = <String, String>{};
     for (final entry in bundle.images.entries) {
+      // 大きすぎる絵は入れない。取り込みと同じ物差しで測る。
       if (entry.value.length > maxImageBytes) continue;
       ids[entry.key] = await addImage(entry.value, fileName: entry.key);
     }
-    return add(
-      bundle.book.copyWith(
-        words: [
-          for (final word in bundle.book.words)
-            word.image == null
-                ? word
-                : ids[word.image!] == null
-                ? word.withoutImage()
-                : word.copyWith(image: ids[word.image!]),
-        ],
-      ),
-      source: asset,
-    );
+    return ids;
   }
 
+  /// 語の指す絵を、端末に入れた絵の id へ付け替える。
+  WordBook _relinked(WordBook book, Map<String, String> ids) => book.copyWith(
+    words: [
+      for (final word in book.words)
+        word.image == null
+            ? word
+            : ids[word.image!] == null
+            ? word.withoutImage()
+            : word.copyWith(image: ids[word.image!]),
+    ],
+  );
+
   /// 単語帳を足す。取り込みでも、その場で作るときでも通る道はここ 1 つ。
-  Future<WordBook> add(WordBook book, {String? source}) async {
+  Future<WordBook> add(
+    WordBook book, {
+    String? source,
+    int? fingerprint,
+  }) async {
     final saved = WordBook(
       id: const Uuid().v7(),
       name: book.name,
@@ -200,7 +222,9 @@ class WordBookStore extends ChangeNotifier {
     await _books.record(saved.id).put(_db, {
       ..._encode(saved),
       'addedAt': _lastAddedAt,
+      'fingerprint': fingerprint,
     });
+    if (fingerprint != null) _fingerprints[saved.id] = fingerprint;
     _all.add(saved);
     notifyListeners();
     return saved;

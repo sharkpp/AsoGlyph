@@ -6,6 +6,8 @@ import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/model/user.dart';
 import 'package:asoglyph/model/word.dart';
 import 'package:asoglyph/store/word_attempt_store.dart';
+import 'package:asoglyph/word/word_book_export.dart';
+import 'package:asoglyph/store/bundled_assets.dart';
 import 'package:asoglyph/store/word_book_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -167,6 +169,59 @@ void main() {
       expect([for (final book in reopened.all) book.name], expected);
     });
 
+    test('辞書を直したら、開き直したときに入れ替わる', () async {
+      final db = await openMemoryDatabase();
+      final assets = FakeBundledAssets({
+        'assets/words/a.yaml': 'name: どうぶつ\n'
+            'words:\n  - {text: ねこ, reading: ねこ}\n',
+        'assets/words/b.yaml': 'name: たべもの\n'
+            'words:\n  - {text: ぱん, reading: ぱん}\n',
+      });
+      final books = await WordBookStore.open(db, assets: assets);
+      final before = books.all.first;
+      expect(before.words.single.text, 'ねこ');
+
+      // 辞書を直した。
+      assets.files['assets/words/a.yaml'] =
+          'name: どうぶつ\n'
+          'words:\n  - {text: ねこ, reading: ねこ}\n'
+          '  - {text: いぬ, reading: いぬ}\n';
+
+      final reopened = await WordBookStore.open(db, assets: assets);
+      final after = reopened.all.first;
+
+      expect(after.words.map((word) => word.text), ['ねこ', 'いぬ']);
+      // 誰にどれを出すかは id で覚えている。id が変わると割り振りが外れる。
+      expect(after.id, before.id);
+      expect(
+        [for (final book in reopened.all) book.name],
+        ['どうぶつ', 'たべもの'],
+        reason: '並びも変わらない',
+      );
+    });
+
+    test('変えていない辞書は、開き直しても入れ直さない', () async {
+      final db = await openMemoryDatabase();
+      final bundle = await encodeWordBookBundle(
+        const WordBook(
+          id: 'b',
+          name: 'どうぶつ',
+          words: [Word(text: 'ねこ', reading: 'ねこ', image: 'cat.png')],
+        ),
+        (id) async => Uint8List.fromList([1, 2, 3]),
+      );
+      final assets = FakeBundledAssets({'assets/words/a.asodict': bundle});
+
+      final first = await WordBookStore.open(db, assets: assets);
+      final image = first.all.single.words.single.image;
+
+      final second = await WordBookStore.open(db, assets: assets);
+
+      // 開くたびに絵を入れ直すと、同じ絵が端末の中で増え続ける。
+      expect(second.all.single.words.single.image, image);
+      expect(await second.readImage(image!), [1, 2, 3]);
+    });
+
     test('開き直しても内蔵はそろっている', () async {
       final db = await openMemoryDatabase();
       final first = await openMemoryWordBooks(db);
@@ -201,8 +256,11 @@ void main() {
     test('動作確認用の辞書は、名前の先頭で見分ける', () {
       // リリースには存在しない（.gitignore）。手元では内蔵と同じ場所に
       // 並ぶので、見分けが付くようにする。
-      expect(WordBookStore.isDebugAsset('assets/words/_ためし.yaml'), isTrue);
-      expect(WordBookStore.isDebugAsset('assets/words/hiragana.yaml'), isFalse);
+      expect(AppBundledAssets.isDebugAsset('assets/words/_ためし.yaml'), isTrue);
+      expect(
+        AppBundledAssets.isDebugAsset('assets/words/hiragana.yaml'),
+        isFalse,
+      );
     });
   });
 
@@ -378,4 +436,3 @@ void main() {
     });
   });
 }
-

@@ -1,6 +1,6 @@
 // 単語帳のフォルダを 1 つの .asodict にまとめる（SPEC 7.4.1）。
 //
-//   dart run tool/pack_word_book.dart <フォルダ> [出力先]
+//   dart run tool/word_book/pack.dart <フォルダ> [出力先]
 //
 // フォルダには単語帳の YAML を 1 つ置き、絵は同じフォルダに並べる。
 // YAML の `image:` に書いたファイル名だけを拾って zip に入れる。
@@ -21,7 +21,7 @@ import 'package:asoglyph/word/word_image.dart';
 
 Future<void> main(List<String> args) async {
   if (args.isEmpty) {
-    stderr.writeln('使い方: dart run tool/pack_word_book.dart <フォルダ> [出力先]');
+    stderr.writeln('使い方: dart run tool/word_book/pack.dart <フォルダ> [出力先]');
     exit(64);
   }
 

@@ -2,7 +2,10 @@ import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/store/session.dart';
+import 'package:asoglyph/store/bundled_assets.dart';
 import 'package:asoglyph/store/word_book_store.dart';
+import 'dart:typed_data';
+
 import 'package:sembast/sembast_memory.dart';
 
 /// テスト用のデータベース。呼ぶたびに新しいメモリ DB を割り当てる。
@@ -24,6 +27,26 @@ Future<Session> openMemorySession() async =>
 /// テスト用の単語帳。はじめの単語帳が入った状態で開く。
 Future<WordBookStore> openMemoryWordBooks([Database? db]) async =>
     WordBookStore.open(db ?? await openMemoryDatabase());
+
+/// テスト用の内蔵辞書。資産の代わりに、その場で書き換えられる中身を返す。
+///
+/// 資産は実行ファイルの中にあり、テストからは書き換えられない。辞書を
+/// 直したときの振る舞い（SPEC 7.4.3）は、これを差し替えて確かめる。
+class FakeBundledAssets implements BundledAssets {
+  FakeBundledAssets(this.files);
+
+  /// パス -> 中身（YAML の文字列、または単語帳ファイルのバイト列）。
+  final Map<String, Object> files;
+
+  @override
+  Future<List<String>> list() async => files.keys.toList();
+
+  @override
+  Future<String> loadString(String path) async => files[path]! as String;
+
+  @override
+  Future<Uint8List> load(String path) async => files[path]! as Uint8List;
+}
 
 /// テスト用のパスコード置き場。端末の Keychain を触らない。
 class MemorySecretStore implements SecretStore {

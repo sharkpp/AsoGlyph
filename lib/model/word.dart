@@ -152,8 +152,8 @@ class WordBook {
   bool get isDebugBook =>
       isBundled && source!.split('/').last.startsWith('_');
 
-  WordBook copyWith({String? name, List<Word>? words}) => WordBook(
-    id: id,
+  WordBook copyWith({String? id, String? name, List<Word>? words}) => WordBook(
+    id: id ?? this.id,
     name: name ?? this.name,
     words: words ?? this.words,
     source: source,
