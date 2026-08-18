@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'char_set.dart';
+
 /// 書く人（SPEC 4.4）。
 ///
 /// 情報は人ごとに完全に分離する（SPEC 7.5）。記録も版も、必ずどれか 1 人に属する。
@@ -10,6 +12,7 @@ class User {
     required this.avatar,
     required this.createdAt,
     this.birthMonth,
+    this.collecting = const {},
   });
 
   final String id;
@@ -25,14 +28,34 @@ class User {
   /// 難易度統計の補正にだけ使う。任意（SPEC 4.4）。
   final DateTime? birthMonth;
 
-  User copyWith({String? displayName, Avatar? avatar, DateTime? birthMonth}) =>
-      User(
-        id: id,
-        displayName: displayName ?? this.displayName,
-        avatar: avatar ?? this.avatar,
-        createdAt: createdAt,
-        birthMonth: birthMonth ?? this.birthMonth,
-      );
+  /// いま集めている文字種（SPEC 5）。
+  ///
+  /// 出力対象（版）とは別に決める。収集は広く、出力は絞る、という非対称が
+  /// 「あの頃の文字」の前提。空のときは全部を集める。
+  ///
+  /// 4 歳にカタカナ 81 字まで見せると、目の前の字を探せなくなる。
+  /// まだ書かせない文字種は、子供向け画面から丸ごと消す。
+  final Set<CharSet> collecting;
+
+  /// 子供向け画面に出す文字種。
+  List<CharSet> get visibleCharSets => [
+    for (final charSet in CharSet.values)
+      if (collecting.isEmpty || collecting.contains(charSet)) charSet,
+  ];
+
+  User copyWith({
+    String? displayName,
+    Avatar? avatar,
+    DateTime? birthMonth,
+    Set<CharSet>? collecting,
+  }) => User(
+    id: id,
+    displayName: displayName ?? this.displayName,
+    avatar: avatar ?? this.avatar,
+    createdAt: createdAt,
+    birthMonth: birthMonth ?? this.birthMonth,
+    collecting: collecting ?? this.collecting,
+  );
 }
 
 /// 人を見分ける印。

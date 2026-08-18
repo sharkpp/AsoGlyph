@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sembast/sembast.dart';
 import 'package:uuid/uuid.dart';
 
+import '../model/char_set.dart';
 import '../model/user.dart';
 
 /// 書く人の置き場と、いま誰が書いているか（SPEC 7.5）。
@@ -96,6 +97,7 @@ Map<String, Object?> _encode(User user) => {
   'avatar': user.avatar.name,
   'createdAt': user.createdAt.millisecondsSinceEpoch,
   'birthMonth': user.birthMonth?.millisecondsSinceEpoch,
+  'collecting': [for (final set in user.collecting) set.name],
 };
 
 User _decode(String id, Map<String, Object?> record) {
@@ -108,5 +110,9 @@ User _decode(String id, Map<String, Object?> record) {
     birthMonth: birthMonth == null
         ? null
         : DateTime.fromMillisecondsSinceEpoch(birthMonth),
+    collecting: {
+      for (final name in (record['collecting'] as List? ?? []).cast<String>())
+        CharSet.values.byName(name),
+    },
   );
 }

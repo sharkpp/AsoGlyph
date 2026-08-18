@@ -7,6 +7,7 @@ import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
 import 'package:asoglyph/store/session.dart';
 import 'package:asoglyph/ui/admin_screen.dart';
+import 'package:asoglyph/ui/char_set_screen.dart';
 import 'package:asoglyph/ui/recipe_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -120,7 +121,13 @@ void main() {
     await tester.pumpAndSettle();
 
     // 版は導出ビューでしかない。誤解されないよう画面でも断っている。
-    expect(find.textContaining('集めた字は消えません'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.textContaining('集めた字は消えません'),
+      ),
+      findsOneWidget,
+    );
     await tester.runAsync(() async {
       await tester.tap(find.widgetWithText(FilledButton, '消す'));
     });
@@ -134,8 +141,49 @@ void main() {
     await pumpScreen(tester);
 
     for (final charSet in CharSet.values) {
-      expect(find.text(charSet.label), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(CharSetRing),
+          matching: find.text(charSet.label),
+        ),
+        findsOneWidget,
+      );
     }
+  });
+
+  testWidgets('集める文字種を外すと、集まり具合からも消える', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.runAsync(() async {
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'カタカナ'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pump();
+
+    // 子供の画面に出さない文字種は、集まり具合にも並べない。
+    expect(
+      find.descendant(
+        of: find.byType(CharSetRing),
+        matching: find.text('カタカナ'),
+      ),
+      findsNothing,
+    );
+    expect(session.current.collecting, isNot(contains(CharSet.katakana)));
+  });
+
+  testWidgets('集める文字種を全部は外せない', (tester) async {
+    await pumpScreen(tester);
+
+    for (final label in ['カタカナ', 'ひらがな', 'すうじ']) {
+      await tester.runAsync(() async {
+        await tester.tap(find.widgetWithText(CheckboxListTile, label));
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pump();
+    }
+
+    // 全部外すと子供の画面が空になり、何をする画面か分からなくなる。
+    expect(session.current.visibleCharSets, hasLength(1));
   });
 }
 

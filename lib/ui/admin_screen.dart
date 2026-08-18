@@ -71,10 +71,25 @@ class AdminScreen extends StatelessWidget {
                 ),
               const SizedBox(height: 24),
               _Heading('${session.current.displayName} の集まり具合'),
-              for (final charSet in CharSet.values)
+              for (final charSet in session.current.visibleCharSets)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: CharSetRing(charSet: charSet, store: store),
+                ),
+              const SizedBox(height: 24),
+              const _Heading('集める文字種'),
+              const Text(
+                'ここで外した文字種は、子供の画面に出なくなります。'
+                '集めた字は消えません。',
+                style: TextStyle(color: Color(0xff9c948a)),
+              ),
+              for (final charSet in CharSet.values)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: session.current.visibleCharSets.contains(charSet),
+                  onChanged: (on) => _toggleCollecting(charSet, on ?? false),
+                  title: Text(charSet.label),
                 ),
               const SizedBox(height: 24),
               Row(
@@ -127,6 +142,21 @@ class AdminScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// 集める文字種を変える。最後の 1 つは外させない。
+  ///
+  /// 全部外すと子供の画面が空になり、何をする画面か分からなくなる。
+  Future<void> _toggleCollecting(CharSet charSet, bool on) async {
+    final user = session.current;
+    final collecting = {...user.visibleCharSets};
+    if (on) {
+      collecting.add(charSet);
+    } else {
+      if (collecting.length <= 1) return;
+      collecting.remove(charSet);
+    }
+    await session.users.save(user.copyWith(collecting: collecting));
   }
 
   Future<void> _addUser(BuildContext context) async {

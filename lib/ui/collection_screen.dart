@@ -97,7 +97,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
           children: [
             _ModeChoice(mode: _mode, onChanged: _chooseMode),
             const SizedBox(height: 24),
-            for (final charSet in CharSet.values)
+            for (final charSet in session.current.visibleCharSets)
               _CharSetCard(
                 charSet: charSet,
                 store: store,

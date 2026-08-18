@@ -174,6 +174,19 @@ void main() {
     expect(speaker.spoken, ['じぶんで かいてみよう']);
   });
 
+  testWidgets('集めない文字種は、子供の画面に出さない', (tester) async {
+    await tester.runAsync(
+      () => session.users.save(
+        session.current.copyWith(collecting: {CharSet.hiragana}),
+      ),
+    );
+    await pumpScreen(tester);
+
+    expect(find.text('ひらがな'), findsOneWidget);
+    expect(find.text('カタカナ'), findsNothing);
+    expect(find.text('すうじ'), findsNothing);
+  });
+
   testWidgets('1 人しかいないうちは、人の切り替えを出さない', (tester) async {
     await pumpScreen(tester);
 

@@ -18,7 +18,17 @@ class Session extends ChangeNotifier {
     required this.users,
     required this.samples,
     required this.recipes,
-  });
+  }) {
+    // 名前・印・集める文字種が変わったことも、ここを見ていれば分かるようにする。
+    // 画面ごとに users を別途購読させると、購読し忘れた画面だけ古いままになる。
+    users.addListener(notifyListeners);
+  }
+
+  @override
+  void dispose() {
+    users.removeListener(notifyListeners);
+    super.dispose();
+  }
 
   static Future<Session> open(Database db) async {
     final users = await UserStore.open(db);
