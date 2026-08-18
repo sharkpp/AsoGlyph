@@ -106,10 +106,17 @@ void main() {
       // 日付選択そのものは Flutter の部品なので、規則を直に置いて確かめる。
       await recipes.save(recipe.copyWith(base: AtPolicy(spring)));
     });
-    await pumpEditor(tester);
+    // 時系列スライダーの見本は運筆を読む。sembast はタイマを使うため、
+    // 画面を組むところごと runAsync の中で進める。
+    await tester.runAsync(() async {
+      await pumpEditor(tester);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
 
     expect(summary(tester), '1 字', reason: '秋に書いた い は入らない');
     expect(find.textContaining('2026年4月1日 までに書いたもの'), findsOneWidget);
+    expect(find.byType(Slider), findsOneWidget, reason: '日付をドラッグして選べる');
   });
 
   testWidgets('入る字が無ければフォントを出さない', (tester) async {

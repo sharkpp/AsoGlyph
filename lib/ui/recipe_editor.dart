@@ -10,6 +10,7 @@ import '../store/sample_store.dart';
 import 'admin_screen.dart' show formatDate;
 import 'char_rules_screen.dart';
 import 'export_sheet.dart';
+import 'timeline_slider.dart';
 
 /// 版の中身を決める画面（SPEC 7.6）。
 ///
@@ -70,9 +71,26 @@ class _RecipeEditorState extends State<RecipeEditor> {
               const _Heading('いつの字を採るか'),
               _BasePolicyRow(
                 policy: _recipe.base,
-                onLatest: () => _update(_recipe.copyWith(base: const LatestPolicy())),
+                onLatest: () =>
+                    _update(_recipe.copyWith(base: const LatestPolicy())),
                 onPick: _pickBaseTime,
               ),
+              // 「あの頃」がいつかは、日付を見ても分からない。字が変わるのを
+              // 見て決められるようにする（SPEC 7.6）。
+              if (_recipe.base case AtPolicy(:final time))
+                TimelineSlider(
+                  recipe: _recipe,
+                  store: store,
+                  time: time,
+                  onChanged: (picked) => _update(
+                    // その日いっぱいを含める。
+                    _recipe.copyWith(
+                      base: AtPolicy(
+                        DateTime(picked.year, picked.month, picked.day, 23, 59, 59),
+                      ),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 24),
               const _Heading('字ごとの差し替え'),
               ListTile(

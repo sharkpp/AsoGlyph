@@ -123,6 +123,21 @@ class SampleStore extends ChangeNotifier {
   bool contains(String id) =>
       _byChar.values.any((entries) => entries.any((e) => e.id == id));
 
+  /// いちばん古い記録の日。まだ何も無ければ null。
+  ///
+  /// 時系列スライダーの左端になる（SPEC 7.6）。
+  DateTime? get earliestWrittenAt {
+    DateTime? earliest;
+    for (final entries in _byChar.values) {
+      for (final entry in entries) {
+        if (earliest == null || entry.writtenAt.isBefore(earliest)) {
+          earliest = entry.writtenAt;
+        }
+      }
+    }
+    return earliest;
+  }
+
   /// 素材が 1 つ以上ある文字。フォントに載せられる字はこれで決まる。
   Iterable<String> collectedChars({required bool includeTraced}) => _byChar.keys
       .where((char) => latestId(char, includeTraced: includeTraced) != null);
