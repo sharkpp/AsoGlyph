@@ -69,7 +69,12 @@ class WordBookStore extends ChangeNotifier {
       ..addAll(
         (await _books.find(
           _db,
-          finder: Finder(sortOrders: [SortOrder('addedAt')]),
+          finder: Finder(
+            // id は UUID v7。同じミリ秒に入れても並びが一意に決まる。
+            // 内蔵の辞書は起動時にまとめて入るので、ここが揺れると
+            // 管理画面の並びが開くたびに変わる。
+            sortOrders: [SortOrder('addedAt'), SortOrder(Field.key)],
+          ),
         )).map((record) => _decode(record.key, record.value)),
       );
     notifyListeners();

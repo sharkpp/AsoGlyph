@@ -49,14 +49,20 @@ class WritingSteps {
   /// モードでも出す。絵は字を教えないので、音だけで書くという前提は崩れない。
   final Widget? picture;
 
-  /// このあとに、まだ書く字があるか。
-  bool get isLast => !_hasWritable(after: index);
-
-  bool _hasWritable({required int after}) {
-    for (var i = after + 1; i < chars.length; i++) {
-      if (!given.contains(i)) return true;
+  /// これが最後に書く字か。うしろに書く字が残っていない。
+  bool get isLast {
+    for (var i = index + 1; i < chars.length; i++) {
+      if (!given.contains(i)) return false;
     }
-    return false;
+    return true;
+  }
+
+  /// このまとまりで最初に書く字か。語の読み上げはここでだけ言う。
+  bool get isFirst {
+    for (var i = 0; i < index; i++) {
+      if (!given.contains(i)) return false;
+    }
+    return true;
   }
 }
 
@@ -150,14 +156,16 @@ class _WritingScreenState extends State<WritingScreen>
   /// 何を書けばいいかを伝える。字が読めなくても始められるように、
   /// 声で読みを言い、同時に書き順を頭から見せる（SPEC 2 / 7.1）。
   ///
-  /// 語を書いているときは語の読みから言う。「ねこ の ね」と言われて
-  /// はじめて、いま書いている字がどこの字なのか分かる。
+  /// **語の名前は最初の 1 字でだけ言う。** 字ごとに「ねこ の ね」「ねこ の こ」
+  /// と繰り返すと、聞きたい 1 字が毎回うしろに回る。何の語かは 1 度言えば
+  /// 足りるし、画面には出たままになっている。
   void _prompt() {
-    final reading = widget.steps?.reading;
+    final steps = widget.steps;
     final char = readingOf(widget.char);
-    widget.speaker.speak(
-      reading == null ? '$char、かいてね' : '$reading の $char、かいてね',
-    );
+    final intro = steps != null && steps.reading != null && steps.isFirst
+        ? '${steps.reading} を かこう。'
+        : '';
+    widget.speaker.speak('$intro$char を かいてね');
     if (_showsStrokeOrder) _playback.forward(from: 0);
   }
 
@@ -451,7 +459,8 @@ class _WritingScreenState extends State<WritingScreen>
                       StrokeOrderView(
                         order: widget.strokeOrder!,
                         progress: kAlwaysCompleteAnimation,
-                        color: const Color(0xffddd6c9),
+                        // 上から子供が書く。下敷きは自分の線より弱くする。
+                        faded: true,
                       ),
                     InkCanvas(controller: _ink),
                   ],

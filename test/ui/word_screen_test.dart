@@ -111,7 +111,9 @@ void main() {
     expect(first.char, 'ね');
     expect(first.steps!.index, 0);
     expect(first.steps!.isLast, isFalse);
-    expect(speaker.spoken.last, contains('ねこ の ね'));
+    // 語の名前は最初の 1 字でだけ言う。字ごとに繰り返すと、聞きたい 1 字が
+    // 毎回うしろに回る。
+    expect(speaker.spoken.last, 'ねこ を かこう。ね を かいてね');
 
     await drawLine(tester);
     await tester.pump();

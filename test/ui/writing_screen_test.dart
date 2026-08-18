@@ -234,7 +234,7 @@ void main() {
     testWidgets('画面を開いた時点で何を書くかを読み上げる', (tester) async {
       await pumpScreen(tester, char: '3');
 
-      expect(speaker.spoken, ['さん、かいてね'], reason: '数字は読みで言う');
+      expect(speaker.spoken, ['さん を かいてね'], reason: '数字は読みで言う');
     });
 
     testWidgets('お手本を押すともう一度読み上げる', (tester) async {
@@ -244,7 +244,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.volume_up));
       await tester.pump();
 
-      expect(speaker.spoken, ['あ、かいてね']);
+      expect(speaker.spoken, ['あ を かいてね']);
     });
 
     testWidgets('書き上げるとほめて、読み上げの導線を閉じる', (tester) async {
@@ -271,7 +271,7 @@ void main() {
       await tester.tap(find.widgetWithText(OutlinedButton, 'もういちど'));
       await tester.pump();
 
-      expect(speaker.spoken, ['あ、かいてね']);
+      expect(speaker.spoken, ['あ を かいてね']);
     });
 
     testWidgets('画面を出るときは読み上げを止める', (tester) async {
@@ -286,7 +286,7 @@ void main() {
 
       expect(find.byType(StrokeOrderView), findsNothing, reason: '書き順も見せない');
       expect(find.text('あ'), findsNothing, reason: 'お手本を出しては意味がない');
-      expect(speaker.spoken, ['あ、かいてね'], reason: '頼れるのは音だけ');
+      expect(speaker.spoken, ['あ を かいてね'], reason: '頼れるのは音だけ');
 
       await drawLine(tester);
       await tapDone(tester);
@@ -318,7 +318,37 @@ void main() {
 
       final guide = views.last;
       expect(guide.progress.value, 1, reason: '全部見えていないとなぞれない');
-      expect(guide.color, isNot(views.first.color), reason: '下敷きは薄い色');
+      // 上から子供が書く。下敷きは自分の線より弱くする。
+      expect(guide.faded, isTrue);
+      expect(views.first.faded, isFalse, reason: 'お手本ははっきり出す');
+      expect(guide.colorOf(0).a, lessThan(views.first.colorOf(0).a));
+      expect(
+        guide.colorOf(0).r,
+        views.first.colorOf(0).r,
+        reason: '色は変えず、薄さだけを変える',
+      );
+    });
+
+    testWidgets('画ごとに色を変える', (tester) async {
+      await pumpScreen(tester);
+      final view = tester.widget<StrokeOrderView>(find.byType(StrokeOrderView));
+
+      // 同じ色で引くと、どこで 1 画が終わるのか分からない。
+      expect(view.order.strokeCount, 3, reason: 'あ は 3 画');
+      expect(
+        {for (var i = 0; i < 3; i++) view.colorOf(i)},
+        hasLength(3),
+        reason: '隣り合う画が同じ色にならない',
+      );
+    });
+
+    testWidgets('画が色より多ければ、色は先頭へ戻る', (tester) async {
+      await pumpScreen(tester);
+      final view = tester.widget<StrokeOrderView>(find.byType(StrokeOrderView));
+      final colors = StrokeOrderView.strokeColors.length;
+
+      expect(view.colorOf(colors), view.colorOf(0));
+      expect(view.colorOf(colors + 1), view.colorOf(1));
     });
 
     testWidgets('なぞり書きは別の履歴として残る', (tester) async {

@@ -47,7 +47,8 @@ class RecipeStore extends ChangeNotifier {
           _db,
           finder: Finder(
             filter: Filter.equals('userId', userId),
-            sortOrders: [SortOrder('createdAt')],
+            // id は UUID v7。同じミリ秒に作っても並びが一意に決まる。
+            sortOrders: [SortOrder('createdAt'), SortOrder(Field.key)],
           ),
         )).map((record) => _decode(record.key, record.value)),
       );
