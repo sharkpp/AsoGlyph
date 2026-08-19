@@ -349,23 +349,16 @@ class _PracticeCard extends StatelessWidget {
               children: [
                 Icon(Icons.auto_awesome, size: 40, color: scheme.primary),
                 const SizedBox(width: 16),
+                // 説明は置かない。読める子だけに向けた文になるし、
+                // 何が出るかは押せば分かる（SPEC 2）。
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'おまかせで かく',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                          color: scheme.onPrimaryContainer,
-                        ),
-                      ),
-                      const Text(
-                        'まだ書いていない字と、にがてな字が出ます',
-                        style: TextStyle(fontSize: 13, color: Color(0xff6f665c)),
-                      ),
-                    ],
+                  child: Text(
+                    'おまかせで かく',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onPrimaryContainer,
+                    ),
                   ),
                 ),
                 const Icon(Icons.chevron_right, size: 32),

@@ -182,11 +182,11 @@ class CharTile extends StatelessWidget {
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (context) => WritingScreen(
-                char: char,
+                chars: [char],
                 mode: mode,
                 store: store,
                 speaker: speaker,
-                strokeOrder: strokeOrders[char],
+                strokeOrders: strokeOrders,
               ),
             ),
           ),

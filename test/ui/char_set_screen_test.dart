@@ -103,7 +103,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final screen = tester.widget<WritingScreen>(find.byType(WritingScreen));
-    expect(screen.char, 'き');
+    expect(screen.chars, ['き']);
     expect(screen.mode, PracticeMode.free);
   });
 
@@ -114,9 +114,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // お手本を出せない字があると、その字だけ練習の質が落ちる（SPEC 6.1）。
-    expect(
-      tester.widget<WritingScreen>(find.byType(WritingScreen)).strokeOrder,
-      isNotNull,
-    );
+    final screen = tester.widget<WritingScreen>(find.byType(WritingScreen));
+    expect(screen.strokeOrders[screen.chars.single], isNotNull);
   });
 }

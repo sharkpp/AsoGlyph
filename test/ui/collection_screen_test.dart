@@ -138,7 +138,7 @@ void main() {
   testWidgets('字をタップするとその字の書き取りに入る', (tester) async {
     await pumpScreen(tester);
 
-    expect((await openWriting(tester, 'ひらがな', 'か')).char, 'か');
+    expect((await openWriting(tester, 'ひらがな', 'か')).chars, ['か']);
   });
 
   testWidgets('既定はお手本を見て書く', (tester) async {
@@ -263,11 +263,12 @@ void main() {
     final screen = tester.widget<WritingScreen>(find.byType(WritingScreen));
     final words = {
       for (final book in session.books.all)
-        for (final word in book.words) word.text: word.reading,
+        // 画面に出るのはかっこを外した並び（SPEC 7.4）。
+        for (final word in book.words) word.display: word.reading,
     };
-    expect(screen.steps!.reading, isNotNull, reason: '語として読み上げる');
-    expect(words[screen.steps!.chars.join()], screen.steps!.reading);
-    expect(screen.steps!.index, 0);
+    expect(screen.reading, isNotNull, reason: '語として読み上げる');
+    expect(words[screen.chars.join()], screen.reading);
+    expect(screen.isSingle, isFalse, reason: '語をまるごと受け取る');
   });
 
   testWidgets('おまかせでは、出された語をやめて次へ行ける', (tester) async {
@@ -295,7 +296,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final first = tester.widget<WritingScreen>(find.byType(WritingScreen));
-    expect(first.steps!.canSkip, isTrue, reason: '書けない語で手が止まらないように');
+    expect(first.canSkip, isTrue, reason: '書けない語で手が止まらないように');
 
     await tester.runAsync(() async {
       await tester.tap(find.byIcon(Icons.skip_next));
@@ -305,8 +306,7 @@ void main() {
 
     // 別の語の 1 字めから始まる。おまかせは終わらない。
     final next = tester.widget<WritingScreen>(find.byType(WritingScreen));
-    expect(next.steps!.reading, isNot(first.steps!.reading));
-    expect(next.steps!.index, 0);
+    expect(next.reading, isNot(first.reading));
     expect(speaker.spoken, contains('つぎの ことばに するね'));
   });
 

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:sembast/sembast.dart';
 import 'package:uuid/uuid.dart';
@@ -36,6 +38,10 @@ class WordAttemptStore extends ChangeNotifier {
 
   final List<WordAttempt> _all = [];
 
+  /// いちばん最後に書き終えた時刻。次のものを必ずそのうしろに置く。
+  /// 同じミリ秒に 2 つ入ると、時刻だけでは並びが決まらない。
+  int _lastFinishedAt = 0;
+
   /// 書き終えた順に並ぶ。
   List<WordAttempt> get all => List.unmodifiable(_all);
 
@@ -47,11 +53,7 @@ class WordAttemptStore extends ChangeNotifier {
           _db,
           finder: Finder(
             filter: Filter.equals('userId', userId),
-            // 同じミリ秒に作られたときは id で決める。UUID v7 はミリ秒から
-            // 先が乱数なので作った順にはならないが、開くたびに変わることは
-            // なくなる。版も単語トライアルも、人の操作 1 つにつき 1 つしか
-            // 増えないので、これで足りる。
-            sortOrders: [SortOrder('finishedAt'), SortOrder(Field.key)],
+            sortOrders: [SortOrder('finishedAt')],
           ),
         )).map(
           (record) => WordAttempt(
@@ -64,6 +66,10 @@ class WordAttemptStore extends ChangeNotifier {
           ),
         ),
       );
+    _lastFinishedAt = _all.fold(
+      0,
+      (last, attempt) => max(last, attempt.finishedAt.millisecondsSinceEpoch),
+    );
     notifyListeners();
   }
 
@@ -72,11 +78,15 @@ class WordAttemptStore extends ChangeNotifier {
     required String word,
     required List<String> sampleIds,
   }) async {
+    _lastFinishedAt = max(
+      DateTime.now().millisecondsSinceEpoch,
+      _lastFinishedAt + 1,
+    );
     final attempt = WordAttempt(
       id: const Uuid().v7(),
       word: word,
       sampleIds: sampleIds,
-      finishedAt: DateTime.now(),
+      finishedAt: DateTime.fromMillisecondsSinceEpoch(_lastFinishedAt),
     );
     await _attempts.record(attempt.id).put(_db, {
       'userId': userId,

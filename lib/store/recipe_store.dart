@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:sembast/sembast.dart';
 import 'package:uuid/uuid.dart';
@@ -36,6 +38,13 @@ class RecipeStore extends ChangeNotifier {
 
   final List<FontRecipe> _all = [];
 
+  /// いちばん最後に作った時刻。次に作るものを必ずそのうしろに置く。
+  ///
+  /// 同じミリ秒に 2 つ作られると、時刻だけでは並びが決まらない。id では
+  /// 代われない。UUID v7 はミリ秒から先が乱数で、同じミリ秒の中に順序を
+  /// 持たない。
+  int _lastCreatedAt = 0;
+
   /// 作った順に並ぶ。
   List<FontRecipe> get all => List.unmodifiable(_all);
 
@@ -47,14 +56,14 @@ class RecipeStore extends ChangeNotifier {
           _db,
           finder: Finder(
             filter: Filter.equals('userId', userId),
-            // 同じミリ秒に作られたときは id で決める。UUID v7 はミリ秒から
-            // 先が乱数なので作った順にはならないが、開くたびに変わることは
-            // なくなる。版も単語トライアルも、人の操作 1 つにつき 1 つしか
-            // 増えないので、これで足りる。
-            sortOrders: [SortOrder('createdAt'), SortOrder(Field.key)],
+            sortOrders: [SortOrder('createdAt')],
           ),
         )).map((record) => _decode(record.key, record.value)),
       );
+    _lastCreatedAt = _all.fold(
+      0,
+      (last, recipe) => max(last, recipe.createdAt.millisecondsSinceEpoch),
+    );
     notifyListeners();
   }
 
@@ -63,7 +72,7 @@ class RecipeStore extends ChangeNotifier {
     final recipe = FontRecipe.latest(
       id: const Uuid().v7(),
       name: name,
-      createdAt: DateTime.now(),
+      createdAt: _nextCreatedAt(),
       fontMeta: FontMetadata(familyName: name),
     );
     await save(recipe);
@@ -75,7 +84,7 @@ class RecipeStore extends ChangeNotifier {
     final copy = FontRecipe(
       id: const Uuid().v7(),
       name: name,
-      createdAt: DateTime.now(),
+      createdAt: _nextCreatedAt(),
       fontMeta: FontMetadata(familyName: name),
       charSets: source.charSets,
       base: source.base,
@@ -84,6 +93,15 @@ class RecipeStore extends ChangeNotifier {
     );
     await save(copy);
     return copy;
+  }
+
+  /// 作った順に並ぶ時刻を返す。必ず 1 つずつ進める。
+  DateTime _nextCreatedAt() {
+    _lastCreatedAt = max(
+      DateTime.now().millisecondsSinceEpoch,
+      _lastCreatedAt + 1,
+    );
+    return DateTime.fromMillisecondsSinceEpoch(_lastCreatedAt);
   }
 
   Future<void> save(FontRecipe recipe) async {

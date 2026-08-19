@@ -14,14 +14,39 @@ import 'glyph_preview.dart';
 import 'stroke_order_view.dart';
 import 'writing_guide.dart';
 
-/// ひとまとまりの中で、いま何字めを書いているか。
+/// 書き取り画面から返るもの。
 ///
-/// 語を書く導線（SPEC 7.4）と、おまかせの導線（SPEC 7.3）が使う。
-/// 1 字だけ練習するときは null。
-class WritingSteps {
-  const WritingSteps({
+/// 書けた（記録の id の並び）・この語はやめた・何もせず閉じた、の 3 つを分ける。
+/// 語を出す導線が、次の語へ行くか・やめるかを決める。
+class WritingResult {
+  const WritingResult.written(this.sampleIds) : skipped = false;
+  const WritingResult.skipped() : sampleIds = const [], skipped = true;
+
+  /// 書けた記録の id。書いた順に並ぶ（SPEC 4.2）。
+  final List<String> sampleIds;
+
+  /// この語はやめて、次の語へ行きたい。
+  final bool skipped;
+}
+
+/// 字を書く画面。
+///
+/// **語をまるごと受け取り、1 字書けたらこの画面のまま次の字へ移る。**
+/// 字ごとに画面を積み替えると、切り替わるたびに画面が滑って見え、
+/// 読み上げも積み替えのたびに途切れる。1 字だけ練習するときは 1 字の並びを渡す。
+///
+/// 「できた！」を押した時点で必ず記録する。字の巧拙で採否を決めないのが
+/// この製品の中核であり（SPEC 1）、子供に judge させる導線を作らない。
+///
+/// 閉じるときに [WritingResult] を返す。何もせず閉じたときは null。
+class WritingScreen extends StatefulWidget {
+  const WritingScreen({
+    super.key,
     required this.chars,
-    required this.index,
+    required this.mode,
+    required this.store,
+    required this.speaker,
+    required this.strokeOrders,
     this.given = const {},
     this.reading,
     this.picture,
@@ -31,9 +56,6 @@ class WritingSteps {
   /// 出す並び。書かせない字（[given]）も入る。
   final List<String> chars;
 
-  /// いま書いている字の位置。0 始まり。
-  final int index;
-
   /// 書かせない字の位置（SPEC 7.4）。
   ///
   /// 「[ウルトラマン]オメガ」の ウルトラマン のように、出しておくだけの字。
@@ -41,7 +63,7 @@ class WritingSteps {
   /// そこが見えていないと分からない。
   final Set<int> given;
 
-  /// つながった語としての読み。おまかせのときは null（語ではない）。
+  /// つながった語としての読み。1 字だけの練習では null。
   final String? reading;
 
   /// 語に添えた絵（SPEC 7.4）。
@@ -57,68 +79,15 @@ class WritingSteps {
   /// 同じことをする道を 2 つ置くと、子供向け画面では迷いになる（SPEC 9）。
   final bool canSkip;
 
-  /// これが最後に書く字か。うしろに書く字が残っていない。
-  bool get isLast {
-    for (var i = index + 1; i < chars.length; i++) {
-      if (!given.contains(i)) return false;
-    }
-    return true;
-  }
-
-  /// このまとまりで最初に書く字か。語の読み上げはここでだけ言う。
-  bool get isFirst {
-    for (var i = 0; i < index; i++) {
-      if (!given.contains(i)) return false;
-    }
-    return true;
-  }
-}
-
-/// 書き取り画面から返るもの。
-///
-/// 書けた（記録の id）・この語はやめた・何もせず閉じた、の 3 つを分ける。
-/// 語を書く導線が、次の字へ行くか・次の語へ行くか・やめるかを決める。
-class WritingResult {
-  const WritingResult.written(String this.sampleId) : skipped = false;
-  const WritingResult.skipped() : sampleId = null, skipped = true;
-
-  /// 書けた記録の id。やめたときは null。
-  final String? sampleId;
-
-  /// この語はやめて、次の語へ行きたい。
-  final bool skipped;
-}
-
-/// 1 文字を書く画面。
-///
-/// 「できた！」を押した時点で必ず記録する。字の巧拙で採否を決めないのが
-/// この製品の中核であり（SPEC 1）、子供に judge させる導線を作らない。
-///
-/// 閉じるときに [WritingResult] を返す。何もせず閉じたときは null。
-class WritingScreen extends StatefulWidget {
-  const WritingScreen({
-    super.key,
-    required this.char,
-    required this.mode,
-    required this.store,
-    required this.speaker,
-    this.strokeOrder,
-    this.steps,
-  });
-
-  final String char;
-
-  /// ひとまとまりの中の何字めか。1 字だけ練習するときは null。
-  final WritingSteps? steps;
-
   /// お手本を出すか、音だけで書かせるか（SPEC 7.1）。
   final PracticeMode mode;
 
   final SampleStore store;
   final Speaker speaker;
+  final StrokeOrderLibrary strokeOrders;
 
-  /// この字の書き順。KanjiVG に無い字では null になる。
-  final StrokeOrder? strokeOrder;
+  /// 1 字だけを書かせるか。書けたら止まって、書き直せる。
+  bool get isSingle => chars.length - given.length <= 1;
 
   @override
   State<WritingScreen> createState() => _WritingScreenState();
@@ -131,30 +100,50 @@ class _WritingScreenState extends State<WritingScreen>
   Glyph? _glyph;
   bool _busy = false;
 
-  /// 書けた記録の id。書き直すたびに新しいものに入れ替わる。
+  /// いま書いている字の位置。書かせない字は飛ばす。
+  late int _index = _firstWritable;
+
+  /// 書けた記録の id。書いた順に並ぶ（SPEC 4.2）。
+  final _savedIds = <String>[];
+
+  /// いまの字を書き上げたか。書き直すと入れ替わる。
   String? _savedId;
 
   /// 「もういちど」を押した回数。苦手さの手がかりになる（SPEC 7.3）。
   var _retries = 0;
 
+  String get _char => widget.chars[_index];
+
+  StrokeOrder? get _strokeOrder => widget.strokeOrders[_char];
+
   /// 小書きの字。枠を小さくして、その中に書かせる（SPEC 5.3）。
-  bool get _small => isSmallKana(widget.char);
+  bool get _small => isSmallKana(_char);
 
   /// お手本を出すモードで、書き順のデータもある。
   bool get _showsStrokeOrder =>
-      widget.mode != PracticeMode.free && widget.strokeOrder != null;
+      widget.mode != PracticeMode.free && _strokeOrder != null;
+
+  int get _firstWritable {
+    for (var i = 0; i < widget.chars.length; i++) {
+      if (!widget.given.contains(i)) return i;
+    }
+    return 0;
+  }
+
+  /// [_index] のうしろで、次に書く字。もう無ければ null。
+  int? get _nextWritable {
+    for (var i = _index + 1; i < widget.chars.length; i++) {
+      if (!widget.given.contains(i)) return i;
+    }
+    return null;
+  }
 
   @override
   void initState() {
     super.initState();
     // 書き直したら前の結果は無効になる。
     _ink.addListener(_onInkChanged);
-    _playback = AnimationController(
-      vsync: this,
-      duration: widget.strokeOrder == null
-          ? Duration.zero
-          : StrokeOrderView.playbackOf(widget.strokeOrder!),
-    );
+    _playback = AnimationController(vsync: this);
     _prompt();
   }
 
@@ -163,7 +152,7 @@ class _WritingScreenState extends State<WritingScreen>
     // 書き上げたあとは、ほめる声と次の案内が続く。ここで止めると、
     // 画面が切り替わるたびに声がぶつ切りになる。
     // 書かずに閉じたときだけ、言いかけを止める。
-    if (_savedId == null) widget.speaker.stop();
+    if (_savedIds.isEmpty && _savedId == null) widget.speaker.stop();
     _playback.dispose();
     _ink
       ..removeListener(_onInkChanged)
@@ -182,13 +171,21 @@ class _WritingScreenState extends State<WritingScreen>
   /// と繰り返すと、聞きたい 1 字が毎回うしろに回る。何の語かは 1 度言えば
   /// 足りるし、画面には出たままになっている。
   void _prompt() {
-    final steps = widget.steps;
-    final char = readingOf(widget.char);
-    final intro = steps != null && steps.reading != null && steps.isFirst
-        ? '${steps.reading} を かこう。'
+    final reading = widget.reading;
+    final intro = reading != null && _index == _firstWritable
+        ? '$reading を かこう。'
         : '';
-    widget.speaker.speak('$intro$char を かいてね');
-    if (_showsStrokeOrder) _playback.forward(from: 0);
+    widget.speaker.speak('$intro${readingOf(_char)} を かいてね');
+
+    final order = _strokeOrder;
+    _playback.duration = order == null
+        ? Duration.zero
+        : StrokeOrderView.playbackOf(order);
+    if (_showsStrokeOrder) {
+      _playback.forward(from: 0);
+    } else {
+      _playback.value = 0;
+    }
   }
 
   Future<void> _finish() async {
@@ -200,19 +197,19 @@ class _WritingScreenState extends State<WritingScreen>
 
     setState(() => _busy = true);
 
-    final glyph = await buildGlyph(char: widget.char, strokes: strokes);
+    final glyph = await buildGlyph(char: _char, strokes: strokes);
     // 測るのは出題の重み付けのため。フォントに載せるかは決めない（SPEC 1）。
     // 例外は鏡文字と明らかな書き損じだけ。
     final sample = Sample.now(
-      char: widget.char,
+      char: _char,
       mode: widget.mode,
       strokes: strokes,
       score: scoreStrokes(
         strokes: strokes,
-        model: widget.strokeOrder,
+        model: _strokeOrder,
         retries: _retries,
       ),
-      rejected: detectRejected(strokes: strokes, model: widget.strokeOrder),
+      rejected: detectRejected(strokes: strokes, model: _strokeOrder),
     );
     await widget.store.add(sample);
 
@@ -231,16 +228,35 @@ class _WritingScreenState extends State<WritingScreen>
     );
 
     // 1 字だけの練習は、ここで止まる。書けた字を見ていられるようにする。
-    if (widget.steps == null) return;
+    if (widget.isSingle) return;
 
     // 語を書いているときは、押さずに次の字へ進む。字ごとに「つぎ」を
     // 押させると、書くより押す回数のほうが多くなる。
     //
-    // ほめ言葉を言い終わってから進む。言い終わる前に画面を替えると、
-    // 次の画面の読み上げが追い越して声がぶつ切りになる。
-    await Future.wait([praise, Future<void>.delayed(_glimpse)]);
+    // ほめ言葉を言い終わるのを待つが、待ち続けはしない。読み上げの終わりを
+    // 知らせない端末があり、そこで待つと音も出ないまま固まって見える。
+    await Future.wait([
+      Future.any([praise, Future<void>.delayed(_praiseCap)]),
+      Future<void>.delayed(_glimpse),
+    ]);
     if (!mounted) return;
-    Navigator.of(context).pop(WritingResult.written(_savedId!));
+
+    _savedIds.add(_savedId!);
+    final next = _nextWritable;
+    if (next == null) {
+      Navigator.of(context).pop(WritingResult.written(List.of(_savedIds)));
+      return;
+    }
+
+    // 画面はそのまま。字だけが入れ替わる。
+    _ink.clear();
+    setState(() {
+      _index = next;
+      _glyph = null;
+      _savedId = null;
+      _retries = 0;
+    });
+    _prompt();
   }
 
   /// この語はやめて、次の語へ（SPEC 7.3）。
@@ -257,7 +273,13 @@ class _WritingScreenState extends State<WritingScreen>
   /// 読み上げが無い端末では、ほめ言葉を待っても一瞬で返る。自分の書いた線が
   /// フォントの字形に変わるところは、この製品でいちばん見せたいものなので
   /// （SPEC 8.1）、声が出ないときでもここは見える。
-  static const _glimpse = Duration(milliseconds: 900);
+  static const _glimpse = Duration(milliseconds: 700);
+
+  /// ほめ言葉を待つ上限。
+  ///
+  /// 読み上げの終わりを知らせない端末がある。そこを待ち続けると、音も出ない
+  /// まま固まって見える。待つのはここまでにして、先へ進む。
+  static const _praiseCap = Duration(milliseconds: 1600);
 
   void _again() {
     _ink.clear();
@@ -280,7 +302,7 @@ class _WritingScreenState extends State<WritingScreen>
         ),
         actions: [
           // 出された語が書けない・知らないときに、そこで手が止まる。
-          if (widget.steps?.canSkip ?? false)
+          if (widget.canSkip)
             IconButton(
               iconSize: 32,
               icon: const Icon(Icons.skip_next),
@@ -298,8 +320,8 @@ class _WritingScreenState extends State<WritingScreen>
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  if (widget.steps != null) ...[
-                    _buildSteps(widget.steps!, wide: wide),
+                  if (!widget.isSingle || widget.picture != null) ...[
+                    _buildSteps(wide: wide),
                     const SizedBox(height: 12),
                   ],
                   Expanded(
@@ -336,9 +358,9 @@ class _WritingScreenState extends State<WritingScreen>
   ///
   /// 何も見ずに書くモードでは、まだ書いていない字を伏せる。字が出ていると
   /// 音を頼りに書くという前提が崩れる（SPEC 7.1）。
-  Widget _buildSteps(WritingSteps progress, {required bool wide}) {
+  Widget _buildSteps({required bool wide}) {
     final scheme = Theme.of(context).colorScheme;
-    final chars = progress.chars;
+    final chars = widget.chars;
     final hides = widget.mode == PracticeMode.free;
 
     // 絵は大きいほど分かりやすいが、書き取り面を押しつぶしては本末転倒。
@@ -348,25 +370,21 @@ class _WritingScreenState extends State<WritingScreen>
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (progress.picture != null) ...[
+        if (widget.picture != null) ...[
           SizedBox(
             width: picture,
             height: picture,
-            child: FittedBox(child: progress.picture),
+            child: FittedBox(child: widget.picture),
           ),
           const SizedBox(width: 12),
         ],
-        Flexible(child: _buildStepBoxes(progress, chars, hides, scheme)),
+        if (!widget.isSingle)
+          Flexible(child: _buildStepBoxes(chars, hides, scheme)),
       ],
     );
   }
 
-  Widget _buildStepBoxes(
-    WritingSteps progress,
-    List<String> chars,
-    bool hides,
-    ColorScheme scheme,
-  ) {
+  Widget _buildStepBoxes(List<String> chars, bool hides, ColorScheme scheme) {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -374,13 +392,13 @@ class _WritingScreenState extends State<WritingScreen>
       children: [
         for (final (index, char) in chars.indexed)
           () {
-            final here = index == progress.index;
+            final here = index == _index;
             // 出しておく字は、書く字と同じ枠にしない。書くところが
             // どれなのかが、ひと目で分かるようにする。
-            final given = progress.given.contains(index);
+            final given = widget.given.contains(index);
             // 何も見ずに書くモードでも、出しておく字は伏せない。
             // 書かせない字を隠しても、手がかりが減るだけ。
-            final masked = hides && !given && index >= progress.index;
+            final masked = hides && !given && index >= _index;
 
             return Container(
               width: 44,
@@ -409,7 +427,7 @@ class _WritingScreenState extends State<WritingScreen>
                   height: 1,
                   color: given
                       ? const Color(0xff9c948a)
-                      : index <= progress.index
+                      : index <= _index
                       ? const Color(0xff6f665c)
                       : const Color(0xffbdb4a6),
                 ),
@@ -487,12 +505,12 @@ class _WritingScreenState extends State<WritingScreen>
         child: Icon(Icons.volume_up, size: 96, color: Color(0xff9c948a)),
       );
     }
-    final order = widget.strokeOrder;
+    final order = _strokeOrder;
     if (order == null) {
       // 書き順を持たない字は、システムのフォントで見せるほかない。
       return Center(
         child: Text(
-          widget.char,
+          _char,
           style: const TextStyle(
             fontSize: 120,
             height: 1,
@@ -524,9 +542,9 @@ class _WritingScreenState extends State<WritingScreen>
                     WritingGuide(small: _small),
                     // なぞり書きは、字形を薄く敷いてその上をなぞらせる。
                     if (widget.mode == PracticeMode.trace &&
-                        widget.strokeOrder != null)
+                        _strokeOrder != null)
                       StrokeOrderView(
-                        order: widget.strokeOrder!,
+                        order: _strokeOrder!,
                         progress: kAlwaysCompleteAnimation,
                         // 上から子供が書く。下敷きは自分の線より弱くする。
                         faded: true,
@@ -553,7 +571,7 @@ class _WritingScreenState extends State<WritingScreen>
       builder: (context, _) {
         // 語を書いているときは、書けた字を見せたら自分で次へ進む。
         // 押すものが出ては消えると、押しに行った指が空振りする。
-        if (_glyph != null && widget.steps != null) {
+        if (_glyph != null && !widget.isSingle) {
           return const SizedBox(height: 64);
         }
         if (_glyph != null) {
@@ -569,8 +587,9 @@ class _WritingScreenState extends State<WritingScreen>
               ),
               FilledButton.icon(
                 style: FilledButton.styleFrom(minimumSize: size),
-                onPressed: () =>
-                    Navigator.of(context).pop(WritingResult.written(_savedId!)),
+                onPressed: () => Navigator.of(context).pop(
+                  WritingResult.written([if (_savedId != null) _savedId!]),
+                ),
                 icon: const Icon(Icons.check, size: 32),
                 label: const Text('おわり'),
               ),

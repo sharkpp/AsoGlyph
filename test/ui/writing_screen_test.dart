@@ -74,16 +74,15 @@ void main() {
       WidgetTester tester, {
       String char = 'あ',
       PracticeMode mode = PracticeMode.copy,
-      bool withStrokeOrder = true,
     }) async {
       await tester.pumpWidget(
         MaterialApp(
           home: WritingScreen(
-            char: char,
+            chars: [char],
             mode: mode,
             store: store,
             speaker: speaker,
-            strokeOrder: withStrokeOrder ? strokeOrders[char] : null,
+            strokeOrders: strokeOrders,
           ),
         ),
       );
@@ -183,10 +182,12 @@ void main() {
     });
 
     testWidgets('書き順を持たない字はシステムの字で見せる', (tester) async {
-      await pumpScreen(tester, withStrokeOrder: false);
+      // 「」？ は KanjiVG に無い（SPEC 6.1）。
+      await pumpScreen(tester, char: '？');
 
+      expect(strokeOrders['？'], isNull);
       expect(find.byType(StrokeOrderView), findsNothing);
-      expect(find.text('あ'), findsOneWidget);
+      expect(find.text('？'), findsOneWidget);
     });
 
     testWidgets('できた！を押した時点で記録される', (tester) async {

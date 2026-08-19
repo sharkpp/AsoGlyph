@@ -107,10 +107,9 @@ void main() {
 
     // いま何字めかが見えている。3 字めまで書いたのに何の語か分からない、
     // という状態を作らない（SPEC 7.4）。
-    final first = tester.widget<WritingScreen>(find.byType(WritingScreen));
-    expect(first.char, 'ね');
-    expect(first.steps!.index, 0);
-    expect(first.steps!.isLast, isFalse);
+    final screen = tester.widget<WritingScreen>(find.byType(WritingScreen));
+    expect(screen.chars, ['ね', 'こ']);
+    expect(promptedChar(speaker), 'ね');
     // 語の名前は最初の 1 字でだけ言う。字ごとに繰り返すと、聞きたい 1 字が
     // 毎回うしろに回る。
     expect(speaker.spoken.last, 'ねこ を かこう。ね を かいてね');
@@ -124,9 +123,9 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'つぎ'), findsNothing);
     await advance(tester);
 
-    final second = tester.widget<WritingScreen>(find.byType(WritingScreen));
-    expect(second.char, 'こ');
-    expect(second.steps!.isLast, isTrue);
+    // 画面は積み替えない。字だけが入れ替わる（切り替わりがちらつかない）。
+    expect(find.byType(WritingScreen), findsOneWidget);
+    expect(promptedChar(speaker), 'こ');
 
     await drawLine(tester);
     await tester.pump();
@@ -240,11 +239,9 @@ void main() {
 
     // 長い名前ぜんぶを書かせると 1 セッションで終わらない（SPEC 7.4）。
     final screen = tester.widget<WritingScreen>(find.byType(WritingScreen));
-    expect(screen.char, 'オ', reason: 'ウルトラマン は書かせない');
-    expect(screen.steps!.chars, hasLength(9), reason: '並びからは外さない');
-    expect(screen.steps!.given, {0, 1, 2, 3, 4, 5});
-    expect(screen.steps!.index, 6);
-    expect(screen.steps!.isLast, isFalse);
+    expect(screen.chars, hasLength(9), reason: '並びからは外さない');
+    expect(screen.given, {0, 1, 2, 3, 4, 5});
+    expect(promptedChar(speaker), 'カタカナの オ', reason: 'ウルトラマン は書かせない');
 
     // 出しておく字も画面に出る。何の語を書いているのかが分からなくなる。
     expect(find.text('ウ'), findsOneWidget);
@@ -277,7 +274,7 @@ void main() {
     // 戻ればいいので置かない。同じことをする道を 2 つ置くと迷いになる。
     expect(find.byIcon(Icons.skip_next), findsNothing);
     expect(
-      tester.widget<WritingScreen>(find.byType(WritingScreen)).steps!.canSkip,
+      tester.widget<WritingScreen>(find.byType(WritingScreen)).canSkip,
       isFalse,
     );
   });

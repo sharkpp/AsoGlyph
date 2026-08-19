@@ -25,6 +25,12 @@ class TtsSpeaker implements Speaker {
 
   final FlutterTts _tts;
 
+  /// いま鳴っているか。
+  ///
+  /// 鳴っていないのに止めると、ブラウザによっては次の読み上げが始まらない。
+  /// 取り消しの直後に頼んだぶんが、無かったことにされる端末がある。
+  var _speaking = false;
+
   static Future<TtsSpeaker> open() async {
     final tts = FlutterTts();
     await _quietly(() async {
@@ -47,14 +53,26 @@ class TtsSpeaker implements Speaker {
 
   @override
   Future<void> speak(String text) => _quietly(() async {
-    await _tts.stop();
-    // 言い終わりを待つが、待ち続けはしない。読み上げの終わりを知らせない
-    // 端末があり、そこで画面が止まると字が書けなくなる。
-    await _tts.speak(text).timeout(_maxWait, onTimeout: () {});
+    if (_speaking) {
+      await _tts.stop();
+      // 止めた直後に頼むと取りこぼす端末がある。1 拍おく。
+      await Future<void>.delayed(_afterStop);
+    }
+    _speaking = true;
+    try {
+      // 言い終わりを待つが、待ち続けはしない。読み上げの終わりを知らせない
+      // 端末があり、そこで画面が止まると字が書けなくなる。
+      await _tts.speak(text).timeout(_maxWait, onTimeout: () {});
+    } finally {
+      _speaking = false;
+    }
   });
 
   @override
-  Future<void> stop() => _quietly(() => _tts.stop());
+  Future<void> stop() => _quietly(() async {
+    _speaking = false;
+    await _tts.stop();
+  });
 
   /// 「ふつうの速さ」に当たる値。尺度がプラットフォームで違う。
   /// Android と iOS は 0.5 が等倍、web の SpeechSynthesis は 1.0 が等倍。
@@ -66,8 +84,14 @@ class TtsSpeaker implements Speaker {
   /// 少し高い声のほうが子供には届く。
   static const _pitch = 1.2;
 
-  /// 言い終わりを待つ上限。いちばん長い読み上げでも 4 秒あれば足りる。
-  static const _maxWait = Duration(seconds: 4);
+  /// 言い終わりを待つ上限。
+  ///
+  /// いちばん長い読み上げでも 2 秒あれば足りる。終わりを知らせない端末では
+  /// ここまで待つことになるので、短くしておく。
+  static const _maxWait = Duration(seconds: 2);
+
+  /// 止めてから次を頼むまでの間。
+  static const _afterStop = Duration(milliseconds: 60);
 
   /// 読み上げの失敗で画面を止めない。
   ///

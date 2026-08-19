@@ -3,6 +3,8 @@ import 'package:asoglyph/ui/glyph_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'recording_speaker.dart';
+
 /// 「できた！」を押して字形が出るまで待つ。
 ///
 /// ラスタ化と記録は `Picture.toImage()` や sembast を通る実時間の非同期処理で、
@@ -23,7 +25,7 @@ Future<void> tapDone(WidgetTester tester) async {
   fail('字形が出ない');
 }
 
-/// 書き上げたあと、自分で次の字へ進むのを待つ（語を書いているとき）。
+/// 書き上げたあと、次の字に移るのを待つ（語を書いているとき）。
 ///
 /// ほめ言葉を言い終わるまで進まないので、実時間を進める必要がある。
 Future<void> advance(WidgetTester tester) async {
@@ -35,6 +37,13 @@ Future<void> advance(WidgetTester tester) async {
     if (find.byType(GlyphPreview).evaluate().isEmpty) return;
   }
   fail('つぎの字へ進まない');
+}
+
+/// いま書かされている字。読み上げが「<よみ> を かいてね」と言う。
+String promptedChar(RecordingSpeaker speaker) {
+  final said = speaker.spoken.last;
+  final tail = said.split('。').last;
+  return tail.replaceAll(' を かいてね', '');
 }
 
 /// キャンバスの中央を横切る線を引く。
