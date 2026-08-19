@@ -623,6 +623,11 @@ Sample.strokes (em 0..1000)
 サーバー側の処理を持たない（SPEC 3）ため、置くだけで動く。ホーム画面に置けて、
 オフラインでも開けるようにする。
 
+出し先は GitHub Pages（<https://sharkpp.github.io/asoglyph/>）。`main` に入ると
+`flutter analyze` と `flutter test` を通してから公開する（壊れたものを置かない）。
+**サブパスに置くので `--base-href /asoglyph/` が要る。** 付け忘れると真っ白になり、
+気づくのはたいてい公開後なので、公開前に出力を確かめて落とす。
+
 - **サービスワーカーは自前で持つ。** Flutter のものは 3.44 で非推奨になり、
   中身は「自分を登録解除するだけ」になった。Flutter 側の登録を頼まず
   （`serviceWorkerSettings` を渡さない）、`web/sw.js` を登録する。

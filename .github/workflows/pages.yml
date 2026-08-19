@@ -1,0 +1,71 @@
+# web 版を GitHub Pages に出す。
+#
+#   https://sharkpp.github.io/asoglyph/
+#
+# サーバー側の処理を持たない（SPEC 3）ので、build/web をそのまま置くだけでよい。
+#
+# 初回だけ、リポジトリの Settings → Pages → Build and deployment の Source を
+# 「GitHub Actions」にしておく（ブランチからの公開のままだと、この出力は使われない）。
+name: pages
+
+on:
+  push:
+    branches: [main]
+  # 直したいときに手で流せるようにしておく。
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 出す先は 1 つ。追い越して古いものが上書きするのを防ぐ。
+# 走っているものは止めない（途中で切ると、出しかけのまま残る）。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          # 手元と同じものに固定する。上げるときは意識して上げる。
+          flutter-version: 3.44.0
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # 壊れたものを公開しない。
+      - run: flutter analyze
+      - run: flutter test
+
+      # サブパスに置くので --base-href が要る。付け忘れると真っ白になる。
+      - run: flutter build web --release --base-href /asoglyph/
+
+      # 付け忘れをここで落とす。画面が出ないことに気づくのは、たいてい公開後。
+      - name: 出し先の道を確かめる
+        run: |
+          grep -q '<base href="/asoglyph/"' build/web/index.html
+          test -f build/web/sw.js
+          test -f build/web/manifest.json
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
