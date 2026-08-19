@@ -49,3 +49,8 @@ app.*.map.json
 # ファイル名が _ で始まるものはデバッグでだけ読み込まれ、リポジトリには
 # 入れない。素の取得から作ったリリースには存在しない。
 assets/words/_*
+
+# 絵つきの単語帳は .asodict にまとめて置く（SPEC 7.4.1）。
+# ほどいたままの words.yaml と images/ はリポジトリに入れない。
+assets/words/words.yaml
+assets/words/images/
