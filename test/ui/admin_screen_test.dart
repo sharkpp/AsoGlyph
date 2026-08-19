@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/memory_store.dart';
+import '../support/writing_actions.dart';
 
 Sample _written(String char, {required DateTime at}) => Sample(
   id: '$char-${at.toIso8601String()}',
@@ -293,18 +294,18 @@ void main() {
       await session.attempts.finish(word: 'いぬ', sampleIds: ['b']);
     });
     await pumpScreen(tester);
-    await tester.scrollUntilVisible(find.text('書いたことばの記録'), 200);
+    // 消す行そのものを出す。新しい順に並ぶので「ねこ」は「いぬ」のうしろ。
+    await tester.scrollUntilVisible(find.widgetWithText(ListTile, 'ねこ'), 200);
 
-    await tester.runAsync(() async {
-      await tester.tap(
+    await tester.runAsync(
+      () => tester.tap(
         find.descendant(
           of: find.widgetWithText(ListTile, 'ねこ'),
           matching: find.byIcon(Icons.close),
         ),
-      );
-      await Future<void>.delayed(Duration.zero);
-    });
-    await tester.pump();
+      ),
+    );
+    await waitFor(tester, () => session.attempts.countOf('ねこ') == 0);
 
     // 消えるのは「書けた」という印だけ。書いた字は消えない（SPEC 4.1）。
     expect(session.attempts.countOf('ねこ'), 0);
@@ -323,11 +324,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('集めた字も版も消えません'), findsOneWidget);
 
-    await tester.runAsync(() async {
-      await tester.tap(find.widgetWithText(FilledButton, '消す'));
-      await Future<void>.delayed(Duration.zero);
-    });
-    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () => tester.tap(find.widgetWithText(FilledButton, '消す')),
+    );
+    await waitFor(tester, () => session.attempts.all.isEmpty);
 
     expect(session.attempts.all, isEmpty);
     expect(find.textContaining('まだ、ことばを最後まで書いた記録はありません'),

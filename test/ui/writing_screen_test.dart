@@ -504,6 +504,43 @@ void main() {
       expect(guide().from, 2);
     });
 
+    testWidgets('引いている最中は、ペンが進んだぶんだけ下敷きが消える', (tester) async {
+      await pumpScreen(tester, char: 'き', mode: PracticeMode.trace);
+
+      StrokeOrderView guide() => tester
+          .widgetList<StrokeOrderView>(find.byType(StrokeOrderView))
+          .last;
+      expect(guide().erased, 0);
+
+      // 引いている途中で止める。
+      final canvas = tester.getRect(find.byType(InkCanvas));
+      final gesture = await tester.startGesture(
+        Offset(canvas.left + canvas.width * 0.2, canvas.center.dy),
+      );
+      await tester.pump();
+      expect(guide().erased, 0, reason: '置いただけでは消えない');
+
+      await gesture.moveTo(
+        Offset(canvas.left + canvas.width * 0.4, canvas.center.dy),
+      );
+      await tester.pump();
+      final halfway = guide().erased;
+      expect(halfway, greaterThan(0));
+      expect(halfway, lessThan(1), reason: 'まだ引き終わっていない');
+
+      await gesture.moveTo(
+        Offset(canvas.left + canvas.width * 0.9, canvas.center.dy),
+      );
+      await tester.pump();
+      expect(guide().erased, greaterThan(halfway), reason: 'ペンについてくる');
+
+      // 引き終わると、その画は丸ごと消えて次の画に移る。
+      await gesture.up();
+      await tester.pump();
+      expect(guide().from, 1);
+      expect(guide().erased, 0);
+    });
+
     testWidgets('もどすと、消した下敷きが戻る', (tester) async {
       await pumpScreen(tester, char: 'き', mode: PracticeMode.trace);
       await drawLine(tester);

@@ -261,13 +261,17 @@ void main() {
 
     // 1 字ずつ出すより、書いた字がことばになるほうが手応えがある（SPEC 7.3）。
     final screen = tester.widget<WritingScreen>(find.byType(WritingScreen));
-    final words = {
+    // 画面に出るのはかっこを外した並び（SPEC 7.4）。同じ見た目の語が
+    // 別の単語帳にあることもあるので、読みまで合うものを探す。
+    final shown = [
       for (final book in session.books.all)
-        // 画面に出るのはかっこを外した並び（SPEC 7.4）。
-        for (final word in book.words) word.display: word.reading,
-    };
+        for (final word in book.words)
+          if (word.display == screen.chars.join() &&
+              word.reading == screen.reading)
+            word,
+    ];
     expect(screen.reading, isNotNull, reason: '語として読み上げる');
-    expect(words[screen.chars.join()], screen.reading);
+    expect(shown, isNotEmpty, reason: '単語帳にある語がそのまま出る');
     expect(screen.isSingle, isFalse, reason: '語をまるごと受け取る');
   });
 

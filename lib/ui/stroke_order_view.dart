@@ -20,6 +20,7 @@ class StrokeOrderView extends StatelessWidget {
     this.surface = const Color(0xffffffff),
     this.faded = false,
     this.from = 0,
+    this.erased = 0,
   });
 
   final StrokeOrder order;
@@ -34,6 +35,13 @@ class StrokeOrderView extends StatelessWidget {
   /// **はみ出した下敷きを塗りつぶそうとする**。書いた画は消して、次に引く画
   /// だけが残るようにする。
   final int from;
+
+  /// [from] 画目の、書き始めから消しておく割合（0..1）。
+  ///
+  /// 引いている最中の画は、ペン先が進んだぶんだけ消す。消しゴムでなぞるように
+  /// 下敷きが減っていく。1 画引き終わってから消すと、引いている途中はずっと
+  /// 下敷きが残っていて、ずれたぶんを塗りつぶしにいってしまう。
+  final double erased;
 
   /// なぞる下敷きとして薄く敷くか。
   ///
@@ -85,6 +93,7 @@ class StrokeOrderView extends StatelessWidget {
         showNumbers: showNumbers,
         surface: surface,
         from: from,
+        erased: erased,
       ),
     );
   }
@@ -98,6 +107,7 @@ class _StrokeOrderPainter extends CustomPainter {
     required this.showNumbers,
     required this.surface,
     required this.from,
+    required this.erased,
   }) : super(repaint: progress);
 
   final StrokeOrder order;
@@ -106,6 +116,7 @@ class _StrokeOrderPainter extends CustomPainter {
   final bool showNumbers;
   final Color surface;
   final int from;
+  final double erased;
 
   /// KanjiVG の座標系での線幅。太めのほうが幼児には見やすい。
   static const _strokeWidth = 5.5;
@@ -130,6 +141,13 @@ class _StrokeOrderPainter extends CustomPainter {
       if (drawn == 0) break;
       // 書き終えた画は出さない。
       if (i < from) continue;
+      // 引いている最中の画は、ペン先が通ったところまでを消す。
+      if (i == from && erased > 0 && drawn == 1) {
+        if (erased < 1) {
+          canvas.drawPath(order.rest(i, erased), paint..color = colorOf(i));
+        }
+        continue;
+      }
       canvas.drawPath(
         drawn == 1 ? order.strokes[i] : order.partial(i, drawn),
         paint..color = colorOf(i),
@@ -230,5 +248,6 @@ class _StrokeOrderPainter extends CustomPainter {
       old.colorOf(0) != colorOf(0) ||
       old.showNumbers != showNumbers ||
       old.surface != surface ||
-      old.from != from;
+      old.from != from ||
+      old.erased != erased;
 }

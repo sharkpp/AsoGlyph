@@ -1,9 +1,12 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../audio/speaker.dart';
 import '../font/glyph.dart';
 import '../ink/ink_canvas.dart';
 import '../ink/ink_controller.dart';
+import '../ink/stroke.dart';
 import '../kanjivg/stroke_order.dart';
 import '../model/char_set.dart';
 import '../model/sample.dart';
@@ -266,6 +269,37 @@ class _WritingScreenState extends State<WritingScreen>
   Future<void> _skip() async {
     await widget.speaker.speak('つぎの ことばに するね');
     if (mounted) Navigator.of(context).pop(const WritingResult.skipped());
+  }
+
+  /// いま引いている画の下敷きを、どこまで消すか（0..1）。
+  ///
+  /// 子供が引いた長さを、お手本のその画の長さと比べて決める。ペン先の
+  /// いる場所を探して当てるのではなく、進んだ長さで測る。ずれて書いても
+  /// 同じだけ進むので、下敷きは必ずペンについてくる。
+  double get _erasedByPen {
+    final order = _strokeOrder;
+    final active = _ink.activeStroke;
+    if (order == null || active == null) return 0;
+
+    final index = _ink.strokes.length;
+    if (index >= order.strokeCount) return 0;
+
+    // お手本は viewBox 四方。書いた線は em 空間（0..1000）。
+    final model =
+        order.strokeLength(index) * 1000 / StrokeOrder.viewBox;
+    if (model <= 0) return 1;
+    return (_inkLength(active) / model).clamp(0.0, 1.0);
+  }
+
+  /// 引いた線の長さ（em 空間）。
+  double _inkLength(Stroke stroke) {
+    var total = 0.0;
+    for (var i = 1; i < stroke.points.length; i++) {
+      final a = stroke.points[i - 1];
+      final b = stroke.points[i];
+      total += sqrt(pow(b.x - a.x, 2) + pow(b.y - a.y, 2));
+    }
+    return total;
   }
 
   /// 書けた字を見せておく最短の時間。
@@ -555,6 +589,7 @@ class _WritingScreenState extends State<WritingScreen>
                           // 上から子供が書く。下敷きは自分の線より弱くする。
                           faded: true,
                           from: _ink.strokes.length,
+                          erased: _erasedByPen,
                         ),
                       ),
                     // 「できた！」を押したあとは書けない。押したあとに
@@ -601,7 +636,7 @@ class _WritingScreenState extends State<WritingScreen>
               FilledButton.icon(
                 style: FilledButton.styleFrom(minimumSize: size),
                 onPressed: () => Navigator.of(context).pop(
-                  WritingResult.written([if (_savedId != null) _savedId!]),
+                  WritingResult.written([?_savedId]),
                 ),
                 icon: const Icon(Icons.check, size: 32),
                 label: const Text('おわり'),

@@ -39,6 +39,26 @@ Future<void> advance(WidgetTester tester) async {
   fail('つぎの字へ進まない');
 }
 
+/// 記録の書き換えが終わるのを待つ。
+///
+/// sembast の書き込みは実時間の非同期処理で、疑似非同期環境では
+/// [WidgetTester.runAsync] の中でしか進まない。所要時間は実行環境で変わる
+/// （まとめて流すと遅くなる）ため、決め打ちで待たずに結果を待つ。
+Future<void> waitFor(WidgetTester tester, bool Function() done) async {
+  for (var i = 0; i < 200; i++) {
+    if (done()) {
+      await tester.pumpAndSettle();
+      return;
+    }
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    // 時計も進める。確かめの画面が閉じきらないと、その先へ進まない。
+    await tester.pump(const Duration(milliseconds: 10));
+  }
+  fail('記録が変わらない');
+}
+
 /// いま書かされている字。読み上げが「<よみ> を かいてね」と言う。
 String promptedChar(RecordingSpeaker speaker) {
   final said = speaker.spoken.last;

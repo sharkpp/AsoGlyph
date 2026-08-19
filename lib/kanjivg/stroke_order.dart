@@ -30,6 +30,19 @@ class StrokeOrder {
     return metric.extractPath(0, metric.length * fraction);
   }
 
+  /// [index] 画目の、[fraction]（0..1）から終わりまでの部分。
+  ///
+  /// なぞる下敷きを、ペン先が通ったところから消していくのに使う（SPEC 7.1）。
+  Path rest(int index, double fraction) {
+    final metric = _metrics[index];
+    return metric.extractPath(metric.length * fraction, metric.length);
+  }
+
+  /// [index] 画目の長さ。座標系は [viewBox] 四方のまま。
+  ///
+  /// 子供の線がその画のどこまで進んだかを、長さの比で見るのに使う。
+  double strokeLength(int index) => _metrics[index].length;
+
   /// [index] 画目を、等間隔の [count] 点に開く。座標系は [viewBox] 四方のまま。
   ///
   /// 書いた字とお手本を同じ形に揃えて比べるために使う（SPEC 7.3）。
