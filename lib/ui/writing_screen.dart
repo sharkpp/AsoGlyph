@@ -541,15 +541,28 @@ class _WritingScreenState extends State<WritingScreen>
                   children: [
                     WritingGuide(small: _small),
                     // なぞり書きは、字形を薄く敷いてその上をなぞらせる。
+                    //
+                    // 1 画引くごとに、その画の下敷きを消す。残しておくと、
+                    // 自分の線とずれたときに はみ出した下敷きを塗りつぶそう
+                    // とする。次に引く画だけが残るようにする。
                     if (widget.mode == PracticeMode.trace &&
                         _strokeOrder != null)
-                      StrokeOrderView(
-                        order: _strokeOrder!,
-                        progress: kAlwaysCompleteAnimation,
-                        // 上から子供が書く。下敷きは自分の線より弱くする。
-                        faded: true,
+                      AnimatedBuilder(
+                        animation: _ink,
+                        builder: (context, _) => StrokeOrderView(
+                          order: _strokeOrder!,
+                          progress: kAlwaysCompleteAnimation,
+                          // 上から子供が書く。下敷きは自分の線より弱くする。
+                          faded: true,
+                          from: _ink.strokes.length,
+                        ),
                       ),
-                    InkCanvas(controller: _ink),
+                    // 「できた！」を押したあとは書けない。押したあとに
+                    // 足した線は、記録に入らないまま画面にだけ残ってしまう。
+                    IgnorePointer(
+                      ignoring: _busy || _glyph != null,
+                      child: InkCanvas(controller: _ink),
+                    ),
                   ],
                 ),
               ),

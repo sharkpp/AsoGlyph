@@ -19,6 +19,7 @@ class StrokeOrderView extends StatelessWidget {
     this.showNumbers = false,
     this.surface = const Color(0xffffffff),
     this.faded = false,
+    this.from = 0,
   });
 
   final StrokeOrder order;
@@ -26,6 +27,13 @@ class StrokeOrderView extends StatelessWidget {
 
   /// 番号の下に敷く色。これを描く面と同じ色にする。
   final Color surface;
+
+  /// ここから先の画だけを出す。
+  ///
+  /// なぞる下敷きで使う。書き終えた画を残しておくと、自分の線とずれたときに
+  /// **はみ出した下敷きを塗りつぶそうとする**。書いた画は消して、次に引く画
+  /// だけが残るようにする。
+  final int from;
 
   /// なぞる下敷きとして薄く敷くか。
   ///
@@ -76,6 +84,7 @@ class StrokeOrderView extends StatelessWidget {
         colorOf: colorOf,
         showNumbers: showNumbers,
         surface: surface,
+        from: from,
       ),
     );
   }
@@ -88,6 +97,7 @@ class _StrokeOrderPainter extends CustomPainter {
     required this.colorOf,
     required this.showNumbers,
     required this.surface,
+    required this.from,
   }) : super(repaint: progress);
 
   final StrokeOrder order;
@@ -95,6 +105,7 @@ class _StrokeOrderPainter extends CustomPainter {
   final Color Function(int index) colorOf;
   final bool showNumbers;
   final Color surface;
+  final int from;
 
   /// KanjiVG の座標系での線幅。太めのほうが幼児には見やすい。
   static const _strokeWidth = 5.5;
@@ -117,6 +128,8 @@ class _StrokeOrderPainter extends CustomPainter {
     for (var i = 0; i < order.strokeCount; i++) {
       final drawn = (head - i).clamp(0.0, 1.0);
       if (drawn == 0) break;
+      // 書き終えた画は出さない。
+      if (i < from) continue;
       canvas.drawPath(
         drawn == 1 ? order.strokes[i] : order.partial(i, drawn),
         paint..color = colorOf(i),
@@ -216,5 +229,6 @@ class _StrokeOrderPainter extends CustomPainter {
       old.progress != progress ||
       old.colorOf(0) != colorOf(0) ||
       old.showNumbers != showNumbers ||
-      old.surface != surface;
+      old.surface != surface ||
+      old.from != from;
 }

@@ -463,6 +463,64 @@ void main() {
       );
     });
 
+    testWidgets('できた！を押したら、もう書けない', (tester) async {
+      await pumpScreen(tester);
+      await drawLine(tester);
+      await tester.pump();
+      await tapDone(tester);
+
+      // 押したあとに足した線は、記録に入らないまま画面にだけ残ってしまう。
+      final before = store.attempts('あ').single.id;
+      await drawLine(tester);
+      await tester.pump();
+
+      expect(find.byType(GlyphPreview), findsOneWidget, reason: '字形は消えない');
+      expect(store.attempts('あ').single.id, before);
+      expect(
+        find.widgetWithText(FilledButton, 'できた！'),
+        findsNothing,
+        reason: '書き直すなら もういちど から',
+      );
+    });
+
+    testWidgets('なぞり書きは、1 画引くごとに下敷きが減る', (tester) async {
+      await pumpScreen(tester, char: 'き', mode: PracticeMode.trace);
+
+      StrokeOrderView guide() => tester
+          .widgetList<StrokeOrderView>(find.byType(StrokeOrderView))
+          .last;
+      expect(guide().order.strokeCount, 4, reason: 'き は 4 画');
+      expect(guide().from, 0);
+
+      await drawLine(tester);
+      await tester.pump();
+
+      // 残しておくと、自分の線とずれたときに はみ出した下敷きを
+      // 塗りつぶそうとする。
+      expect(guide().from, 1);
+
+      await drawLine(tester);
+      await tester.pump();
+      expect(guide().from, 2);
+    });
+
+    testWidgets('もどすと、消した下敷きが戻る', (tester) async {
+      await pumpScreen(tester, char: 'き', mode: PracticeMode.trace);
+      await drawLine(tester);
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.undo));
+      await tester.pump();
+
+      expect(
+        tester
+            .widgetList<StrokeOrderView>(find.byType(StrokeOrderView))
+            .last
+            .from,
+        0,
+      );
+    });
+
     testWidgets('もういちど を押した回数が残る', (tester) async {
       await pumpScreen(tester);
       await drawLine(tester);
