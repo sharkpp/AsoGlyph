@@ -3,6 +3,7 @@ import 'package:sembast/sembast.dart';
 import 'package:uuid/uuid.dart';
 
 import '../model/char_set.dart';
+import '../model/sample.dart';
 import '../model/user.dart';
 
 /// 書く人の置き場と、いま誰が書いているか（SPEC 7.5）。
@@ -99,6 +100,7 @@ Map<String, Object?> _encode(User user) => {
   'birthMonth': user.birthMonth?.millisecondsSinceEpoch,
   'collecting': [for (final set in user.collecting) set.name],
   'wordBooks': [...user.wordBooks],
+  'practiceMode': user.practiceMode.name,
 };
 
 User _decode(String id, Map<String, Object?> record) {
@@ -116,5 +118,8 @@ User _decode(String id, Map<String, Object?> record) {
         CharSet.values.byName(name),
     },
     wordBooks: (record['wordBooks'] as List? ?? []).cast<String>().toSet(),
+    practiceMode: PracticeMode.values.byName(
+      record['practiceMode'] as String? ?? PracticeMode.copy.name,
+    ),
   );
 }

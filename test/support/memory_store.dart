@@ -21,8 +21,10 @@ Future<RecipeStore> openMemoryRecipes() async =>
     RecipeStore.open(await openMemoryDatabase(), userId: 'test-user');
 
 /// テスト用の Session。記録も版も同じ 1 つのメモリ DB に置く。
-Future<Session> openMemorySession() async =>
-    Session.open(await openMemoryDatabase());
+///
+/// 同じ DB を渡すと、開き直したときの姿を確かめられる。
+Future<Session> openMemorySession([Database? db]) async =>
+    Session.open(db ?? await openMemoryDatabase());
 
 /// テスト用の単語帳。はじめの単語帳が入った状態で開く。
 Future<WordBookStore> openMemoryWordBooks([Database? db]) async =>

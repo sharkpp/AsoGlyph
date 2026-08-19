@@ -134,8 +134,9 @@ Policy = latest | best | at(DateTime)
 
 ```dart
 User { id, displayName, avatar, birthMonth?, createdAt, passcode?
-       collecting : Set<CharSet>   // 集める文字種（5）
-       wordBooks  : Set<String>    // この人に出す単語帳（7.4）
+       collecting   : Set<CharSet>   // 集める文字種（5）
+       wordBooks    : Set<String>    // この人に出す単語帳（7.4）
+       practiceMode : trace|copy|free // 前に選んだ練習モード（7.1）
 }
 ```
 
@@ -267,7 +268,9 @@ KanjiVG の同じ字は 0.79〜0.80倍。独立した2つの出典が一致す�
 
 ### 7.1 練習（子供向け画面）
 
-**練習モードは3段階**。
+**練習モードは3段階**。**前に選んだものを人ごとに覚える**（4.4）。なぞりから
+始めた子と、もう何も見ずに書ける子とでは始める場所が違う。開くたびに選び直させると、
+字を書くまでの手数が増える。既定はお手本あり（いちばん多くの子が始められるところ）。
 
 | モード | 内容 | 素材採用 |
 |---|---|---|

@@ -18,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/memory_store.dart';
 import '../support/recording_speaker.dart';
+import '../support/writing_actions.dart';
 
 Sample _written(String char, {PracticeMode mode = PracticeMode.copy}) =>
     Sample.now(
@@ -72,6 +73,16 @@ void main() {
         ),
       ),
     );
+  }
+
+  /// 練習モードを選ぶ。人ごとに覚えるので、書き換えが終わるまで待つ。
+  Future<void> chooseMode(
+    WidgetTester tester,
+    String label,
+    PracticeMode mode,
+  ) async {
+    await tester.runAsync(() => tester.tap(find.text(label)));
+    await waitFor(tester, () => session.current.practiceMode == mode);
   }
 
   /// 文字種の充足率。同じ字数の文字種があるので、必ず束ごとに読む。
@@ -150,8 +161,7 @@ void main() {
   testWidgets('じぶんでを選ぶと、その字は何も見ずに書く', (tester) async {
     await pumpScreen(tester);
 
-    await tester.tap(find.text('じぶんで'));
-    await tester.pumpAndSettle();
+    await chooseMode(tester, 'じぶんで', PracticeMode.free);
 
     expect((await openWriting(tester, 'ひらがな', 'か')).mode, PracticeMode.free);
   });
@@ -159,8 +169,7 @@ void main() {
   testWidgets('なぞり書きも選べる', (tester) async {
     await pumpScreen(tester);
 
-    await tester.tap(find.text('なぞる'));
-    await tester.pumpAndSettle();
+    await chooseMode(tester, 'なぞる', PracticeMode.trace);
 
     expect((await openWriting(tester, 'ひらがな', 'か')).mode, PracticeMode.trace);
   });
@@ -169,10 +178,43 @@ void main() {
     final speaker = RecordingSpeaker();
     await pumpScreen(tester, speaker: speaker);
 
-    await tester.tap(find.text('じぶんで'));
-    await tester.pumpAndSettle();
+    await chooseMode(tester, 'じぶんで', PracticeMode.free);
+    await waitFor(tester, () => speaker.spoken.isNotEmpty);
 
     expect(speaker.spoken, ['じぶんで かいてみよう']);
+  });
+
+  testWidgets('選んだモードは、その人のぶんとして覚えている', (tester) async {
+    await pumpScreen(tester);
+    await chooseMode(tester, 'なぞる', PracticeMode.trace);
+
+    // 開くたびに選び直させると、字を書くまでの手数が増える（SPEC 7.1）。
+    expect(session.current.practiceMode, PracticeMode.trace);
+
+    // 開き直しても残る。
+    final reopened = await tester.runAsync(() => openMemorySession(session.db));
+    expect(reopened!.current.practiceMode, PracticeMode.trace);
+  });
+
+  testWidgets('人を切り替えると、その人のモードに戻る', (tester) async {
+    await pumpScreen(tester);
+    await chooseMode(tester, 'なぞる', PracticeMode.trace);
+
+    // なぞりから始めた子と、もう何も見ずに書ける子とでは始める場所が違う。
+    await tester.runAsync(
+      () => session.addUser(name: 'あに', avatar: Avatar.bird),
+    );
+    await tester.pumpAndSettle();
+    expect(session.current.practiceMode, PracticeMode.copy, reason: '別の人は既定');
+
+    await chooseMode(tester, 'じぶんで', PracticeMode.free);
+    await tester.runAsync(
+      () => session.switchTo(session.users.all.first.id),
+    );
+    await tester.pumpAndSettle();
+
+    expect(session.current.practiceMode, PracticeMode.trace);
+    expect((await openWriting(tester, 'ひらがな', 'か')).mode, PracticeMode.trace);
   });
 
   testWidgets('集めない文字種は、子供の画面に出さない', (tester) async {

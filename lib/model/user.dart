@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'char_set.dart';
+import 'sample.dart';
 
 /// 書く人（SPEC 4.4）。
 ///
@@ -14,6 +15,7 @@ class User {
     this.birthMonth,
     this.collecting = const {},
     this.wordBooks = const {},
+    this.practiceMode = PracticeMode.copy,
   });
 
   final String id;
@@ -38,6 +40,14 @@ class User {
   /// まだ書かせない文字種は、子供向け画面から丸ごと消す。
   final Set<CharSet> collecting;
 
+  /// 前に選んだ練習モード（SPEC 7.1）。
+  ///
+  /// 人ごとに覚える。なぞりから始めた子と、もう何も見ずに書ける子とでは
+  /// 始める場所が違う。開くたびに選び直させると、字を書くまでの手数が増える。
+  ///
+  /// 既定はお手本あり。いちばん多くの子が始められるところに置く。
+  final PracticeMode practiceMode;
+
   /// この人が使う単語帳（SPEC 7.4）。id で持つ。
   ///
   /// 単語帳そのものは人ごとに分けない（親が 1 か所で作る）。分けるのは
@@ -60,6 +70,7 @@ class User {
     DateTime? birthMonth,
     Set<CharSet>? collecting,
     Set<String>? wordBooks,
+    PracticeMode? practiceMode,
   }) => User(
     id: id,
     displayName: displayName ?? this.displayName,
@@ -68,6 +79,7 @@ class User {
     birthMonth: birthMonth ?? this.birthMonth,
     collecting: collecting ?? this.collecting,
     wordBooks: wordBooks ?? this.wordBooks,
+    practiceMode: practiceMode ?? this.practiceMode,
   );
 }
 

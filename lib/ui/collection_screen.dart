@@ -46,12 +46,13 @@ class CollectionScreen extends StatefulWidget {
 }
 
 class _CollectionScreenState extends State<CollectionScreen> {
+  Session get session => widget.session;
+
   /// 3 つの練習モードのどれで書くか。書く前に選ばせる（SPEC 7.1）。
   ///
-  /// 既定はお手本あり。いちばん多くの子が始められるところに置く。
-  var _mode = PracticeMode.copy;
-
-  Session get session => widget.session;
+  /// 人ごとに覚えている（SPEC 4.4）。なぞりから始めた子と、もう何も見ずに
+  /// 書ける子とでは始める場所が違う。
+  PracticeMode get _mode => session.current.practiceMode;
   SampleStore get store => session.samples;
   RecipeStore get recipes => session.recipes;
   Locks get locks => widget.locks;
@@ -183,10 +184,11 @@ class _CollectionScreenState extends State<CollectionScreen> {
     );
   }
 
-  void _chooseMode(PracticeMode mode) {
-    setState(() => _mode = mode);
+  Future<void> _chooseMode(PracticeMode mode) async {
+    // 覚えておく。開くたびに選び直させると、字を書くまでの手数が増える。
+    await session.users.save(session.current.copyWith(practiceMode: mode));
     // 字が読めなくても、どちらを選んだか分かるようにする（SPEC 2）。
-    speaker.speak(switch (mode) {
+    await speaker.speak(switch (mode) {
       PracticeMode.copy => 'おてほんを みて かこう',
       PracticeMode.free => 'じぶんで かいてみよう',
       PracticeMode.trace => 'なぞって かこう',
