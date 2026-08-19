@@ -218,30 +218,24 @@ void main() {
   });
 
   testWidgets('出す単語帳を全部は外せない', (tester) async {
+    // 出すのを 1 冊だけにしてから、それを外そうとする。手元に置いた辞書の
+    // 数や名前で結果が変わらないようにする。
+    final only = session.books.all.first;
+    await tester.runAsync(
+      () => session.users.save(session.current.copyWith(wordBooks: {only.id})),
+    );
     await pumpScreen(tester);
-    await tester.scrollUntilVisible(find.text('カタカナのことば'), 200);
 
-    // 手元に動作確認用の辞書があっても効くよう、いま出ているものを全部外す。
-    for (final name in [
-      for (final book in session.books.all) book.name,
-    ]) {
-      await tester.runAsync(() async {
-        await tester.tap(
-          find.descendant(
-            of: find.byType(WordBookSection),
-            matching: find.widgetWithText(CheckboxListTile, name),
-          ),
-        );
-        await Future<void>.delayed(Duration.zero);
-      });
-      await tester.pump();
-    }
+    final tile = find.descendant(
+      of: find.byType(WordBookSection),
+      matching: find.widgetWithText(CheckboxListTile, only.name),
+    );
+    await tester.scrollUntilVisible(tile, 200);
+    await tester.runAsync(() => tester.tap(tile));
+    await tester.pump();
 
-    // 全部外すと、おまかせも ことば も子供の画面から消える。
-    final using = session.books.all
-        .where((book) => session.current.uses(book.id))
-        .length;
-    expect(using, 1);
+    // 全部外すと、おまかせも ことばも子供の画面から消える。
+    expect(session.current.wordBooks, {only.id});
   });
 
   testWidgets('語に出てこない字を数えて見せる', (tester) async {

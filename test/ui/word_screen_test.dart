@@ -50,6 +50,17 @@ void main() {
     );
   }
 
+  /// 出す単語帳を 1 冊に絞る。
+  ///
+  /// 手元に置いた辞書（動作確認用）の数や中身で結果が変わらないようにする。
+  Future<WordBook> useOnly(WidgetTester tester, String name) async {
+    final book = session.books.all.firstWhere((book) => book.name == name);
+    await tester.runAsync(
+      () => session.users.save(session.current.copyWith(wordBooks: {book.id})),
+    );
+    return book;
+  }
+
   /// 集める文字種を絞る。
   Future<void> collectOnly(WidgetTester tester, Set<CharSet> sets) =>
       tester.runAsync(
@@ -57,6 +68,7 @@ void main() {
       );
 
   testWidgets('同梱の単語帳が並ぶ', (tester) async {
+    await useOnly(tester, 'ひらがなのことば');
     await pumpScreen(tester);
 
     expect(find.text('ひらがなのことば'), findsOneWidget);
@@ -170,6 +182,7 @@ void main() {
   });
 
   testWidgets('書き終えた語には印が付く', (tester) async {
+    await useOnly(tester, 'ひらがなのことば');
     await tester.runAsync(
       () => session.attempts.finish(word: 'ねこ', sampleIds: ['a', 'b']),
     );
