@@ -12,6 +12,7 @@ import '../store/word_book_store.dart';
 import '../word/reading.dart';
 import '../word/word_book_export.dart';
 import '../word/word_image.dart';
+import 'file_types.dart';
 import 'reading_input.dart';
 import 'word_book_section.dart';
 import 'word_image_view.dart';
@@ -384,10 +385,7 @@ class _WordDialogState extends State<_WordDialog> {
   /// 絵を選ぶ（SPEC 7.4）。
   Future<void> _pickImage() async {
     final file = await openFile(
-      acceptedTypeGroups: [
-        // 拡張子で絞る。web では uniformTypeIdentifiers が効かない。
-        const XTypeGroup(label: 'え', extensions: imageExtensions),
-      ],
+      acceptedTypeGroups: [imageTypeGroup],
     );
     if (file == null || !mounted) return;
     await _accept(await file.readAsBytes(), file.name);

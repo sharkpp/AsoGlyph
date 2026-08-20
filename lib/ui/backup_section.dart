@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../export/backup.dart';
 import '../store/session.dart';
+import 'file_types.dart';
 
 /// 控えの書き出しと読み込み（SPEC 7.5）。
 ///
@@ -61,10 +62,7 @@ class BackupSection extends StatelessWidget {
 
   Future<void> _import(BuildContext context) async {
     final file = await openFile(
-      acceptedTypeGroups: [
-        // 拡張子で絞る。web では uniformTypeIdentifiers が効かない。
-        const XTypeGroup(label: 'あそんでフォントの控え', extensions: ['asoglyph']),
-      ],
+      acceptedTypeGroups: [backupTypeGroup],
     );
     if (file == null || !context.mounted) return;
 

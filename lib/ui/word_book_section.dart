@@ -8,6 +8,7 @@ import '../store/word_book_store.dart';
 import '../word/word_image.dart';
 import '../word/word_book_codec.dart';
 import '../word/word_book_export.dart';
+import 'file_types.dart';
 import 'word_book_editor.dart';
 
 /// 単語帳の割り振りと手入れ（SPEC 7.4）。おうちの人の画面に置く。
@@ -118,13 +119,7 @@ class WordBookSection extends StatelessWidget {
 
   Future<void> _import(BuildContext context) async {
     final file = await openFile(
-      acceptedTypeGroups: [
-        // 拡張子で絞る。web では uniformTypeIdentifiers が効かない。
-        const XTypeGroup(
-          label: '単語帳',
-          extensions: [wordBookBundleExtension, 'yaml', 'yml', 'csv'],
-        ),
-      ],
+      acceptedTypeGroups: [wordBookTypeGroup],
     );
     if (file == null || !context.mounted) return;
 
