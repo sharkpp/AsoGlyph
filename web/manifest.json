@@ -4,7 +4,7 @@
     "description": "子供が書いた字が、そのままフォントになるアプリ。字も設定も端末の中だけに残ります。",
     "lang": "ja",
     "dir": "ltr",
-    "id": "/",
+    "id": ".",
     "start_url": ".",
     "scope": "./",
     "display": "standalone",
