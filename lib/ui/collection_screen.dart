@@ -70,11 +70,10 @@ class _CollectionScreenState extends State<CollectionScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xfffaf7f0),
         title: const Text('あそんでフォント'),
-        // 練習モードはヘッダに置く。書くまでの手数を増やさないためのもので、
-        // 本文の場所を取るほどのものではない。アイコンだけで切り替える。
-        bottom: _ModeBar(mode: _mode, onChanged: _chooseMode),
         actions: [
           CurrentUserButton(session: session, lock: locks.switching),
+          // 練習モードはヘッダの印から選ぶ。本文の場所は書く入口に譲る。
+          _ModeMenu(mode: _mode, onChanged: _chooseMode),
           IconButton(
             iconSize: 28,
             icon: const Icon(Icons.tune),
@@ -196,7 +195,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
 
 }
 
-/// 練習モードの切り替え（SPEC 7.1）。ヘッダに置く。
+/// 練習モードの切り替え（SPEC 7.1）。ヘッダの印から選ぶ。
 ///
 /// なぞる → お手本を見る → 何も見ない、と難しくなる並びにしてある。
 /// 「お手本なしで書けた」は子供にとって手応えのある目標で、親にとっては
@@ -204,11 +203,11 @@ class _CollectionScreenState extends State<CollectionScreen> {
 ///
 /// なぞり書きだけは、字形をなぞっただけなのでフォントの素材に採らない（SPEC 7.1）。
 ///
-/// **字は出さない。** 選んだものは声で言うので（[_CollectionScreenState._chooseMode]）、
-/// 読めない子にも何を選んだかは伝わる（SPEC 2）。ヘッダは本文より狭く、
-/// アイコンの下に文字を積むと 3 つ入らない。
-class _ModeBar extends StatelessWidget implements PreferredSizeWidget {
-  const _ModeBar({required this.mode, required this.onChanged});
+/// **いま選んでいるモードの印を出す。** 開かなくても、どれで書くことになって
+/// いるかが分かる。選んだものは声でも言うので（[_CollectionScreenState._chooseMode]）、
+/// 読めない子にも伝わる（SPEC 2）。
+class _ModeMenu extends StatelessWidget {
+  const _ModeMenu({required this.mode, required this.onChanged});
 
   final PracticeMode mode;
   final ValueChanged<PracticeMode> onChanged;
@@ -221,50 +220,42 @@ class _ModeBar extends StatelessWidget implements PreferredSizeWidget {
   };
 
   @override
-  Size get preferredSize => const Size.fromHeight(76);
-
-  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return SizedBox(
-      height: 76,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (final MapEntry(key: value, value: (icon, label))
-              in _modes.entries)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: IconButton(
-                // タップターゲットは 64dp 以上（SPEC 9）。
-                iconSize: 32,
-                constraints: const BoxConstraints.tightFor(
-                  width: 64,
-                  height: 64,
+    return PopupMenuButton<PracticeMode>(
+      iconSize: 28,
+      tooltip: 'かきかた',
+      icon: Icon(_modes[mode]!.$1),
+      onSelected: onChanged,
+      itemBuilder: (context) => [
+        for (final MapEntry(key: value, value: (icon, label)) in _modes.entries)
+          PopupMenuItem(
+            value: value,
+            // タップターゲットは 64dp 以上（SPEC 9）。
+            height: 64,
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 28,
+                  color: value == mode ? scheme.primary : null,
                 ),
-                // 名前は親のためだけに置く。子供には声とアイコンで伝わる。
-                tooltip: label,
-                style: IconButton.styleFrom(
-                  backgroundColor: value == mode
-                      ? scheme.primaryContainer
-                      : Colors.white,
-                  foregroundColor: value == mode
-                      ? scheme.onPrimaryContainer
-                      : const Color(0xff9c948a),
-                  side: BorderSide(
-                    color: value == mode
-                        ? scheme.primary
-                        : const Color(0xffe4dfd4),
-                    width: 2,
+                const SizedBox(width: 16),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: value == mode
+                        ? FontWeight.w700
+                        : FontWeight.w400,
+                    color: value == mode ? scheme.primary : null,
                   ),
                 ),
-                onPressed: () => onChanged(value),
-                icon: Icon(icon),
-              ),
+              ],
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }

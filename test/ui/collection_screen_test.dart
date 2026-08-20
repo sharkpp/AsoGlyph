@@ -76,13 +76,15 @@ void main() {
 
   /// 練習モードを選ぶ。人ごとに覚えるので、書き換えが終わるまで待つ。
   ///
-  /// ヘッダのアイコンで切り替える。字は出ないので、名前ではなく印で押す。
+  /// ヘッダの印を押すとメニューが開く。中は印と名前が並ぶ。
   Future<void> chooseMode(
     WidgetTester tester,
-    IconData icon,
+    String label,
     PracticeMode mode,
   ) async {
-    await tester.runAsync(() => tester.tap(find.byIcon(icon)));
+    await tester.tap(find.byType(PopupMenuButton<PracticeMode>));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => tester.tap(find.text(label)));
     await waitFor(tester, () => session.current.practiceMode == mode);
   }
 
@@ -162,7 +164,7 @@ void main() {
   testWidgets('じぶんでを選ぶと、その字は何も見ずに書く', (tester) async {
     await pumpScreen(tester);
 
-    await chooseMode(tester, Icons.volume_up, PracticeMode.free);
+    await chooseMode(tester, 'じぶんで', PracticeMode.free);
 
     expect((await openWriting(tester, 'ひらがな', 'か')).mode, PracticeMode.free);
   });
@@ -170,7 +172,7 @@ void main() {
   testWidgets('なぞり書きも選べる', (tester) async {
     await pumpScreen(tester);
 
-    await chooseMode(tester, Icons.gesture, PracticeMode.trace);
+    await chooseMode(tester, 'なぞる', PracticeMode.trace);
 
     expect((await openWriting(tester, 'ひらがな', 'か')).mode, PracticeMode.trace);
   });
@@ -179,7 +181,7 @@ void main() {
     final speaker = RecordingSpeaker();
     await pumpScreen(tester, speaker: speaker);
 
-    await chooseMode(tester, Icons.volume_up, PracticeMode.free);
+    await chooseMode(tester, 'じぶんで', PracticeMode.free);
     await waitFor(tester, () => speaker.spoken.isNotEmpty);
 
     expect(speaker.spoken, ['じぶんで かいてみよう']);
@@ -187,7 +189,7 @@ void main() {
 
   testWidgets('選んだモードは、その人のぶんとして覚えている', (tester) async {
     await pumpScreen(tester);
-    await chooseMode(tester, Icons.gesture, PracticeMode.trace);
+    await chooseMode(tester, 'なぞる', PracticeMode.trace);
 
     // 開くたびに選び直させると、字を書くまでの手数が増える（SPEC 7.1）。
     expect(session.current.practiceMode, PracticeMode.trace);
@@ -199,7 +201,7 @@ void main() {
 
   testWidgets('人を切り替えると、その人のモードに戻る', (tester) async {
     await pumpScreen(tester);
-    await chooseMode(tester, Icons.gesture, PracticeMode.trace);
+    await chooseMode(tester, 'なぞる', PracticeMode.trace);
 
     // なぞりから始めた子と、もう何も見ずに書ける子とでは始める場所が違う。
     await tester.runAsync(
@@ -208,7 +210,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(session.current.practiceMode, PracticeMode.copy, reason: '別の人は既定');
 
-    await chooseMode(tester, Icons.volume_up, PracticeMode.free);
+    await chooseMode(tester, 'じぶんで', PracticeMode.free);
     await tester.runAsync(
       () => session.switchTo(session.users.all.first.id),
     );
@@ -362,6 +364,8 @@ void main() {
 
     final first = tester.widget<WritingScreen>(find.byType(WritingScreen));
     expect(first.canSkip, isTrue, reason: '書けない語で手が止まらないように');
+    // 印だけでは「次に進む」と読めてしまう。読める子には字でも言う。
+    expect(find.text('つぎの ことば'), findsOneWidget);
 
     await tester.runAsync(() async {
       await tester.tap(find.byIcon(Icons.skip_next));
@@ -472,7 +476,7 @@ void main() {
   });
 
   testWidgets('スマホ幅でもヘッダが溢れない', (tester) async {
-    // ヘッダには題・モードの印 3 つ・管理の入口が乗る（SPEC 9）。
+    // ヘッダには題・かきかたの印・管理の入口が乗る（SPEC 9）。
     tester.view
       ..physicalSize = const Size(360, 640)
       ..devicePixelRatio = 1;
@@ -489,20 +493,30 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.byIcon(Icons.gesture), findsOneWidget);
+    expect(find.byType(PopupMenuButton<PracticeMode>), findsOneWidget);
   });
 
-  testWidgets('練習モードの切り替えはヘッダにある', (tester) async {
+  testWidgets('練習モードの切り替えはヘッダのメニューにある', (tester) async {
     await pumpScreen(tester);
 
-    // 本文の場所は書く入口に譲る。印は AppBar の中にある。
-    for (final icon in [Icons.gesture, Icons.visibility, Icons.volume_up]) {
-      expect(
-        find.descendant(of: find.byType(AppBar), matching: find.byIcon(icon)),
-        findsOneWidget,
-      );
-    }
-    // 字は出さない。選んだものは声で言う（SPEC 2）。
+    // 本文の場所は書く入口に譲る。押すところは「おうちの人へ」と同じ並び。
+    final menu = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byType(PopupMenuButton<PracticeMode>),
+    );
+    expect(menu, findsOneWidget);
+    // 開くまでは、いま選んでいるモードの印だけが出ている。
     expect(find.text('なぞる'), findsNothing);
+    expect(
+      find.descendant(of: menu, matching: find.byIcon(Icons.visibility)),
+      findsOneWidget,
+      reason: '既定はお手本を見て書く',
+    );
+
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    for (final label in ['なぞる', 'おてほん', 'じぶんで']) {
+      expect(find.text(label), findsOneWidget);
+    }
   });
 }

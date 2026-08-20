@@ -374,12 +374,21 @@ class _WritingScreenState extends State<WritingScreen>
         ),
         actions: [
           // 出された語が書けない・知らないときに、そこで手が止まる。
+          //
+          // 印だけでは「次に進む」と読めてしまう。この語をやめるという
+          // ことなので、読める子には字でも言う（押せば声でも言う）。
           if (widget.canSkip)
-            IconButton(
-              iconSize: 32,
-              icon: const Icon(Icons.skip_next),
-              tooltip: 'この ことばは やめる',
-              onPressed: _busy ? null : _skip,
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(64, 64),
+                  foregroundColor: const Color(0xff6f665c),
+                ),
+                onPressed: _busy ? null : _skip,
+                icon: const Icon(Icons.skip_next, size: 32),
+                label: const Text('つぎの ことば', style: TextStyle(fontSize: 15)),
+              ),
             ),
         ],
       ),
@@ -692,13 +701,17 @@ class _WritingScreenState extends State<WritingScreen>
           alignment: WrapAlignment.center,
           children: [
             // 語のとちゅうでだけ出す。1 字だけの練習には戻る先が無い。
+            //
+            // 印は左向きの矢印。**取り消し（↺）と同じ印にはしない。**
+            // 隣に並ぶうえ、消すのは 1 画で、こちらは 1 字ぶん戻る。
+            // 画面を閉じる矢印（左上）とも見分けが付くよう、丸で囲む。
             if (_previousWritable != null)
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(64, 64),
                 ),
                 onPressed: _busy ? null : _back,
-                child: const Icon(Icons.skip_previous, size: 32),
+                child: const Icon(Icons.arrow_circle_left_outlined, size: 32),
               ),
             OutlinedButton(
               style: OutlinedButton.styleFrom(minimumSize: const Size(64, 64)),

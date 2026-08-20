@@ -163,7 +163,7 @@ void main() {
     expect(promptedChar(speaker), 'こ');
 
     // うまく書けなかったことに気づくのは、たいてい次の字に入ってから。
-    await tester.tap(find.byIcon(Icons.skip_previous));
+    await tester.tap(find.byIcon(Icons.arrow_circle_left_outlined));
     await tester.pumpAndSettle();
     expect(promptedChar(speaker), 'ね');
 
@@ -190,7 +190,7 @@ void main() {
     await tester.tap(find.text('ねこ'));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.skip_previous), findsNothing);
+    expect(find.byIcon(Icons.arrow_circle_left_outlined), findsNothing);
   });
 
   testWidgets('途中でやめたら、単語トライアルは残らない', (tester) async {

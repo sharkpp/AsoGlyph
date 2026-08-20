@@ -489,7 +489,7 @@ void main() {
       await pumpScreen(tester);
 
       // 戻る先が無い。押せないものを置くと、押しに行った指が空振りする。
-      expect(find.byIcon(Icons.skip_previous), findsNothing);
+      expect(find.byIcon(Icons.arrow_circle_left_outlined), findsNothing);
     });
 
     testWidgets('なぞり書きは、1 画引くごとに下敷きが減る', (tester) async {
