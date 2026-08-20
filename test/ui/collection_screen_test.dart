@@ -217,6 +217,15 @@ void main() {
     expect((await openWriting(tester, 'ひらがな', 'か')).mode, PracticeMode.trace);
   });
 
+  testWidgets('下敷きを消さない設定は、書き取り画面まで届く', (tester) async {
+    await tester.runAsync(
+      () => session.users.save(session.current.copyWith(traceErases: false)),
+    );
+    await pumpScreen(tester);
+
+    expect((await openWriting(tester, 'ひらがな', 'か')).traceErases, isFalse);
+  });
+
   testWidgets('集めない文字種は、子供の画面に出さない', (tester) async {
     await tester.runAsync(
       () => session.users.save(

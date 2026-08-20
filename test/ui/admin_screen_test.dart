@@ -2,6 +2,7 @@ import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/font_recipe.dart';
 import 'package:asoglyph/model/sample.dart';
+import 'package:asoglyph/model/user.dart';
 import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
@@ -191,6 +192,40 @@ void main() {
 
     // 全部外すと子供の画面が空になり、何をする画面か分からなくなる。
     expect(session.current.visibleCharSets, hasLength(1));
+  });
+
+  testWidgets('なぞり書きの下敷きを消すかを、人ごとに切れる', (tester) async {
+    await pumpScreen(tester);
+
+    // 既定は消す。残しておくと、自分の線とずれたときに はみ出した下敷きを
+    // 塗りつぶそうとする（SPEC 7.1）。
+    expect(session.current.traceErases, isTrue);
+
+    await tester.runAsync(() async {
+      await tester.tap(find.widgetWithText(SwitchListTile, 'なぞったところを消す'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pump();
+    expect(session.current.traceErases, isFalse);
+
+    // 開き直しても残る。
+    final reopened = await tester.runAsync(() => openMemorySession(session.db));
+    expect(reopened!.current.traceErases, isFalse);
+  });
+
+  testWidgets('下敷きの設定は、その人のぶんだけ変わる', (tester) async {
+    await pumpScreen(tester);
+    await tester.runAsync(() async {
+      await tester.tap(find.widgetWithText(SwitchListTile, 'なぞったところを消す'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pump();
+
+    await tester.runAsync(
+      () => session.addUser(name: 'あに', avatar: Avatar.bird),
+    );
+    await tester.pumpAndSettle();
+    expect(session.current.traceErases, isTrue, reason: '別の人は既定');
   });
 
   testWidgets('単語帳を、この人に出すかどうかで選べる', (tester) async {

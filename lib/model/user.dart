@@ -16,6 +16,7 @@ class User {
     this.collecting = const {},
     this.wordBooks = const {},
     this.practiceMode = PracticeMode.copy,
+    this.traceErases = true,
   });
 
   final String id;
@@ -48,6 +49,16 @@ class User {
   /// 既定はお手本あり。いちばん多くの子が始められるところに置く。
   final PracticeMode practiceMode;
 
+  /// なぞり書きの下敷きを、ペン先が通ったところから消すか（SPEC 7.1）。
+  ///
+  /// 既定は消す。残しておくと、自分の線とずれたときに **はみ出した下敷きを
+  /// 塗りつぶそうとする**。
+  ///
+  /// ただし、まだ線をなぞって追うだけで手一杯の子は、消えると引く先を
+  /// 見失う。そこで人ごとに切れるようにしてある。消さない側にすると、
+  /// 下敷きはその字を書き終えるまで丸ごと残る。
+  final bool traceErases;
+
   /// この人が使う単語帳（SPEC 7.4）。id で持つ。
   ///
   /// 単語帳そのものは人ごとに分けない（親が 1 か所で作る）。分けるのは
@@ -71,6 +82,7 @@ class User {
     Set<CharSet>? collecting,
     Set<String>? wordBooks,
     PracticeMode? practiceMode,
+    bool? traceErases,
   }) => User(
     id: id,
     displayName: displayName ?? this.displayName,
@@ -80,6 +92,7 @@ class User {
     collecting: collecting ?? this.collecting,
     wordBooks: wordBooks ?? this.wordBooks,
     practiceMode: practiceMode ?? this.practiceMode,
+    traceErases: traceErases ?? this.traceErases,
   );
 }
 

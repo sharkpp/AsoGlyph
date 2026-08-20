@@ -28,6 +28,7 @@ class CharSetScreen extends StatelessWidget {
     required this.speaker,
     required this.strokeOrders,
     required this.mode,
+    required this.traceErases,
   });
 
   final CharSet charSet;
@@ -35,6 +36,9 @@ class CharSetScreen extends StatelessWidget {
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
   final PracticeMode mode;
+
+  /// なぞり書きの下敷きを、ペン先が通ったところから消すか（SPEC 7.1）。
+  final bool traceErases;
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +71,7 @@ class CharSetScreen extends StatelessWidget {
                       speaker: speaker,
                       strokeOrders: strokeOrders,
                       mode: mode,
+                      traceErases: traceErases,
                     ),
                 ],
               ),
@@ -144,6 +149,7 @@ class CharTile extends StatelessWidget {
     required this.speaker,
     required this.strokeOrders,
     required this.mode,
+    required this.traceErases,
   });
 
   final String char;
@@ -151,6 +157,9 @@ class CharTile extends StatelessWidget {
   final Speaker speaker;
   final StrokeOrderLibrary strokeOrders;
   final PracticeMode mode;
+
+  /// なぞり書きの下敷きを、ペン先が通ったところから消すか（SPEC 7.1）。
+  final bool traceErases;
 
   @override
   Widget build(BuildContext context) {
@@ -187,6 +196,7 @@ class CharTile extends StatelessWidget {
                 store: store,
                 speaker: speaker,
                 strokeOrders: strokeOrders,
+                traceErases: traceErases,
               ),
             ),
           ),

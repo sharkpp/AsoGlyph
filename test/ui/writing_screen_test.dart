@@ -74,12 +74,14 @@ void main() {
       WidgetTester tester, {
       String char = 'あ',
       PracticeMode mode = PracticeMode.copy,
+      bool traceErases = true,
     }) async {
       await tester.pumpWidget(
         MaterialApp(
           home: WritingScreen(
             chars: [char],
             mode: mode,
+            traceErases: traceErases,
             store: store,
             speaker: speaker,
             strokeOrders: strokeOrders,
@@ -539,6 +541,37 @@ void main() {
       await tester.pump();
       expect(guide().from, 1);
       expect(guide().erased, 0);
+    });
+
+    testWidgets('消さない設定では、下敷きが書き終えるまで残る', (tester) async {
+      await pumpScreen(
+        tester,
+        char: 'き',
+        mode: PracticeMode.trace,
+        traceErases: false,
+      );
+
+      StrokeOrderView guide() => tester
+          .widgetList<StrokeOrderView>(find.byType(StrokeOrderView))
+          .last;
+
+      // 引いている最中も減らない。線を追うだけで手一杯の子は、消えると
+      // 引く先を見失う（SPEC 7.1）。
+      final canvas = tester.getRect(find.byType(InkCanvas));
+      final gesture = await tester.startGesture(
+        Offset(canvas.left + canvas.width * 0.2, canvas.center.dy),
+      );
+      await gesture.moveTo(
+        Offset(canvas.left + canvas.width * 0.9, canvas.center.dy),
+      );
+      await tester.pump();
+      expect(guide().erased, 0);
+
+      // 1 画引き終わっても、その画は残ったまま。
+      await gesture.up();
+      await tester.pump();
+      expect(guide().from, 0);
+      expect(guide().order.strokeCount, 4, reason: 'き は 4 画');
     });
 
     testWidgets('もどすと、消した下敷きが戻る', (tester) async {

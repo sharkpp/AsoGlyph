@@ -98,6 +98,8 @@ Future<WordOutcome> practiceWord(
         reading: word.reading,
         canSkip: canSkip,
         mode: mode,
+        // 人ごとの設定（SPEC 7.1）。
+        traceErases: session.current.traceErases,
         store: session.samples,
         speaker: speaker,
         strokeOrders: strokeOrders,

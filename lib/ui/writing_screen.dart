@@ -54,6 +54,7 @@ class WritingScreen extends StatefulWidget {
     this.reading,
     this.picture,
     this.canSkip = false,
+    this.traceErases = true,
   });
 
   /// 出す並び。書かせない字（[given]）も入る。
@@ -84,6 +85,12 @@ class WritingScreen extends StatefulWidget {
 
   /// お手本を出すか、音だけで書かせるか（SPEC 7.1）。
   final PracticeMode mode;
+
+  /// なぞり書きの下敷きを、ペン先が通ったところから消すか（SPEC 7.1）。
+  ///
+  /// 人ごとの設定（`User.traceErases`）。切ると、下敷きはその字を書き終える
+  /// まで丸ごと残る。線を追うだけで手一杯の子は、消えると引く先を見失う。
+  final bool traceErases;
 
   final SampleStore store;
   final Speaker speaker;
@@ -579,6 +586,10 @@ class _WritingScreenState extends State<WritingScreen>
                     // 1 画引くごとに、その画の下敷きを消す。残しておくと、
                     // 自分の線とずれたときに はみ出した下敷きを塗りつぶそう
                     // とする。次に引く画だけが残るようにする。
+                    //
+                    // 消さない設定の人には、書き終えるまで丸ごと残す
+                    // （SPEC 7.1）。線を追うだけで手一杯の子は、消えると
+                    // 引く先を見失う。
                     if (widget.mode == PracticeMode.trace &&
                         _strokeOrder != null)
                       AnimatedBuilder(
@@ -588,8 +599,8 @@ class _WritingScreenState extends State<WritingScreen>
                           progress: kAlwaysCompleteAnimation,
                           // 上から子供が書く。下敷きは自分の線より弱くする。
                           faded: true,
-                          from: _ink.strokes.length,
-                          erased: _erasedByPen,
+                          from: widget.traceErases ? _ink.strokes.length : 0,
+                          erased: widget.traceErases ? _erasedByPen : 0,
                         ),
                       ),
                     // 「できた！」を押したあとは書けない。押したあとに

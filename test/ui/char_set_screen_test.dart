@@ -48,6 +48,7 @@ void main() {
     WidgetTester tester, {
     CharSet charSet = CharSet.hiragana,
     PracticeMode mode = PracticeMode.copy,
+    bool traceErases = true,
   }) async {
     tester.view
       ..physicalSize = const Size(1200, 2400)
@@ -61,6 +62,7 @@ void main() {
           speaker: RecordingSpeaker(),
           strokeOrders: strokeOrders,
           mode: mode,
+          traceErases: traceErases,
         ),
       ),
     );

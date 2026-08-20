@@ -179,6 +179,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
           speaker: speaker,
           strokeOrders: strokeOrders,
           mode: _mode,
+          traceErases: session.current.traceErases,
         ),
       ),
     );

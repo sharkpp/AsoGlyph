@@ -104,6 +104,22 @@ class AdminScreen extends StatelessWidget {
                   title: Text(charSet.label),
                 ),
               const SizedBox(height: 24),
+              const _Heading('なぞり書きの下敷き'),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: session.current.traceErases,
+                onChanged: (on) => _toggleTraceErases(on),
+                title: const Text('なぞったところを消す'),
+                subtitle: Text(
+                  session.current.traceErases
+                      ? 'ペンが通ったところから下敷きが消えます。'
+                          'はみ出した下敷きを塗りつぶしにいかなくなります'
+                      : '書き終えるまで下敷きが残ります。'
+                          '線を追うだけで手一杯の子は、消えると引く先を見失います',
+                  style: const TextStyle(color: Color(0xff9c948a)),
+                ),
+              ),
+              const SizedBox(height: 24),
               const _Heading('単語帳'),
               WordBookSection(session: session),
               const SizedBox(height: 24),
@@ -164,6 +180,10 @@ class AdminScreen extends StatelessWidget {
       ),
     );
   }
+
+  /// なぞり書きの下敷きを消すかを変える（SPEC 7.1）。人ごとに覚える。
+  Future<void> _toggleTraceErases(bool on) =>
+      session.users.save(session.current.copyWith(traceErases: on));
 
   /// 集める文字種を変える。最後の 1 つは外させない。
   ///

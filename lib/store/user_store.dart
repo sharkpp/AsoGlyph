@@ -101,6 +101,7 @@ Map<String, Object?> _encode(User user) => {
   'collecting': [for (final set in user.collecting) set.name],
   'wordBooks': [...user.wordBooks],
   'practiceMode': user.practiceMode.name,
+  'traceErases': user.traceErases,
 };
 
 User _decode(String id, Map<String, Object?> record) {
@@ -121,5 +122,6 @@ User _decode(String id, Map<String, Object?> record) {
     practiceMode: PracticeMode.values.byName(
       record['practiceMode'] as String? ?? PracticeMode.copy.name,
     ),
+    traceErases: record['traceErases'] as bool? ?? true,
   );
 }
