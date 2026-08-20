@@ -1,6 +1,6 @@
 # web 版を GitHub Pages に出す。
 #
-#   https://sharkpp.github.io/asoglyph/
+#   https://sharkpp.github.io/AsoGlyph/
 #
 # サーバー側の処理を持たない（SPEC 3）ので、build/web をそのまま置くだけでよい。
 #
@@ -45,12 +45,12 @@ jobs:
       - run: flutter test
 
       # サブパスに置くので --base-href が要る。付け忘れると真っ白になる。
-      - run: flutter build web --release --base-href /asoglyph/
+      - run: flutter build web --release --base-href /AsoGlyph/
 
       # 付け忘れをここで落とす。画面が出ないことに気づくのは、たいてい公開後。
       - name: 出し先の道を確かめる
         run: |
-          grep -q '<base href="/asoglyph/"' build/web/index.html
+          grep -q '<base href="/AsoGlyph/"' build/web/index.html
           test -f build/web/sw.js
           test -f build/web/manifest.json
 

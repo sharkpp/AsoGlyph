@@ -3,18 +3,18 @@
 幼児に運筆（文字遊び）で文字を書かせ、それをそのままフォントにするアプリです。
 
 - 何を作っているかは [SPEC.md](SPEC.md) に書いてあります。
-- web 版: <https://sharkpp.github.io/asoglyph/>
+- web 版: <https://sharkpp.github.io/AsoGlyph/>
 
 ## web 版
 
 `main` に入ると [GitHub Actions](.github/workflows/pages.yml) が
 `flutter analyze` と `flutter test` を通してから公開します。
 
-サブパス（`/asoglyph/`）に置くので **`--base-href` が要ります**。手元で同じものを
+サブパス（`/AsoGlyph/`）に置くので **`--base-href` が要ります**。手元で同じものを
 作るときは:
 
 ```sh
-flutter build web --release --base-href /asoglyph/
+flutter build web --release --base-href /AsoGlyph/
 cd build/web && python3 -m http.server 8000   # http://localhost:8000/
 ```
 
