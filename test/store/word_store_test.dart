@@ -4,6 +4,7 @@ import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/model/user.dart';
+import 'package:asoglyph/export/backup.dart';
 import 'package:asoglyph/model/word.dart';
 import 'package:asoglyph/store/word_attempt_store.dart';
 import 'package:asoglyph/word/word_book_export.dart';
@@ -232,6 +233,47 @@ void main() {
       final reopened = await openMemoryWordBooks(db);
       expect([for (final book in reopened.all) book.source], assets);
       expect(reopened.all.every((book) => book.isBundled), isTrue);
+    });
+
+    test('控えから戻しても、内蔵の辞書は増えない', () async {
+      // 端末ごとに（iPad では Safari とホーム画面のアプリでも、SPEC 10.1）
+      // 置き場が別なので、内蔵の辞書は同じ資産でも別の id を持っている。
+      // 控えは id ごと持ってくるため、素朴に重ねると 1 資産に 2 冊できる。
+      final source = await openMemorySession();
+      final target = await openMemorySession();
+      final assets = [for (final book in source.books.all) book.source];
+
+      await target.restoreFrom(await exportBackup(source.db));
+
+      expect(
+        [for (final book in target.books.all) book.source],
+        assets,
+        reason: '資産 1 つに対して辞書は 1 冊（SPEC 7.4.3）',
+      );
+
+      // 開き直しても増えない。
+      final reopened = await openMemorySession(target.db);
+      expect([for (final book in reopened.books.all) book.source], assets);
+    });
+
+    test('寄せるときは、割り振られている側を残す', () async {
+      final source = await openMemorySession();
+      final target = await openMemorySession();
+
+      // 控えの側では、内蔵の辞書を 1 冊だけ使うようにしてある。
+      final only = source.books.all.first;
+      await source.users.save(source.current.copyWith(wordBooks: {only.id}));
+
+      await target.restoreFrom(await exportBackup(source.db));
+
+      // 割り振りは id で覚えている（SPEC 7.4.3）。残す側を間違えると、
+      // 戻したのに単語帳が 1 冊も出ない人ができる。
+      expect(target.current.wordBooks, {only.id});
+      expect(target.books[only.id], isNotNull);
+      expect(
+        target.books.all.where((book) => target.current.uses(book.id)),
+        hasLength(1),
+      );
     });
 
     test('自分の単語帳は、内蔵を合わせるときに消えない', () async {

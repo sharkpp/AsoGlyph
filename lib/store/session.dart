@@ -42,7 +42,7 @@ class Session extends ChangeNotifier {
       samples: await SampleStore.open(db, userId: users.current.id),
       recipes: await RecipeStore.open(db, userId: users.current.id),
       attempts: await WordAttemptStore.open(db, userId: users.current.id),
-      books: await WordBookStore.open(db),
+      books: await WordBookStore.open(db, preferred: _assigned(users)),
     );
   }
 
@@ -65,6 +65,13 @@ class Session extends ChangeNotifier {
 
   User get current => users.current;
 
+  /// 誰かに割り振られている単語帳の id（SPEC 7.4）。
+  ///
+  /// 内蔵の辞書を 1 冊に寄せるとき、どちらを残すかの手がかりになる。
+  static Set<String> _assigned(UserStore users) => {
+    for (final user in users.all) ...user.wordBooks,
+  };
+
   /// 書く人を切り替える。
   Future<void> switchTo(String userId) async {
     if (users.current.id == userId) return;
@@ -86,6 +93,9 @@ class Session extends ChangeNotifier {
     await recipes.load();
     await attempts.load();
     await books.load();
+    // 控えから戻したときは、内蔵の辞書が 1 資産 2 冊になっていることがある
+    // （id は端末ごとなので、控えのぶんと手元のぶんが並ぶ）。ここで寄せる。
+    await books.syncBundled(preferred: _assigned(users));
     notifyListeners();
   }
 

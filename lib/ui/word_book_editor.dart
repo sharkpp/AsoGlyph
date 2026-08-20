@@ -188,6 +188,9 @@ class _WordBookEditorState extends State<WordBookEditor> {
   /// 絵を入れている単語帳では、YAML 1 枚だと絵が落ちる。どちらを出すかは
   /// 使い道で変わる（人に渡すなら絵ごと、自分で直すなら YAML）ので選ばせる。
   Future<void> _export() async {
+    // 形を選ばせる前に取っておく。選び終わったあとでは、画面が閉じている
+    // ことがある。
+    final messenger = ScaffoldMessenger.of(context);
     final withImages = _book.words.any((word) => word.image != null);
     final bundle = await showModalBottomSheet<bool>(
       context: context,
@@ -223,7 +226,6 @@ class _WordBookEditorState extends State<WordBookEditor> {
     if (bundle == null) return;
 
     final name = sanitizeFileName(_book.name);
-    final messenger = ScaffoldMessenger.of(context);
     try {
       if (bundle) {
         await saveFile(

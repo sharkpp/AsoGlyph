@@ -28,12 +28,16 @@ class WordBookStore extends ChangeNotifier {
   WordBookStore(this._db, {BundledAssets? assets})
     : _assets = assets ?? const AppBundledAssets();
 
-  static Future<WordBookStore> open(Database db, {BundledAssets? assets}) async {
+  static Future<WordBookStore> open(
+    Database db, {
+    BundledAssets? assets,
+    Set<String> preferred = const {},
+  }) async {
     final store = WordBookStore(db, assets: assets);
     await store.load();
     // 開くたびに内蔵の辞書を合わせる。空のときだけ入れる作りにすると、
     // あとからアプリに足した辞書が、すでに使っている端末に出てこない。
-    await store.syncBundled();
+    await store.syncBundled(preferred: preferred);
     return store;
   }
 
@@ -97,7 +101,15 @@ class WordBookStore extends ChangeNotifier {
   ///
   /// 入れ替えるときも **id は変えない**。誰にどれを出すかは id で覚えている
   /// （[User.wordBooks]）ので、id が変わると割り振りが外れる。並びも変えない。
-  Future<void> syncBundled() async {
+  ///
+  /// **資産 1 つに対して辞書は 1 冊**。2 冊できていたら 1 冊に寄せる。
+  /// 内蔵の辞書の id は端末ごとに割り当てるので、控えを別の置き場へ戻すと
+  /// （iPad では Safari とホーム画面のアプリでも置き場が別、SPEC 10.1）
+  /// 同じ資産のぶんが 2 冊になる。放っておくと、戻すたびに増えていく。
+  ///
+  /// [preferred] にある id は残す側に選ぶ。誰かに割り振られている辞書を
+  /// 消すと、戻したのに単語帳が出ない人ができる。
+  Future<void> syncBundled({Set<String> preferred = const {}}) async {
     final assets = await _assets.list();
 
     // アプリから外した辞書は片づける。動作確認用の辞書を手元から外したとき、
@@ -108,10 +120,22 @@ class WordBookStore extends ChangeNotifier {
       }
     }
 
-    final byAsset = {
-      for (final book in _all)
-        if (book.source != null) book.source!: book,
-    };
+    final byAsset = <String, WordBook>{};
+    for (final book in [..._all]) {
+      final source = book.source;
+      if (source == null) continue;
+      final kept = byAsset[source];
+      if (kept == null) {
+        byAsset[source] = book;
+        continue;
+      }
+      // 割り振られている側を残す。どちらでもなければ先に入ったほうを残す
+      // （_all は入れた順に並ぶ）。
+      final replace = preferred.contains(book.id) && !preferred.contains(kept.id);
+      byAsset[source] = replace ? book : kept;
+      await _delete(replace ? kept.id : book.id);
+    }
+
     for (final asset in assets) {
       await _syncAsset(asset, byAsset[asset]);
     }
