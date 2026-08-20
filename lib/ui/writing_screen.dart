@@ -140,6 +140,14 @@ class _WritingScreenState extends State<WritingScreen>
     return 0;
   }
 
+  /// [_index] の前で、いちばん近い書く字。もう無ければ null。
+  int? get _previousWritable {
+    for (var i = _index - 1; i >= 0; i--) {
+      if (!widget.given.contains(i)) return i;
+    }
+    return null;
+  }
+
   /// [_index] のうしろで、次に書く字。もう無ければ null。
   int? get _nextWritable {
     for (var i = _index + 1; i < widget.chars.length; i++) {
@@ -321,6 +329,29 @@ class _WritingScreenState extends State<WritingScreen>
   /// 読み上げの終わりを知らせない端末がある。そこを待ち続けると、音も出ない
   /// まま固まって見える。待つのはここまでにして、先へ進む。
   static const _praiseCap = Duration(milliseconds: 1600);
+
+  /// 1 字もどる（SPEC 7.1）。
+  ///
+  /// 語を書いているあいだは、書けた字を見せたら押さずに次へ進む。うまく
+  /// 書けなかったことに気づくのは、たいてい次の字に入ってからになる。
+  /// そこから前の字へ戻れないと、語を閉じて出し直すしかない。
+  ///
+  /// 前に書いた記録はそのまま残す（SPEC 4.1 の追記のみ）。この語の並びからは
+  /// 外し、書き直したぶんを入れ直す。
+  void _back() {
+    final previous = _previousWritable;
+    if (previous == null) return;
+
+    _ink.clear();
+    setState(() {
+      _index = previous;
+      _glyph = null;
+      _savedId = null;
+      _retries = 0;
+      if (_savedIds.isNotEmpty) _savedIds.removeLast();
+    });
+    _prompt();
+  }
 
   void _again() {
     _ink.clear();
@@ -660,6 +691,15 @@ class _WritingScreenState extends State<WritingScreen>
           spacing: 16,
           alignment: WrapAlignment.center,
           children: [
+            // 語のとちゅうでだけ出す。1 字だけの練習には戻る先が無い。
+            if (_previousWritable != null)
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(64, 64),
+                ),
+                onPressed: _busy ? null : _back,
+                child: const Icon(Icons.skip_previous, size: 32),
+              ),
             OutlinedButton(
               style: OutlinedButton.styleFrom(minimumSize: const Size(64, 64)),
               onPressed: _ink.isEmpty ? null : _ink.undo,

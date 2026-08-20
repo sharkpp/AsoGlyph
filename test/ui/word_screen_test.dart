@@ -151,6 +151,48 @@ void main() {
     expect(find.text('ねこ'), findsOneWidget, reason: '一覧に戻る');
   });
 
+  testWidgets('次の字に入ってから、1 字もどって書き直せる', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.tap(find.text('ねこ'));
+    await tester.pumpAndSettle();
+    await drawLine(tester);
+    await tester.pump();
+    await tapDone(tester);
+    await advance(tester);
+    expect(promptedChar(speaker), 'こ');
+
+    // うまく書けなかったことに気づくのは、たいてい次の字に入ってから。
+    await tester.tap(find.byIcon(Icons.skip_previous));
+    await tester.pumpAndSettle();
+    expect(promptedChar(speaker), 'ね');
+
+    await drawLine(tester);
+    await tester.pump();
+    await tapDone(tester);
+    await advance(tester);
+    await drawLine(tester);
+    await tester.pump();
+    await tapDone(tester);
+    await advance(tester);
+
+    // 書いた記録は消さない（SPEC 4.1）。ね は 2 回ぶん残る。
+    expect(session.samples.attempts('ね'), hasLength(2));
+    // 語の並びには書き直したぶんが入る（SPEC 4.2）。
+    final sampleIds = session.attempts.all.single.sampleIds;
+    expect(sampleIds, hasLength(2));
+    expect(sampleIds.first, session.samples.attempts('ね').last.id);
+  });
+
+  testWidgets('1 字めには もどる先が無い', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.tap(find.text('ねこ'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.skip_previous), findsNothing);
+  });
+
   testWidgets('途中でやめたら、単語トライアルは残らない', (tester) async {
     await pumpScreen(tester);
 

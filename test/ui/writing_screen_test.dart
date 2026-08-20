@@ -485,6 +485,13 @@ void main() {
       );
     });
 
+    testWidgets('1 字だけの練習に もどるボタンは出さない', (tester) async {
+      await pumpScreen(tester);
+
+      // 戻る先が無い。押せないものを置くと、押しに行った指が空振りする。
+      expect(find.byIcon(Icons.skip_previous), findsNothing);
+    });
+
     testWidgets('なぞり書きは、1 画引くごとに下敷きが減る', (tester) async {
       await pumpScreen(tester, char: 'き', mode: PracticeMode.trace);
 

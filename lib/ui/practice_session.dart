@@ -9,11 +9,12 @@ import '../store/session.dart';
 import 'word_image_view.dart';
 import 'writing_screen.dart';
 
-/// ひとまとまりで書く字数の目安。
+/// ひとまとまりで出す字数。
 ///
-/// 1 セッションは 3〜5 分（3〜4 歳）を目安に区切る（SPEC 7.1）。1 字はおよそ
-/// 30 秒。語の長さは まちまちなので、語数ではなく字数で区切る。
-const _sessionChars = 5;
+/// 1 字はおよそ 30 秒。語の長さは まちまちなので、語数ではなく字数で区切る。
+/// **区切りは終わりではなく、ほめる間隔**（SPEC 7.3）。書き終えたらまた
+/// 抽選して続く。抽選をやり直すことで、いま書けた字の重みが下がる。
+const _praiseChars = 5;
 
 /// おまかせで書く（SPEC 7.3）。
 ///
@@ -22,6 +23,10 @@ const _sessionChars = 5;
 /// 出やすいように重み付けして抽選する。
 ///
 /// **出すのは語**。1 字ずつ出すより、書いた字がことばになるほうが手応えがある。
+///
+/// **戻るまで語が出続ける。** 何字かで打ち切ると、まだ書きたい子が
+/// そのたびに入口を押し直すことになる。やめるのは書く人の側で決める
+/// （書き取り画面から戻る）。何字か書けたところでほめて、区切りだけを見せる。
 Future<void> practiceSession(
   BuildContext context, {
   required Session session,
@@ -29,34 +34,40 @@ Future<void> practiceSession(
   required Speaker speaker,
   required StrokeOrderLibrary strokeOrders,
 }) async {
-  final words = pickWords(
-    session.current,
-    session.samples,
-    session.books.all,
-    chars: _sessionChars,
-  );
-  if (words.isEmpty) return;
+  while (true) {
+    // 画面ごと閉じられていたら、そこで終わる。
+    if (!context.mounted) return;
 
-  var written = 0;
-  for (final word in words) {
-    final outcome = await practiceWord(
-      context,
-      word: word,
-      mode: mode,
-      session: session,
-      speaker: speaker,
-      strokeOrders: strokeOrders,
-      praise: false,
-      // 出された語が書けない・知らないときに、そこで手が止まる。
-      canSkip: true,
+    final words = pickWords(
+      session.current,
+      session.samples,
+      session.books.all,
+      chars: _praiseChars,
     );
-    // 閉じた。続きは出さない。
-    if (outcome == WordOutcome.quit) return;
-    if (outcome == WordOutcome.done) written++;
-  }
+    // 出す語が無ければ、続けようがない。
+    if (words.isEmpty) return;
 
-  // 1 つも書かずに飛ばし続けたときは、ほめない。
-  if (written > 0) await speaker.speak('ぜんぶ かけたね！');
+    var written = 0;
+    for (final word in words) {
+      final outcome = await practiceWord(
+        context,
+        word: word,
+        mode: mode,
+        session: session,
+        speaker: speaker,
+        strokeOrders: strokeOrders,
+        praise: false,
+        // 出された語が書けない・知らないときに、そこで手が止まる。
+        canSkip: true,
+      );
+      // 閉じた。続きは出さない。
+      if (outcome == WordOutcome.quit) return;
+      if (outcome == WordOutcome.done) written++;
+    }
+
+    // 1 つも書かずに飛ばし続けたときは、ほめない。
+    if (written > 0) await speaker.speak('いっぱい かけたね！');
+  }
 }
 
 /// 語を書き終えたときの結末。
