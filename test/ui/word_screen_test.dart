@@ -75,6 +75,18 @@ void main() {
     expect(find.text('ねこ'), findsOneWidget);
   });
 
+  testWidgets('絵の無い語は、字の下に空きができない', (tester) async {
+    await useOnly(tester, 'ひらがなのことば');
+    await pumpScreen(tester);
+
+    // タップターゲットのために空けた高さ（SPEC 9）は上下に分ける。
+    final tile = tester.getRect(
+      find.ancestor(of: find.text('ねこ'), matching: find.byType(InkWell)).first,
+    );
+    final text = tester.getRect(find.text('ねこ'));
+    expect(text.center.dy, closeTo(tile.center.dy, 1));
+  });
+
   testWidgets('集める文字種で書けない語は出さない', (tester) async {
     await collectOnly(tester, {CharSet.hiragana});
     await pumpScreen(tester);

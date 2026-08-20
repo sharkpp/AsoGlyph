@@ -153,6 +153,9 @@ class _WordTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            // タップターゲットのために空けた高さは、上下に分ける。上寄せに
+            // すると、絵の無い語で字の下だけに空きができる。
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // 字が読めない子は、絵でしか語を選べない（SPEC 7.4）。
               // 字の上に大きく置く。並びは崩れない（横に伸びず縦に伸びる）。
