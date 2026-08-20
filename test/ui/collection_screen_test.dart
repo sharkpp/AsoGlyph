@@ -296,6 +296,15 @@ void main() {
   });
 
   testWidgets('おまかせは、ことばの中から出す', (tester) async {
+    // すうじのことばには 1 字の語（「1」〜「9」）がある。抽選でそれが当たると
+    // 1 字の練習になり、語で出したかどうかを確かめられない。2 字以上の語だけの
+    // 単語帳 1 冊に絞ってから確かめる。
+    final book = session.books.all.firstWhere(
+      (book) => book.name == 'ひらがなのことば',
+    );
+    await tester.runAsync(
+      () => session.users.save(session.current.copyWith(wordBooks: {book.id})),
+    );
     await pumpScreen(tester);
 
     await tester.tap(find.text('おまかせで かく'));
