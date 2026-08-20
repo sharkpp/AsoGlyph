@@ -1,5 +1,4 @@
 import 'package:asoglyph/audio/speaker.dart';
-import 'package:asoglyph/font/font_builder.dart';
 import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/kanjivg/stroke_order.dart';
 import 'package:asoglyph/model/char_set.dart';
@@ -76,12 +75,14 @@ void main() {
   }
 
   /// 練習モードを選ぶ。人ごとに覚えるので、書き換えが終わるまで待つ。
+  ///
+  /// ヘッダのアイコンで切り替える。字は出ないので、名前ではなく印で押す。
   Future<void> chooseMode(
     WidgetTester tester,
-    String label,
+    IconData icon,
     PracticeMode mode,
   ) async {
-    await tester.runAsync(() => tester.tap(find.text(label)));
+    await tester.runAsync(() => tester.tap(find.byIcon(icon)));
     await waitFor(tester, () => session.current.practiceMode == mode);
   }
 
@@ -161,7 +162,7 @@ void main() {
   testWidgets('じぶんでを選ぶと、その字は何も見ずに書く', (tester) async {
     await pumpScreen(tester);
 
-    await chooseMode(tester, 'じぶんで', PracticeMode.free);
+    await chooseMode(tester, Icons.volume_up, PracticeMode.free);
 
     expect((await openWriting(tester, 'ひらがな', 'か')).mode, PracticeMode.free);
   });
@@ -169,7 +170,7 @@ void main() {
   testWidgets('なぞり書きも選べる', (tester) async {
     await pumpScreen(tester);
 
-    await chooseMode(tester, 'なぞる', PracticeMode.trace);
+    await chooseMode(tester, Icons.gesture, PracticeMode.trace);
 
     expect((await openWriting(tester, 'ひらがな', 'か')).mode, PracticeMode.trace);
   });
@@ -178,7 +179,7 @@ void main() {
     final speaker = RecordingSpeaker();
     await pumpScreen(tester, speaker: speaker);
 
-    await chooseMode(tester, 'じぶんで', PracticeMode.free);
+    await chooseMode(tester, Icons.volume_up, PracticeMode.free);
     await waitFor(tester, () => speaker.spoken.isNotEmpty);
 
     expect(speaker.spoken, ['じぶんで かいてみよう']);
@@ -186,7 +187,7 @@ void main() {
 
   testWidgets('選んだモードは、その人のぶんとして覚えている', (tester) async {
     await pumpScreen(tester);
-    await chooseMode(tester, 'なぞる', PracticeMode.trace);
+    await chooseMode(tester, Icons.gesture, PracticeMode.trace);
 
     // 開くたびに選び直させると、字を書くまでの手数が増える（SPEC 7.1）。
     expect(session.current.practiceMode, PracticeMode.trace);
@@ -198,7 +199,7 @@ void main() {
 
   testWidgets('人を切り替えると、その人のモードに戻る', (tester) async {
     await pumpScreen(tester);
-    await chooseMode(tester, 'なぞる', PracticeMode.trace);
+    await chooseMode(tester, Icons.gesture, PracticeMode.trace);
 
     // なぞりから始めた子と、もう何も見ずに書ける子とでは始める場所が違う。
     await tester.runAsync(
@@ -207,7 +208,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(session.current.practiceMode, PracticeMode.copy, reason: '別の人は既定');
 
-    await chooseMode(tester, 'じぶんで', PracticeMode.free);
+    await chooseMode(tester, Icons.volume_up, PracticeMode.free);
     await tester.runAsync(
       () => session.switchTo(session.users.all.first.id),
     );
@@ -374,6 +375,45 @@ void main() {
     expect(speaker.spoken, contains('つぎの ことばに するね'));
   });
 
+  testWidgets('おまかせは、ひとまとまり終わっても続く', (tester) async {
+    // 2 語だけの単語帳にして、ひとまとまり（5 字ぶん）を必ず使い切らせる。
+    await tester.runAsync(() async {
+      final book = await session.books.add(
+        const WordBook(
+          id: '',
+          name: 'ふたつ',
+          words: [
+            Word(text: 'ねこ', reading: 'ねこ'),
+            Word(text: 'いぬ', reading: 'いぬ'),
+          ],
+        ),
+      );
+      await session.users.save(session.current.copyWith(wordBooks: {book.id}));
+    });
+    await pumpScreen(tester);
+    await tester.tap(find.text('おまかせで かく'));
+    await tester.pumpAndSettle();
+
+    // 2 語やめると、前のまとまりは尽きている。
+    for (var i = 0; i < 2; i++) {
+      await tester.runAsync(() async {
+        await tester.tap(find.byIcon(Icons.skip_next));
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pumpAndSettle();
+    }
+
+    // それでも次の語が出る。何字かで打ち切ると、まだ書きたい子が
+    // そのたびに入口を押し直すことになる（SPEC 7.3）。
+    expect(find.byType(WritingScreen), findsOneWidget);
+
+    // やめるのは書く人の側。戻ると一覧へ帰る。
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.byType(WritingScreen), findsNothing);
+    expect(find.text('おまかせで かく'), findsOneWidget);
+  });
+
   testWidgets('KanjiVG のクレジットをアプリの中で読める', (tester) async {
     await pumpScreen(tester);
 
@@ -422,57 +462,47 @@ void main() {
     expect(store.collectedChars(includeTraced: false), ['あ']);
   });
 
-  testWidgets('集めた字が無いうちはフォントを作らない', (tester) async {
-    await pumpScreen(tester);
-
-    await tester.tap(find.byIcon(Icons.ios_share));
-    await tester.pump();
-
-    expect(find.text('まだ字がありません'), findsOneWidget);
-    expect(find.text('TTF'), findsNothing, reason: '形式を聞くまでもない');
-  });
-
-  testWidgets('集めた字があれば出力形式を選べる', (tester) async {
+  testWidgets('子供向け画面にフォントの出口は置かない', (tester) async {
     await collect(tester, 'あ');
     await pumpScreen(tester);
 
-    await tester.tap(find.byIcon(Icons.ios_share));
-    await tester.pumpAndSettle();
-
-    expect(find.text('TTF'), findsOneWidget);
-    expect(find.text('OTF'), findsOneWidget);
+    // 出すのは親の仕事（SPEC 7.6・7.7）。子供の画面は書くところに絞る。
+    expect(find.byIcon(Icons.ios_share), findsNothing);
+    expect(find.text('TTF'), findsNothing);
   });
 
-  testWidgets('なぞった字を混ぜるかを出力時に選べる', (tester) async {
-    await collect(tester, 'あ');
-    await tester.runAsync(
-      () => store.add(_written('い', mode: PracticeMode.trace)),
+  testWidgets('スマホ幅でもヘッダが溢れない', (tester) async {
+    // ヘッダには題・モードの印 3 つ・管理の入口が乗る（SPEC 9）。
+    tester.view
+      ..physicalSize = const Size(360, 640)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CollectionScreen(
+          session: session,
+          locks: locks,
+          speaker: RecordingSpeaker(),
+          strokeOrders: strokeOrders,
+        ),
+      ),
     );
-    await pumpScreen(tester);
 
-    await tester.tap(find.byIcon(Icons.ios_share));
-    await tester.pumpAndSettle();
-
-    // 既定は混ぜない。なぞりは 1 字ぶん余分にある。
-    expect(find.text('ほかに 1 字'), findsOneWidget);
-    expect(find.text('1 字'), findsNWidgets(FontFormat.values.length));
-
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.pumpAndSettle();
-    expect(find.text('2 字'), findsNWidgets(FontFormat.values.length));
+    expect(tester.takeException(), isNull);
+    expect(find.byIcon(Icons.gesture), findsOneWidget);
   });
 
-  testWidgets('なぞった字が無ければ混ぜる選択は出さない', (tester) async {
-    await collect(tester, 'あ');
+  testWidgets('練習モードの切り替えはヘッダにある', (tester) async {
     await pumpScreen(tester);
 
-    await tester.tap(find.byIcon(Icons.ios_share));
-    await tester.pumpAndSettle();
-
-    expect(find.text('なぞっただけの字はありません'), findsOneWidget);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
-      isNull,
-    );
+    // 本文の場所は書く入口に譲る。印は AppBar の中にある。
+    for (final icon in [Icons.gesture, Icons.visibility, Icons.volume_up]) {
+      expect(
+        find.descendant(of: find.byType(AppBar), matching: find.byIcon(icon)),
+        findsOneWidget,
+      );
+    }
+    // 字は出さない。選んだものは声で言う（SPEC 2）。
+    expect(find.text('なぞる'), findsNothing);
   });
 }
