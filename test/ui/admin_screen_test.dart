@@ -194,6 +194,21 @@ void main() {
     expect(session.current.visibleCharSets, hasLength(1));
   });
 
+  testWidgets('控えを書き出せなかったときは、そう言う', (tester) async {
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(find.text('控えを書き出す'), 200);
+
+    // 共有シートはテストでは出せない（プラグインが無い）。そこで黙ると、
+    // 押しても何も起きない画面になる。何が起きたかを必ず出す。
+    await tester.runAsync(() => tester.tap(find.text('控えを書き出す')));
+    await waitFor(
+      tester,
+      () => find.textContaining('控えを書き出せませんでした').evaluate().isNotEmpty,
+    );
+
+    expect(find.textContaining('控えを書き出せませんでした'), findsOneWidget);
+  });
+
   testWidgets('版を開かずにフォントを出力できる', (tester) async {
     await tester.runAsync(() async {
       await store.add(_written('あ', at: spring));

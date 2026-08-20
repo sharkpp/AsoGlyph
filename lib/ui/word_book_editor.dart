@@ -5,7 +5,8 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 
-import '../export/font_export.dart';
+import '../export/file_save.dart';
+import '../export/font_export.dart' show sanitizeFileName;
 import '../model/char_set.dart';
 import '../model/word.dart';
 import '../store/word_book_store.dart';
@@ -222,19 +223,28 @@ class _WordBookEditorState extends State<WordBookEditor> {
     if (bundle == null) return;
 
     final name = sanitizeFileName(_book.name);
-    if (bundle) {
-      await shareBytes(
-        bytes: await encodeWordBookBundle(_book, widget.books.readImage),
-        fileName: '$name.$wordBookBundleExtension',
-        mimeType: 'application/zip',
-        text: 'あそんでフォントの単語帳',
-      );
-    } else {
-      await shareBytes(
-        bytes: Uint8List.fromList(utf8.encode(encodeWordBookYaml(_book))),
-        fileName: '$name.yaml',
-        mimeType: 'text/yaml',
-        text: 'あそんでフォントの単語帳',
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      if (bundle) {
+        await saveFile(
+          bytes: await encodeWordBookBundle(_book, widget.books.readImage),
+          fileName: '$name.$wordBookBundleExtension',
+          mimeType: 'application/zip',
+          subject: 'あそんでフォントの単語帳',
+        );
+      } else {
+        await saveFile(
+          bytes: Uint8List.fromList(utf8.encode(encodeWordBookYaml(_book))),
+          fileName: '$name.yaml',
+          mimeType: 'text/yaml',
+          subject: 'あそんでフォントの単語帳',
+        );
+      }
+    } catch (error) {
+      // 黙って何も起きないと、押せていないのか失敗したのかが分からない。
+      debugPrint('単語帳の書き出しに失敗: $error');
+      messenger.showSnackBar(
+        SnackBar(content: Text('単語帳を書き出せませんでした（$error）')),
       );
     }
   }

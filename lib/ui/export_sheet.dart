@@ -155,11 +155,21 @@ Future<void> exportRecipeFont(
   await dialog;
   progress.dispose();
 
-  await shareFont(
-    bytes: bytes,
-    fileName:
-        '${sanitizeFileName(recipe.fontMeta.familyName)}.${choice.format.name}',
-    format: choice.format,
-    text: '「${recipe.name}」のフォント',
-  );
+  try {
+    await shareFont(
+      bytes: bytes,
+      fileName:
+          '${sanitizeFileName(recipe.fontMeta.familyName)}.${choice.format.name}',
+      format: choice.format,
+      subject: '「${recipe.name}」のフォント',
+    );
+  } catch (error) {
+    // 黙って何も起きないと、作れたのか出せなかったのかが分からない。
+    debugPrint('フォントの書き出しに失敗: $error');
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('フォントを出せませんでした（$error）')),
+      );
+    }
+  }
 }

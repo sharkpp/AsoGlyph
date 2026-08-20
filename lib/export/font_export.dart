@@ -1,69 +1,27 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../font/font_builder.dart';
+import 'file_save.dart';
 
 /// 生成したフォントの出口。
 ///
-/// iOS は構成プロファイルなしに、Android は非 root で system フォントを追加できない。
-/// 端末への直接インストールは提供せず、ファイル共有を出口とする（SPEC 7.7）。
+/// iOS は構成プロファイルなしに、Android は非 root で system フォントを
+/// 追加できない。端末への直接インストールは提供せず、ファイルとして
+/// 出すところまでを出口とする（SPEC 7.7）。
 Future<void> shareFont({
   required Uint8List bytes,
   required String fileName,
   required FontFormat format,
-  String? text,
-}) async {
-  final mimeType = switch (format) {
+  String? subject,
+}) => saveFile(
+  bytes: bytes,
+  fileName: fileName,
+  mimeType: switch (format) {
     FontFormat.ttf => 'font/ttf',
     FontFormat.otf => 'font/otf',
-  };
-
-  final file = kIsWeb
-      // web はファイルシステムを持たないため、そのままバイト列を渡す。
-      ? XFile.fromData(bytes, name: fileName, mimeType: mimeType)
-      : XFile(
-          (await _writeTemporary(bytes, fileName)).path,
-          mimeType: mimeType,
-        );
-
-  await SharePlus.instance.share(
-    ShareParams(
-      files: [file],
-      fileNameOverrides: [fileName],
-      text: text,
-    ),
-  );
-}
-
-/// 単語帳の出口（SPEC 7.4）。
-///
-/// 送り先は共有シートに任せる。こちらからどこかへ送ることはしない（SPEC 3）。
-Future<void> shareBytes({
-  required Uint8List bytes,
-  required String fileName,
-  required String mimeType,
-  String? text,
-}) async {
-  final file = kIsWeb
-      ? XFile.fromData(bytes, name: fileName, mimeType: mimeType)
-      : XFile(
-          (await _writeTemporary(bytes, fileName)).path,
-          mimeType: mimeType,
-        );
-
-  await SharePlus.instance.share(
-    ShareParams(files: [file], fileNameOverrides: [fileName], text: text),
-  );
-}
-
-Future<File> _writeTemporary(Uint8List bytes, String fileName) async {
-  final directory = await getTemporaryDirectory();
-  final file = File('${directory.path}/$fileName');
-  return file.writeAsBytes(bytes);
-}
+  },
+  subject: subject,
+);
 
 /// ファイル名に使える形へ落とす。子供の名前など非 ASCII も受け取りうる。
 String sanitizeFileName(String value) {
