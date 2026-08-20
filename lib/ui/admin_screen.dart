@@ -11,6 +11,7 @@ import '../store/session.dart';
 import '../store/word_book_store.dart';
 import 'backup_section.dart';
 import 'char_set_screen.dart';
+import 'export_sheet.dart';
 import 'passcode_gate.dart';
 import 'recipe_editor.dart';
 import 'user_picker.dart';
@@ -154,6 +155,7 @@ class AdminScreen extends StatelessWidget {
                   recipe: recipe,
                   store: store,
                   onOpen: () => _edit(context, recipe),
+                  onExport: () => _output(context, recipe),
                   onDuplicate: () => _duplicate(context, recipe),
                   onDelete: () => _delete(context, recipe),
                 ),
@@ -180,6 +182,10 @@ class AdminScreen extends StatelessWidget {
       ),
     );
   }
+
+  /// 版のフォントを出す（SPEC 7.7）。版を開かなくても出せる。
+  Future<void> _output(BuildContext context, FontRecipe recipe) =>
+      exportRecipeFont(context, recipe: recipe, store: store);
 
   /// なぞり書きの下敷きを消すかを変える（SPEC 7.1）。人ごとに覚える。
   Future<void> _toggleTraceErases(bool on) =>
@@ -319,6 +325,7 @@ class _RecipeCard extends StatelessWidget {
     required this.recipe,
     required this.store,
     required this.onOpen,
+    required this.onExport,
     required this.onDuplicate,
     required this.onDelete,
   });
@@ -326,6 +333,7 @@ class _RecipeCard extends StatelessWidget {
   final FontRecipe recipe;
   final SampleStore store;
   final VoidCallback onOpen;
+  final VoidCallback onExport;
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
 
@@ -342,6 +350,9 @@ class _RecipeCard extends StatelessWidget {
         trailing: PopupMenuButton<void Function()>(
           onSelected: (action) => action(),
           itemBuilder: (context) => [
+            // 版を開かずに出せるようにする。中身を決め終えた版は、
+            // 出すためだけに開くことになる。
+            PopupMenuItem(value: onExport, child: const Text('フォントを出力')),
             PopupMenuItem(value: onDuplicate, child: const Text('複製する')),
             PopupMenuItem(value: onDelete, child: const Text('消す')),
           ],

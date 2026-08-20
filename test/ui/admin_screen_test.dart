@@ -194,6 +194,24 @@ void main() {
     expect(session.current.visibleCharSets, hasLength(1));
   });
 
+  testWidgets('版を開かずにフォントを出力できる', (tester) async {
+    await tester.runAsync(() async {
+      await store.add(_written('あ', at: spring));
+      await recipes.create('いまの字');
+    });
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(find.text('いまの字'), 200);
+
+    await tester.tap(find.byType(PopupMenuButton<void Function()>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('フォントを出力'));
+    await tester.pumpAndSettle();
+
+    // 中身を決め終えた版を、出すためだけに開かせない（SPEC 7.6）。
+    expect(find.text('TTF'), findsOneWidget);
+    expect(find.text('OTF'), findsOneWidget);
+  });
+
   testWidgets('なぞり書きの下敷きを消すかを、人ごとに切れる', (tester) async {
     await pumpScreen(tester);
 

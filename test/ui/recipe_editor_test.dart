@@ -1,5 +1,6 @@
 import 'package:asoglyph/ink/stroke.dart';
 import 'package:asoglyph/model/char_set.dart';
+import 'package:asoglyph/font/font_builder.dart';
 import 'package:asoglyph/model/font_recipe.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/model/score.dart';
@@ -26,6 +27,20 @@ Sample _written(String char, {required DateTime at, double? overall}) => Sample(
           durationMs: 1000,
           retries: 0,
         ),
+  strokes: [
+    Stroke(const [
+      InkPoint(x: 300, y: 500, t: 0, pressure: 0),
+      InkPoint(x: 700, y: 500, t: 20, pressure: 0),
+    ]),
+  ],
+);
+
+/// なぞって書いた字。出力のたびに混ぜるかを選ぶ（SPEC 7.7）。
+Sample _traced(String char, {required DateTime at}) => Sample(
+  id: '$char-traced-${at.toIso8601String()}',
+  char: char,
+  mode: PracticeMode.trace,
+  writtenAt: at,
   strokes: [
     Stroke(const [
       InkPoint(x: 300, y: 500, t: 0, pressure: 0),
@@ -133,10 +148,60 @@ void main() {
   testWidgets('入る字が無ければフォントを出さない', (tester) async {
     await pumpEditor(tester);
 
-    await tester.tap(find.text('フォントを出す'));
+    await tester.tap(find.text('フォントを出力'));
     await tester.pump();
 
     expect(find.text('この版に入る字がありません'), findsOneWidget);
+  });
+
+  testWidgets('入る字があれば出力形式を選べる', (tester) async {
+    await tester.runAsync(() => store.add(_written('あ', at: spring)));
+    await pumpEditor(tester);
+
+    await tester.tap(find.text('フォントを出力'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('TTF'), findsOneWidget);
+    expect(find.text('OTF'), findsOneWidget);
+  });
+
+  testWidgets('なぞった字を混ぜるかを出力時に選べる', (tester) async {
+    await tester.runAsync(() async {
+      await store.add(_written('あ', at: spring));
+      await store.add(_traced('い', at: spring));
+    });
+    await pumpEditor(tester);
+
+    await tester.tap(find.text('フォントを出力'));
+    await tester.pumpAndSettle();
+
+    // 字数は版の画面にも出ているので、出力の紙のぶんだけを数える。
+    Finder inSheet(String text) => find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.text(text),
+    );
+
+    // 既定は混ぜない。なぞりは 1 字ぶん余分にある（SPEC 7.7）。
+    expect(inSheet('ほかに 1 字'), findsOneWidget);
+    expect(inSheet('1 字'), findsNWidgets(FontFormat.values.length));
+
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    expect(inSheet('2 字'), findsNWidgets(FontFormat.values.length));
+  });
+
+  testWidgets('なぞった字が無ければ混ぜる選択は出さない', (tester) async {
+    await tester.runAsync(() => store.add(_written('あ', at: spring)));
+    await pumpEditor(tester);
+
+    await tester.tap(find.text('フォントを出力'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('なぞっただけの字はありません'), findsOneWidget);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
+      isNull,
+    );
   });
 
   testWidgets('文字種を外すと、その文字種の時点指定も残さない', (tester) async {

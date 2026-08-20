@@ -1,7 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../export/collected_font.dart';
+import '../export/font_export.dart';
+import '../export/resolve_recipe.dart';
 import '../font/font_builder.dart';
+import '../model/font_recipe.dart';
+import '../store/sample_store.dart';
 
 /// 出力の選択。形式と、なぞった字を混ぜるかどうか。
 class ExportChoice {
@@ -103,5 +108,58 @@ Future<void> showExportProgress(
         },
       ),
     ),
+  );
+}
+
+/// 版のフォントを出力する（SPEC 7.7）。
+///
+/// 形式となぞりの扱いを選ばせ、作って、共有に渡すまで。版の一覧からも
+/// 版の画面からも同じ道を通る。出力は管理画面だけの入口にしてあり、
+/// 子供向け画面には置かない。
+Future<void> exportRecipeFont(
+  BuildContext context, {
+  required FontRecipe recipe,
+  required SampleStore store,
+}) async {
+  final written = resolvedCount(recipe, store, includeTraced: false);
+  final withTraced = resolvedCount(recipe, store, includeTraced: true);
+  if (withTraced == 0) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('この版に入る字がありません')));
+    return;
+  }
+
+  final choice = await showExportSheet(
+    context,
+    written: written,
+    withTraced: withTraced,
+  );
+  if (choice == null || !context.mounted) return;
+
+  final progress = ValueNotifier<(int, int)>((
+    0,
+    choice.includeTraced ? withTraced : written,
+  ));
+  final dialog = showExportProgress(context, progress);
+
+  final bytes = await buildRecipeFont(
+    recipe: recipe,
+    store: store,
+    format: choice.format,
+    includeTraced: choice.includeTraced,
+    onProgress: (done, total) => progress.value = (done, total),
+  );
+
+  if (context.mounted) Navigator.of(context).pop();
+  await dialog;
+  progress.dispose();
+
+  await shareFont(
+    bytes: bytes,
+    fileName:
+        '${sanitizeFileName(recipe.fontMeta.familyName)}.${choice.format.name}',
+    format: choice.format,
+    text: '「${recipe.name}」のフォント',
   );
 }

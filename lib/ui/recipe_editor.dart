@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../export/collected_font.dart';
-import '../export/font_export.dart';
 import '../export/resolve_recipe.dart';
 import '../model/char_set.dart';
 import '../model/font_recipe.dart';
@@ -112,7 +110,7 @@ class _RecipeEditorState extends State<RecipeEditor> {
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
                 onPressed: () => _export(context),
                 icon: const Icon(Icons.ios_share),
-                label: const Text('フォントを出す'),
+                label: const Text('フォントを出力'),
               ),
             ],
           ),
@@ -171,50 +169,8 @@ class _RecipeEditorState extends State<RecipeEditor> {
     );
   }
 
-  Future<void> _export(BuildContext context) async {
-    final written = resolvedCount(_recipe, store, includeTraced: false);
-    final withTraced = resolvedCount(_recipe, store, includeTraced: true);
-    if (withTraced == 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('この版に入る字がありません')));
-      return;
-    }
-
-    final choice = await showExportSheet(
-      context,
-      written: written,
-      withTraced: withTraced,
-    );
-    if (choice == null || !context.mounted) return;
-
-    final progress = ValueNotifier<(int, int)>((
-      0,
-      choice.includeTraced ? withTraced : written,
-    ));
-    final dialog = showExportProgress(context, progress);
-
-    final bytes = await buildRecipeFont(
-      recipe: _recipe,
-      store: store,
-      format: choice.format,
-      includeTraced: choice.includeTraced,
-      onProgress: (done, total) => progress.value = (done, total),
-    );
-
-    if (context.mounted) Navigator.of(context).pop();
-    await dialog;
-    progress.dispose();
-
-    await shareFont(
-      bytes: bytes,
-      fileName:
-          '${sanitizeFileName(_recipe.fontMeta.familyName)}'
-          '.${choice.format.name}',
-      format: choice.format,
-      text: '「${_recipe.name}」のフォント',
-    );
-  }
+  Future<void> _export(BuildContext context) =>
+      exportRecipeFont(context, recipe: _recipe, store: store);
 }
 
 /// 今この版が何字になるか。規則をいじるたびに動く。
