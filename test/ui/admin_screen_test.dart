@@ -3,6 +3,7 @@ import 'package:asoglyph/model/char_set.dart';
 import 'package:asoglyph/model/font_recipe.dart';
 import 'package:asoglyph/model/sample.dart';
 import 'package:asoglyph/model/user.dart';
+import 'package:asoglyph/model/word.dart';
 import 'package:asoglyph/store/passcode.dart';
 import 'package:asoglyph/store/recipe_store.dart';
 import 'package:asoglyph/store/sample_store.dart';
@@ -304,6 +305,26 @@ void main() {
 
     // 全部外すと、おまかせも ことばも子供の画面から消える。
     expect(session.current.wordBooks, {only.id});
+  });
+
+  testWidgets('単語帳の一覧に、作った人と概要を出す', (tester) async {
+    await tester.runAsync(
+      () => session.books.add(
+        const WordBook(
+          id: '',
+          name: 'うちのことば',
+          words: [Word(text: 'ぱぱ', reading: 'ぱぱ')],
+          author: 'おかあさん',
+          description: '3 歳の下の子向け',
+        ),
+      ),
+    );
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(find.text('うちのことば'), 200);
+
+    // 単語帳はいくつでも作れて人にも渡せる。名前だけでは見分けが付かない。
+    expect(find.text('1 語 ・ おかあさん'), findsOneWidget);
+    expect(find.text('3 歳の下の子向け'), findsOneWidget);
   });
 
   testWidgets('語に出てこない字を数えて見せる', (tester) async {

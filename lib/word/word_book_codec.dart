@@ -22,6 +22,8 @@ class WordBookFormatException implements Exception {
 /// ```yaml
 /// version: 1
 /// name: どうぶつ
+/// author: さめ
+/// description: 4 歳向け。ひらがなだけで書ける語
 /// words:
 ///   - text: ねこ
 ///     reading: ねこ
@@ -50,10 +52,21 @@ WordBook parseWordBookYaml(
   return WordBook(
     id: id,
     name: (document['name'] as Object?)?.toString() ?? fallbackName,
+    // 作った人と概要は任意。無ければ持たない（SPEC 7.4）。
+    author: _text(document['author']),
+    description: _text(document['description']),
     words: [
       for (final (index, entry) in words.indexed) _word(entry, index + 1),
     ],
   );
+}
+
+/// 書かれていれば文字列、空なら null。
+///
+/// 空文字を持つと「書かれていない」と見分けが付かなくなり、一覧に空の行が出る。
+String? _text(Object? value) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? null : text;
 }
 
 Word _word(Object? entry, int line) {

@@ -146,6 +146,49 @@ void main() {
       expect(books.all.first.words, book.words, reason: 'もとは変わらない');
     });
 
+    test('作った人と概要は、開き直しても残る', () async {
+      final db = await openMemoryDatabase();
+      final books = await openMemoryWordBooks(db);
+      final book = await books.add(
+        const WordBook(
+          id: '',
+          name: 'うちのことば',
+          words: [Word(text: 'ぱぱ', reading: 'ぱぱ')],
+          author: 'おかあさん',
+          description: '3 歳の下の子向け',
+        ),
+      );
+
+      await books.save(book.withCredits(author: 'おとうさん'));
+      final reopened = await openMemoryWordBooks(db);
+      final saved = reopened[book.id]!;
+
+      expect(saved.author, 'おとうさん');
+      // 片方だけ書き替えたのではなく、書かなかったほうは消える。
+      expect(saved.description, isNull);
+    });
+
+    test('内蔵の辞書は、資産に書いた作った人と概要を持つ', () async {
+      final books = await openMemoryWordBooks();
+      final book = books.all.firstWhere(
+        (entry) => entry.name == 'ひらがなのことば',
+      );
+
+      expect(book.author, isNotEmpty);
+      expect(book.description, isNotEmpty);
+    });
+
+    test('コピーは作った人と概要を持っていく', () async {
+      final books = await openMemoryWordBooks();
+      final book = books.all.firstWhere((entry) => entry.author != null);
+
+      final copy = await books.copy(book, name: 'うちのひらがな');
+
+      // 語はその人が選んだもの。コピーを作っただけで出どころは消えない。
+      expect(copy.author, book.author);
+      expect(copy.description, book.description);
+    });
+
     test('並びは入れた順のまま。開き直しても変わらない', () async {
       final db = await openMemoryDatabase();
       final books = await openMemoryWordBooks(db);

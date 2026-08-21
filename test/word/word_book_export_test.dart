@@ -30,6 +30,31 @@ void main() {
       expect(back.words.last.image, 'dog.png');
     });
 
+    test('作った人と概要も書き出して、読み戻せる', () {
+      final credited = _book.withCredits(
+        author: 'さめ',
+        description: '4 歳向け。ひらがなだけで書ける語',
+      );
+
+      final back = parseWordBookYaml(
+        encodeWordBookYaml(credited),
+        id: 'x',
+        fallbackName: 'x',
+      );
+
+      // 渡した先で出どころが消えないようにする（SPEC 7.4）。
+      expect(back.author, 'さめ');
+      expect(back.description, '4 歳向け。ひらがなだけで書ける語');
+    });
+
+    test('書かれていない作った人と概要は、行そのものを出さない', () {
+      // 空の行を出すと、渡した先で「消してある」のか「無い」のかが読めない。
+      final yaml = encodeWordBookYaml(_book);
+
+      expect(yaml, isNot(contains('author')));
+      expect(yaml, isNot(contains('description')));
+    });
+
     test('数字の語が数にならない', () {
       // 引用符無しで書くと 100 が数として読み戻る。
       final back = parseWordBookYaml(

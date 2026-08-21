@@ -51,8 +51,8 @@ class _WordBookEditorState extends State<WordBookEditor> {
           if (!_book.isBundled)
             IconButton(
               icon: const Icon(Icons.drive_file_rename_outline),
-              tooltip: '名前を変える',
-              onPressed: _rename,
+              tooltip: '名前・作成者・概要を直す',
+              onPressed: _editDetails,
             ),
           IconButton(
             icon: const Icon(Icons.ios_share),
@@ -71,6 +71,7 @@ class _WordBookEditorState extends State<WordBookEditor> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            _BookCredits(book: _book, onEdit: _book.isBundled ? null : _editDetails),
             if (_book.isBundled) _buildBundledNote(),
             if (_book.words.isEmpty)
               const Padding(
@@ -156,14 +157,21 @@ class _WordBookEditorState extends State<WordBookEditor> {
     );
   }
 
-  Future<void> _rename() async {
-    final name = await askWordBookName(
-      context,
-      title: '単語帳の名前',
-      initial: _book.name,
+  /// 名前と、作った人と、概要を直す（SPEC 7.4）。
+  ///
+  /// 3 つを 1 つの画面で聞く。どれも「この単語帳が何か」を言うもので、
+  /// 別々に開かせると、書きに行くまでの手数だけが増える。
+  Future<void> _editDetails() async {
+    final details = await askWordBookDetails(context, book: _book);
+    if (details == null) return;
+    await _update(
+      _book
+          .copyWith(name: details.name)
+          .withCredits(
+            author: details.author,
+            description: details.description,
+          ),
     );
-    if (name == null) return;
-    await _update(_book.copyWith(name: name));
   }
 
   Future<void> _addWord() async {
@@ -278,6 +286,98 @@ class _WordBookEditorState extends State<WordBookEditor> {
     if (!(ok ?? false)) return;
     await widget.books.remove(_book.id);
     if (mounted) Navigator.of(context).pop();
+  }
+}
+
+/// 概要と作った人（SPEC 7.4）。単語帳を開いたいちばん上に出す。
+///
+/// 単語帳はいくつでも作れて、人に渡せる。名前だけでは「何が入っているのか」
+/// も「誰が作ったのか」も分からない。**渡された側もここを見る**ので、
+/// 直せない内蔵の単語帳でも同じ場所に出す。
+class _BookCredits extends StatelessWidget {
+  const _BookCredits({required this.book, required this.onEdit});
+
+  final WordBook book;
+
+  /// 内蔵の単語帳では null。見るだけになる。
+  final VoidCallback? onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final description = book.description;
+    final author = book.author;
+
+    // 直せない単語帳に何も書かれていなければ、空の枠だけが残る。出さない。
+    if (onEdit == null && description == null && author == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      color: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xffe4dfd4), width: 2),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _line(
+              label: '概要',
+              value: description,
+              // 何を書けばいいのかは、例で見せるほうが早い。
+              hint: 'どういう単語帳か（4 歳向け・ひらがなだけ など）',
+            ),
+            const SizedBox(height: 8),
+            _line(
+              label: '作成者',
+              value: author,
+              hint: '作った人。人に渡したときに残ります',
+            ),
+            if (onEdit != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('名前・作成者・概要を直す'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _line({
+    required String label,
+    required String? value,
+    required String hint,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 64,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Color(0xff9c948a)),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value ?? hint,
+            style: TextStyle(
+              // 書かれていないところは、書いてあるものと見分けが付くようにする。
+              color: value == null ? const Color(0xffbdb4a6) : null,
+              fontStyle: value == null ? FontStyle.italic : null,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

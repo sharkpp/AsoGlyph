@@ -9,6 +9,18 @@
   引くので、コードに書き足す必要はない（`AppBundledAssets.list`）
 - 絵を付けるときは `.asodict`（`words.yaml` ＋ `images/` の zip）を置く。
   管理画面の「書き出す」で作ったものがそのまま使える
+- `author`（作った人＝著作権者）と `description`（概要）は任意。書けば管理画面の
+  一覧と単語帳の画面に出る。人に渡した先でも残る
+
+```yaml
+version: 1
+name: ひらがなのことば
+author: sharkpp
+description: ひらがなだけで書ける、身のまわりの語
+words:
+  - text: ねこ
+    reading: ねこ
+```
 
 ## 直したものを読み込ませる
 

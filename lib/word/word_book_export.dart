@@ -34,8 +34,16 @@ const _imageDir = 'images';
 String encodeWordBookYaml(WordBook book) {
   final out = StringBuffer()
     ..writeln('version: 1')
-    ..writeln('name: ${_scalar(book.name)}')
-    ..writeln('words:');
+    ..writeln('name: ${_scalar(book.name)}');
+
+  // 作った人（＝著作権者）と概要。書かれていない行は出さない。
+  // 空の行を出すと、渡した先で「消してある」のか「無い」のかが読めない。
+  if (book.author != null) out.writeln('author: ${_scalar(book.author!)}');
+  if (book.description != null) {
+    out.writeln('description: ${_scalar(book.description!)}');
+  }
+
+  out.writeln('words:');
 
   for (final word in book.words) {
     out

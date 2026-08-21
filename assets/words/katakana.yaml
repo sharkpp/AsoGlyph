@@ -1,6 +1,8 @@
 # カタカナだけで書ける語。長音符「ー」を含む語も入れてある。
 version: 1
 name: カタカナのことば
+author: sharkpp
+description: カタカナだけで書ける語。長音符「ー」を含む語も入っている
 words:
   - text: バス
     reading: ばす

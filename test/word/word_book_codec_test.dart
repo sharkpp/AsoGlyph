@@ -24,6 +24,34 @@ words:
       expect(book.words.last.tags, isEmpty);
     });
 
+    test('作った人と概要を読む', () {
+      final book = parseWordBookYaml('''
+version: 1
+name: どうぶつ
+author: さめ
+description: 4 歳向け。ひらがなだけで書ける語
+words:
+  - text: ねこ
+    reading: ねこ
+''', id: 'test', fallbackName: 'x');
+
+      // 単語帳は人に渡せる。渡った先で出どころが分かるようにする（SPEC 7.4）。
+      expect(book.author, 'さめ');
+      expect(book.description, '4 歳向け。ひらがなだけで書ける語');
+    });
+
+    test('書かれていない作った人と概要は持たない', () {
+      // 空文字を持つと、一覧に空の行が出る。
+      final book = parseWordBookYaml(
+        'name: x\nauthor: "  "\nwords:\n  - {text: そら, reading: そら}\n',
+        id: 'test',
+        fallbackName: 'x',
+      );
+
+      expect(book.author, isNull);
+      expect(book.description, isNull);
+    });
+
     test('name が無ければファイル名を使う', () {
       final book = parseWordBookYaml(
         'words:\n  - {text: そら, reading: そら}\n',

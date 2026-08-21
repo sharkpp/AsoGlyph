@@ -1,6 +1,8 @@
 # すうじだけの語。数を書く練習になる。
 version: 1
 name: すうじのことば
+author: sharkpp
+description: 数字だけの語。0 から 9 を書く練習になる
 words:
   - text: "1"
     reading: いち

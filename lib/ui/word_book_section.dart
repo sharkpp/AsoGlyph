@@ -40,6 +40,8 @@ class WordBookSection extends StatelessWidget {
             controlAffinity: ListTileControlAffinity.leading,
             value: user.uses(book.id),
             onChanged: (on) => _toggle(book.id, on ?? false),
+            // 概要を出すと 2 行になる。言わないと行がはみ出す。
+            isThreeLine: book.description != null,
             title: Row(
               children: [
                 Flexible(child: Text(book.name)),
@@ -54,7 +56,25 @@ class WordBookSection extends StatelessWidget {
                 ],
               ],
             ),
-            subtitle: Text('${book.words.length} 語'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 語の数と作った人。単語帳はいくつでも作れて人にも渡せるので、
+                // 名前だけでは一覧で見分けが付かない。
+                Text(
+                  book.author == null
+                      ? '${book.words.length} 語'
+                      : '${book.words.length} 語 ・ ${book.author}',
+                ),
+                if (book.description != null)
+                  Text(
+                    book.description!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Color(0xff9c948a)),
+                  ),
+              ],
+            ),
             secondary: IconButton(
               icon: Icon(
                 book.isBundled ? Icons.visibility_outlined : Icons.edit_outlined,
@@ -267,7 +287,129 @@ class MissingCharsSection extends StatelessWidget {
   }
 }
 
-/// 単語帳の名前を聞く。
+/// 単語帳の名前・作成者・概要（SPEC 7.4）。
+class WordBookDetails {
+  const WordBookDetails({required this.name, this.author, this.description});
+
+  final String name;
+
+  /// 書かれていなければ null。空文字は持たない。
+  final String? author;
+  final String? description;
+}
+
+/// 名前と、作った人（＝著作権者）と、概要を聞く。
+///
+/// 作った人と概要は任意。単語帳は人に渡せる（SPEC 7.4.1）ので、渡った先で
+/// 出どころと中身が分かるようにするためのもので、自分だけで使うぶんには
+/// 要らない。名前だけは空にできない（一覧で指すものが無くなる）。
+Future<WordBookDetails?> askWordBookDetails(
+  BuildContext context, {
+  required WordBook book,
+}) => showDialog<WordBookDetails>(
+  context: context,
+  builder: (context) => _DetailsDialog(book: book),
+);
+
+class _DetailsDialog extends StatefulWidget {
+  const _DetailsDialog({required this.book});
+
+  final WordBook book;
+
+  @override
+  State<_DetailsDialog> createState() => _DetailsDialogState();
+}
+
+class _DetailsDialogState extends State<_DetailsDialog> {
+  late final _name = TextEditingController(text: widget.book.name);
+  late final _author = TextEditingController(
+    text: widget.book.author ?? '',
+  );
+  late final _description = TextEditingController(
+    text: widget.book.description ?? '',
+  );
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _author.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('この単語帳のこと'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _name,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: '名前',
+                hintText: 'どうぶつ',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _author,
+              decoration: const InputDecoration(
+                labelText: '作成者',
+                hintText: 'おかあさん',
+                // 単語帳は人に渡せる。渡った先で出どころが消えないようにする。
+                helperText: '作った人。書き出したファイルにも残ります',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _description,
+              // 1 行に収まらないことのほうが多い。
+              maxLines: 3,
+              minLines: 2,
+              decoration: const InputDecoration(
+                labelText: '概要',
+                hintText: '4 歳向け。ひらがなだけで書ける語',
+                helperText: 'どういう単語帳か。一覧にも出ます',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('やめる'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final name = _name.text.trim();
+            // 名前の無い単語帳は、一覧で指すものが無くなる。
+            if (name.isEmpty) return;
+            final author = _author.text.trim();
+            final description = _description.text.trim();
+            Navigator.of(context).pop(
+              WordBookDetails(
+                name: name,
+                author: author.isEmpty ? null : author,
+                description: description.isEmpty ? null : description,
+              ),
+            );
+          },
+          child: const Text('決める'),
+        ),
+      ],
+    );
+  }
+}
+
+/// 単語帳の名前を聞く。作るときとコピーを作るときに使う。
+///
+/// 作った人と概要はここでは聞かない。作る前に聞くと、語を 1 つも入れる前に
+/// 書かせることになる。あとから単語帳の画面で足せる（[askWordBookDetails]）。
 Future<String?> askWordBookName(
   BuildContext context, {
   required String title,

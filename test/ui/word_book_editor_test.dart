@@ -48,6 +48,57 @@ void main() {
     );
   }
 
+  testWidgets('作った人と概要を出して、その場で直せる', (tester) async {
+    final book = await tester.runAsync(makeBook) as WordBook;
+    await pumpEditor(tester, book);
+
+    // 何も書かれていなければ、何を書くところなのかを言う。
+    expect(find.text('概要'), findsOneWidget);
+    expect(find.text('作成者'), findsOneWidget);
+
+    await tester.tap(find.text('名前・作成者・概要を直す'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '作成者'), 'おかあさん');
+    await tester.enterText(
+      find.widgetWithText(TextField, '概要'),
+      '3 歳の下の子向け',
+    );
+    await tester.runAsync(() async {
+      await tester.tap(find.text('決める'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pumpAndSettle();
+
+    // 「保存」は置かない。直したその場で残る（SPEC 7.4）。
+    final saved = books[book.id]!;
+    expect(saved.author, 'おかあさん');
+    expect(saved.description, '3 歳の下の子向け');
+    // 直したものが、そのまま単語帳の画面に出る。
+    expect(find.text('おかあさん'), findsOneWidget);
+    expect(find.text('3 歳の下の子向け'), findsOneWidget);
+  });
+
+  testWidgets('内蔵の単語帳では、作った人を見るだけになる', (tester) async {
+    final book = await tester.runAsync(
+      () => books.add(
+        const WordBook(
+          id: '',
+          name: 'ひらがな',
+          words: [Word(text: 'ねこ', reading: 'ねこ')],
+          author: 'sharkpp',
+          description: 'ひらがなだけで書ける語',
+        ),
+        source: 'assets/words/hiragana.yaml',
+      ),
+    ) as WordBook;
+    await pumpEditor(tester, book);
+
+    // 渡された側もここを見る。直せない単語帳でも同じ場所に出す。
+    expect(find.text('sharkpp'), findsOneWidget);
+    expect(find.text('ひらがなだけで書ける語'), findsOneWidget);
+    expect(find.text('名前・作成者・概要を直す'), findsNothing);
+  });
+
   testWidgets('ことばを直すと、その場で保存する', (tester) async {
     final book = await tester.runAsync(makeBook) as WordBook;
     await pumpEditor(tester, book);

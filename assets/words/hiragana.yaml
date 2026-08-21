@@ -6,6 +6,8 @@
 #   - 濁音・半濁音・小書きは、清音だけの語のうしろに置く
 version: 1
 name: ひらがなのことば
+author: sharkpp
+description: ひらがなだけで書ける、身のまわりの語。清音のあとに濁音・半濁音・小書きが続く
 words:
   - text: ねこ
     reading: ねこ

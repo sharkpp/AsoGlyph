@@ -235,6 +235,8 @@ class WordBookStore extends ChangeNotifier {
       id: const Uuid().v7(),
       name: book.name,
       words: book.words,
+      author: book.author,
+      description: book.description,
       source: source,
     );
     // 同じミリ秒に何冊も入る（内蔵の辞書は起動時にまとめて入る）。時刻だけでは
@@ -258,8 +260,18 @@ class WordBookStore extends ChangeNotifier {
   ///
   /// 内蔵は直せない。語を 1 つ足したいだけの親が、まるごと作り直すことに
   /// ならないよう、ここから始められるようにする。
-  Future<WordBook> copy(WordBook book, {required String name}) =>
-      add(WordBook(id: '', name: name, words: book.words));
+  /// 作った人と概要はそのまま持っていく。語はその人が選んだものなので、
+  /// コピーを作っただけで出どころが消えるのはおかしい。直したい人は
+  /// コピーの側で書き替える。
+  Future<WordBook> copy(WordBook book, {required String name}) => add(
+    WordBook(
+      id: '',
+      name: name,
+      words: book.words,
+      author: book.author,
+      description: book.description,
+    ),
+  );
 
   /// 名前や語を直す。内蔵の単語帳は直せない。
   Future<void> save(WordBook book) async {
@@ -334,6 +346,8 @@ class WordBookStore extends ChangeNotifier {
 
   Map<String, Object?> _encode(WordBook book) => {
     'name': book.name,
+    'author': book.author,
+    'description': book.description,
     'source': book.source,
     'words': [
       for (final word in book.words)
@@ -349,6 +363,8 @@ class WordBookStore extends ChangeNotifier {
   WordBook _decode(String id, Map<String, Object?> record) => WordBook(
     id: id,
     name: record['name']! as String,
+    author: record['author'] as String?,
+    description: record['description'] as String?,
     source: record['source'] as String?,
     words: [
       for (final word in (record['words']! as List).cast<Map<String, Object?>>())

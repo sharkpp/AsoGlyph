@@ -132,12 +132,27 @@ class WordBook {
     required this.id,
     required this.name,
     required this.words,
+    this.author,
+    this.description,
     this.source,
   });
 
   final String id;
   final String name;
   final List<Word> words;
+
+  /// 作った人（＝著作権者）。任意。
+  ///
+  /// 単語帳は人に渡せる（SPEC 7.4.1）。渡った先で誰が作ったものか分からなく
+  /// なると、直して配り直したときに出どころが消える。書かれていなければ
+  /// 出さない（空文字は持たない）。
+  final String? author;
+
+  /// この単語帳がどういうものか。任意。
+  ///
+  /// 「4 歳向け・ひらがなだけ」のような、名前だけでは伝わらないこと。
+  /// 単語帳はいくつでも作れるので、一覧で見分けるのに要る。
+  final String? description;
 
   /// どこから来たか。内蔵の単語帳だけが持つ（資産のパス）。
   final String? source;
@@ -152,10 +167,30 @@ class WordBook {
   bool get isDebugBook =>
       isBundled && source!.split('/').last.startsWith('_');
 
-  WordBook copyWith({String? id, String? name, List<Word>? words}) => WordBook(
+  WordBook copyWith({
+    String? id,
+    String? name,
+    List<Word>? words,
+    String? author,
+    String? description,
+  }) => WordBook(
     id: id ?? this.id,
     name: name ?? this.name,
     words: words ?? this.words,
+    author: author ?? this.author,
+    description: description ?? this.description,
+    source: source,
+  );
+
+  /// 作った人と概要を書き替えた単語帳。[copyWith] では null を渡せない。
+  ///
+  /// 一度書いた作成者を消せるようにするために要る。
+  WordBook withCredits({String? author, String? description}) => WordBook(
+    id: id,
+    name: name,
+    words: words,
+    author: author,
+    description: description,
     source: source,
   );
 
