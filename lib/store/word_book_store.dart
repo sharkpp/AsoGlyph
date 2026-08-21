@@ -181,7 +181,12 @@ class WordBookStore extends ChangeNotifier {
     }
 
     final images = isBundle ? await _storeImages(bytes!, asset) : null;
-    final book = images == null ? parsed : _relinked(parsed, images);
+    // **どこから来たかを必ず付ける。** 読み取りは資産のパスを知らないので、
+    // ここで付けないと内蔵でなくなる。そうなると次に開いたときに、この資産の
+    // ぶんがもう 1 冊入り（割り振りの無い内蔵）、いま割り振られているほうは
+    // 「自分の単語帳」として残る。**辞書を直すたびに 1 冊ずつ増えていく。**
+    final book = (images == null ? parsed : _relinked(parsed, images))
+        .withSource(asset);
 
     if (existing == null) {
       await add(book, source: asset, fingerprint: fingerprint);

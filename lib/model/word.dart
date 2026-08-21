@@ -182,6 +182,21 @@ class WordBook {
     source: source,
   );
 
+  /// 資産から読んだものを、内蔵の辞書として据える。
+  ///
+  /// 読み取り（`parseWordBookYaml` など）は、どこから来たかを知らない。
+  /// **付け忘れると内蔵でなくなる**。次に開いたときには、その資産のぶんが
+  /// もう 1 冊入り（割り振りの無い内蔵）、いま割り振られているほうは
+  /// 「自分の単語帳」として残る。開くたびに 1 冊ずつ増えていく。
+  WordBook withSource(String source) => WordBook(
+    id: id,
+    name: name,
+    words: words,
+    author: author,
+    description: description,
+    source: source,
+  );
+
   /// 作った人と概要を書き替えた単語帳。[copyWith] では null を渡せない。
   ///
   /// 一度書いた作成者を消せるようにするために要る。

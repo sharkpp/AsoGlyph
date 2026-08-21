@@ -244,6 +244,31 @@ void main() {
       );
     });
 
+    test('辞書を直しても、内蔵のままでいる', () async {
+      final db = await openMemoryDatabase();
+      final assets = FakeBundledAssets({
+        'assets/words/a.yaml': 'name: どうぶつ\n'
+            'words:\n  - {text: ねこ, reading: ねこ}\n',
+      });
+      final books = await WordBookStore.open(db, assets: assets);
+      final before = books.all.single;
+
+      // 辞書を直した。
+      assets.files['assets/words/a.yaml'] =
+          'name: どうぶつ\n'
+          'words:\n  - {text: ねこ, reading: ねこ}\n'
+          '  - {text: いぬ, reading: いぬ}\n';
+      await WordBookStore.open(db, assets: assets);
+
+      // 入れ替えたぶんが内蔵でなくなると、次に開いたときに「割り振りの無い
+      // 内蔵」と「同じ中身の自分の単語帳」の 2 冊になる。開くたびに増える。
+      final reopened = await WordBookStore.open(db, assets: assets);
+
+      expect(reopened.all.length, 1);
+      expect(reopened.all.single.isBundled, isTrue);
+      expect(reopened.all.single.id, before.id);
+    });
+
     test('変えていない辞書は、開き直しても入れ直さない', () async {
       final db = await openMemoryDatabase();
       final bundle = await encodeWordBookBundle(
