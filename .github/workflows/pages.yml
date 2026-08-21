@@ -57,6 +57,11 @@ jobs:
           grep -q '<base href="/AsoGlyph/"' build/web/index.html
           test -f build/web/sw.js
           test -f build/web/manifest.json
+          # 読み込み中の画面が落ちていないか。落ちると、開くたびに
+          # 地の色の板が数秒出たままになる。
+          grep -q 'id="preloader"' build/web/index.html
+          # 版の情報が焼けているか。焼け忘れると「開発中」のまま配る。
+          grep -q "$(git rev-parse --short=7 HEAD)" build/web/main.dart.js
 
       - uses: actions/configure-pages@v5
 

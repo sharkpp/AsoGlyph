@@ -1,46 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'audio/speaker.dart';
-import 'kanjivg/stroke_order.dart';
-import 'store/app_database.dart';
-import 'store/persistent_storage.dart';
-import 'store/passcode.dart';
-import 'store/session.dart';
+import 'boot.dart';
 import 'ui/about.dart';
+import 'ui/app_mark.dart';
+import 'ui/boot_screen.dart';
 import 'ui/collection_screen.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   registerKanjiVgLicense();
-  // 置き場を片づけないでほしいと、開く前に頼んでおく（web だけ）。
-  // 集めた字は取り戻せない。
-  await requestPersistentStorage();
-  // 記録も版も同じ 1 つのデータベースに置く。
-  final database = await openAppDatabase('asoglyph.db');
-  runApp(
-    AsoGlyphApp(
-      session: await Session.open(database),
-      locks: await Locks.open(),
-      speaker: await TtsSpeaker.open(),
-      strokeOrders: await StrokeOrderLibrary.load(),
-    ),
-  );
+  // 読むのは画面を出したあと（[BootScreen]）。ここで待つと、そのあいだ
+  // 画面が真っ白のまま止まって見える。
+  runApp(const AsoGlyphApp());
 }
 
 class AsoGlyphApp extends StatelessWidget {
-  const AsoGlyphApp({
-    super.key,
-    required this.session,
-    required this.locks,
-    required this.speaker,
-    required this.strokeOrders,
-  });
+  const AsoGlyphApp({super.key, this.boot = bootApp});
 
-  final Session session;
-  final Locks locks;
-  final Speaker speaker;
-  final StrokeOrderLibrary strokeOrders;
+  /// 起動のしかた。テストでは差し替える。
+  final Boot boot;
 
   @override
   Widget build(BuildContext context) {
@@ -57,15 +36,20 @@ class AsoGlyphApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xffe8863c)),
-        scaffoldBackgroundColor: const Color(0xfffaf7f0),
+        colorScheme: ColorScheme.fromSeed(seedColor: appOrange),
+        scaffoldBackgroundColor: appCream,
         useMaterial3: true,
       ),
-      home: CollectionScreen(
-        session: session,
-        locks: locks,
-        speaker: speaker,
-        strokeOrders: strokeOrders,
+      // 読み終わると、同じ場所が本体に替わる。画面を積み替えないので、
+      // 起動が速い端末でも切り替わりが滑って見えない。
+      home: BootScreen(
+        boot: boot,
+        builder: (services) => CollectionScreen(
+          session: services.session,
+          locks: services.locks,
+          speaker: services.speaker,
+          strokeOrders: services.strokeOrders,
+        ),
       ),
     );
   }

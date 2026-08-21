@@ -30,9 +30,86 @@
   <style>
     /* 読み込み中も地の色にしておく。真っ白から始まると、開くたびに白が光る。 */
     html, body { margin: 0; padding: 0; height: 100%; background-color: #faf7f0; }
+
+    /*
+      読み込み中の画面。
+      Flutter が動き出すまでは Dart のコードが 1 行も走らないので、この時間は
+      HTML と CSS だけで持たせるしかない。何も置かないと、地の色の板が数秒
+      出たままになり、開けていないのか読み込み中なのかが分からない。
+
+      置くものは Flutter 側の起動中の画面（lib/ui/boot_screen.dart）と
+      同じ大きさ・同じ色にしてある。入れ替わるときに絵が飛ばない。
+    */
+    #preloader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      font-family: system-ui, "Hiragino Kaku Gothic ProN", sans-serif;
+      /* 入れ替わったら消える。消えるまでは触らせない。 */
+      transition: opacity .2s ease-out;
+    }
+    #preloader img {
+      width: 128px;
+      height: 128px;
+      /* 起動中の画面の印と同じ丸め（一辺の 22%）。 */
+      border-radius: 22%;
+    }
+    #preloader .name { font-size: 22px; font-weight: 600; color: #6f665c; }
+    /*
+      進み具合は出せない。何をどれだけ取るかを決めているのは Flutter の
+      ブートストラップで、こちらからは見えない。動いていることだけを見せる。
+    */
+    #preloader .bar {
+      width: 200px;
+      height: 10px;
+      border-radius: 999px;
+      background: #e4dfd4;
+      overflow: hidden;
+    }
+    #preloader .bar::before {
+      content: "";
+      display: block;
+      width: 40%;
+      height: 100%;
+      border-radius: 999px;
+      background: #e8863c;
+      animation: sweep 1.2s ease-in-out infinite;
+    }
+    @keyframes sweep {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(250%); }
+    }
+    /* 動くものが苦手な人には動かさない。 */
+    @media (prefers-reduced-motion: reduce) {
+      #preloader .bar::before { animation: none; width: 100%; }
+    }
   </style>
 </head>
 <body>
+  <div id="preloader">
+    <!-- アイコンを使い回す。起動中の画面の印と同じ絵から作ってある。 -->
+    <img src="icons/Icon-192.png" alt="">
+    <div class="name">あそんでフォント</div>
+    <div class="bar"></div>
+  </div>
+
+  <script>
+    // Flutter が最初の絵を描いたら消す。そこから先は Flutter 側の起動中の
+    // 画面（読んでいるものと進み具合を出す）が続きを引き受ける。
+    window.addEventListener('flutter-first-frame', () => {
+      const preloader = document.getElementById('preloader');
+      if (!preloader) return;
+      preloader.style.opacity = '0';
+      // 消え終わってから取り除く。残すと、書き取り面の上に透明な板が
+      // かぶさったままになる。
+      preloader.addEventListener('transitionend', () => preloader.remove());
+    });
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
