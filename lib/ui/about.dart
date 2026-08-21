@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../app_version.dart';
+
 /// KanjiVG のクレジットとライセンス表記（SPEC 6.3 / 10）。
 ///
 /// 子供向けカテゴリは外部リンクの扱いが厳しいため、ブラウザへ飛ばさず
@@ -36,6 +38,9 @@ void showAboutAsoGlyph(BuildContext context, {required VoidCallback onClear}) {
   showAboutDialog(
     context: context,
     applicationName: 'あそんでフォント',
+    // どのビルドが動いているか（日付＋ショートハッシュ）。web は同じ URL の
+    // ものが黙って入れ替わるので、確かめる手立てが要る（SPEC 10.1）。
+    applicationVersion: appVersionLabel,
     applicationLegalese: '© sharkpp  https://sharkpp.net',
     children: [
       const SizedBox(height: 16),

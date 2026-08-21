@@ -45,7 +45,11 @@ jobs:
       - run: flutter test
 
       # サブパスに置くので --base-href が要る。付け忘れると真っ白になる。
-      - run: flutter build web --release --base-href /AsoGlyph/
+      #
+      # 版の情報（日付＋ショートハッシュ）も焼き込む。web は同じ URL のものが
+      # 黙って入れ替わるので、いま見ているのがどのコミットのものかを
+      # 確かめる手立てが要る（SPEC 10.1）。
+      - run: flutter build web --release --base-href /AsoGlyph/ $(tool/version_defines.sh)
 
       # 付け忘れをここで落とす。画面が出ないことに気づくのは、たいてい公開後。
       - name: 出し先の道を確かめる

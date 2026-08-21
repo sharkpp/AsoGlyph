@@ -14,9 +14,14 @@
 作るときは:
 
 ```sh
-flutter build web --release --base-href /AsoGlyph/
+flutter build web --release --base-href /AsoGlyph/ $(tool/version_defines.sh)
 cd build/web && python3 -m http.server 8000   # http://localhost:8000/
 ```
+
+`tool/version_defines.sh` は版の情報（コミットの日付＋ショートハッシュ）を
+焼き込みます。焼き込まないと起動画面と「このアプリについて」に「開発中」と
+出ます。web は同じ URL のものが黙って入れ替わるので、いま見ているのが
+どのコミットのものかを確かめる手立てが要ります（SPEC 10.2）。
 
 ホーム画面に置けて、オフラインでも開けます（PWA、SPEC 10.1）。
 
