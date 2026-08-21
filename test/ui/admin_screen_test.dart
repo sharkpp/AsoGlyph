@@ -12,6 +12,7 @@ import 'package:asoglyph/practice/question_picker.dart';
 import 'package:asoglyph/ui/admin_screen.dart';
 import 'package:asoglyph/ui/char_set_screen.dart';
 import 'package:asoglyph/ui/word_book_section.dart';
+import 'package:asoglyph/ui/word_history_section.dart';
 import 'package:asoglyph/ui/recipe_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -378,7 +379,12 @@ void main() {
     });
     await pumpScreen(tester);
     // 消す行そのものを出す。新しい順に並ぶので「ねこ」は「いぬ」のうしろ。
-    await tester.scrollUntilVisible(find.widgetWithText(ListTile, 'ねこ'), 200);
+    // 記録の一覧は中で送れる（高さを止めてある）ので、送るのは外側と言う。
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'ねこ'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     await tester.runAsync(
       () => tester.tap(
@@ -401,7 +407,11 @@ void main() {
       () => session.attempts.finish(word: 'ねこ', sampleIds: ['a']),
     );
     await pumpScreen(tester);
-    await tester.scrollUntilVisible(find.text('ぜんぶ消す'), 200);
+    await tester.scrollUntilVisible(
+      find.text('ぜんぶ消す'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     await tester.tap(find.text('ぜんぶ消す'));
     await tester.pumpAndSettle();
@@ -415,6 +425,35 @@ void main() {
     expect(session.attempts.all, isEmpty);
     expect(find.textContaining('まだ、ことばを最後まで書いた記録はありません'),
         findsOneWidget);
+  });
+
+  testWidgets('書いたことばの記録は、高さが止まって中で送れる', (tester) async {
+    // 書けた語は増え続ける。伸びるままだと、この 1 節だけで画面が埋まる。
+    await tester.runAsync(() async {
+      for (var i = 0; i < 30; i++) {
+        await session.attempts.finish(word: 'ねこ$i', sampleIds: ['s$i']);
+      }
+    });
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(
+      find.text('ぜんぶ消す'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    // 記録の一覧が、おうちの人の画面とは別に送れる。
+    final inner = find.descendant(
+      of: find.byType(WordHistorySection),
+      matching: find.byType(Scrollable),
+    );
+    expect(inner, findsOneWidget);
+    expect(tester.getSize(inner).height, lessThanOrEqualTo(360));
+
+    // 中を送ると、あとの語が出てくる。30 語ぜんぶは枠に入らない。
+    expect(find.widgetWithText(ListTile, 'ねこ0'), findsNothing);
+    await tester.drag(inner, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ListTile, 'ねこ0'), findsOneWidget);
   });
 
   testWidgets('ロックは 2 つ別々に掛けられる', (tester) async {

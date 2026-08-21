@@ -8,10 +8,18 @@ import 'admin_screen.dart' show formatDate;
 ///
 /// 消せるのは「この語を書き終えた」という印だけ。**書いた字は消えない**
 /// （SPEC 4.1）。星が付いたままだと、もう一度書かせたい語を子供が選ばなくなる。
+///
+/// 記録は書くたびに増えていくので、**高さを止めて中を送らせる**。伸びるままに
+/// すると、この 1 節だけで画面が埋まり、下にある版やフォントの出口まで
+/// たどり着けなくなる。
 class WordHistorySection extends StatelessWidget {
   const WordHistorySection({super.key, required this.session});
 
   final Session session;
+
+  /// ここまでの高さで止める。行の高さ（約 72）の 5 行ぶん。
+  /// 何語か書いた子ならすぐ超えるので、送れることが見えたままになる。
+  static const _maxHeight = 360.0;
 
   @override
   Widget build(BuildContext context) {
@@ -27,27 +35,53 @@ class WordHistorySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '消えるのは「書けた」という印だけです。書いた字は消えません。',
-          style: TextStyle(color: Color(0xff9c948a)),
+        Text(
+          '消えるのは「書けた」という印だけです。書いた字は消えません。'
+          '（${history.length} 語）',
+          style: const TextStyle(color: Color(0xff9c948a)),
         ),
-        for (final entry in history)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              // かっこは外して見せる。書かせない字は入っていない。
-              Word(text: entry.word, reading: '').display,
-              style: const TextStyle(fontSize: 18),
+        const SizedBox(height: 8),
+        // 書けた語は増え続ける。ここが伸びるままだと、下にある「フォントの版」
+        // まで画面を送りきれなくなる。高さを止めて、中だけを送らせる。
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: _maxHeight),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              // 送れる場所だと分かるようにする。枠が無いと、途中で切れた行が
+              // 「はみ出している」ように見える。
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xffe4dfd4), width: 2),
             ),
-            subtitle: Text(
-              '${entry.count} 回 ・ ${formatDate(entry.lastAt)}',
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'この ことばの記録を消す',
-              onPressed: () => session.attempts.removeWord(entry.word),
+            child: ListView(
+              // 記録が少ないうちは、枠のほうを縮める。
+              shrinkWrap: true,
+              // おうちの人の画面そのものが ListView。こちらが画面の
+              // 送り手になると、外側が送れなくなる。
+              primary: false,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                for (final entry in history)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      // かっこは外して見せる。書かせない字は入っていない。
+                      Word(text: entry.word, reading: '').display,
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    subtitle: Text(
+                      '${entry.count} 回 ・ ${formatDate(entry.lastAt)}',
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close),
+                      tooltip: 'この ことばの記録を消す',
+                      onPressed: () => session.attempts.removeWord(entry.word),
+                    ),
+                  ),
+              ],
             ),
           ),
+        ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: () => _clear(context),
