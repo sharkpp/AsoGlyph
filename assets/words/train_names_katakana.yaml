@@ -1,0 +1,113 @@
+# 電車の愛称。カタカナで書ける名を集めてある。
+# ひらがな版は train_names_hiragana.yaml。
+#
+# 新幹線の愛称（のぞみ・ひかり）はどれもひらがななので、こちらには
+# 入っていない。カタカナの愛称は在来線の特急と私鉄に多い。
+#
+# 語の選びかた:
+#   - カタカナ 81 字だけで書ける名にする。「ヴ」は収集対象に無いので使わない
+#   - 8 字までにする（「ー」も 1 字）。「スカイライナー」までは入るが、
+#     「シーサイドライナー」「ロイヤルエクスプレス」は 1 セッション
+#     （3〜5 分）で書き終わらない
+#   - 「スーパーはくと」のようにひらがなが混じる名は入れない。カタカナだけを
+#     集めている人には 1 語も出ないため
+version: 1
+name: でんしゃのなまえ（カタカナ）
+author: sharkpp
+description: 電車の愛称のうち、カタカナ 81 字だけで書ける名
+author: sharkpp
+description: 在来線の特急と私鉄の愛称。カタカナ 81 字だけで書ける名を集めてある
+words:
+  - text: ドクターイエロー
+    reading: どくたーいえろー
+    tags: [しんかんせん]
+  - text: カムイ
+    reading: かむい
+    tags: [とっきゅう]
+  - text: ニセコ
+    reading: にせこ
+    tags: [とっきゅう]
+  - text: ソニック
+    reading: そにっく
+    tags: [とっきゅう]
+  - text: サロベツ
+    reading: さろべつ
+    tags: [とっきゅう]
+  - text: ライラック
+    reading: らいらっく
+    tags: [とっきゅう]
+  - text: オホーツク
+    reading: おほーつく
+    tags: [とっきゅう]
+  - text: サフィール
+    reading: さふぃーる
+    tags: [とっきゅう]
+  - text: サンライズ
+    reading: さんらいず
+    tags: [とっきゅう]
+  - text: カシオペア
+    reading: かしおぺあ
+    tags: [とっきゅう]
+  - text: エアポート
+    reading: えあぽーと
+    tags: [とっきゅう]
+  - text: ムーンライト
+    reading: むーんらいと
+    tags: [とっきゅう]
+  - text: ワイドビュー
+    reading: わいどびゅー
+    tags: [とっきゅう]
+  - text: トワイライト
+    reading: とわいらいと
+    tags: [とっきゅう]
+  - text: サンダーバード
+    reading: さんだーばーど
+    tags: [とっきゅう]
+  - text: マリンライナー
+    reading: まりんらいなー
+    tags: [とっきゅう]
+  - text: ハウステンボス
+    reading: はうすてんぼす
+    tags: [とっきゅう]
+  - text: ノースレインボー
+    reading: のーすれいんぼー
+    tags: [とっきゅう]
+  - text: サザン
+    reading: さざん
+    tags: [しでつ]
+  - text: ラビュー
+    reading: らびゅー
+    tags: [しでつ]
+  - text: ラピート
+    reading: らぴーと
+    tags: [しでつ]
+  - text: リバティ
+    reading: りばてぃ
+    tags: [しでつ]
+  - text: フジサン
+    reading: ふじさん
+    tags: [しでつ]
+  - text: スペーシア
+    reading: すぺーしあ
+    tags: [しでつ]
+  - text: ビスタカー
+    reading: びすたかー
+    tags: [しでつ]
+  - text: ロマンスカー
+    reading: ろまんすかー
+    tags: [しでつ]
+  - text: レッドアロー
+    reading: れっどあろー
+    tags: [しでつ]
+  - text: ミュースカイ
+    reading: みゅーすかい
+    tags: [しでつ]
+  - text: パノラマカー
+    reading: ぱのらまかー
+    tags: [しでつ]
+  - text: スカイライナー
+    reading: すかいらいなー
+    tags: [しでつ]
+  - text: アーバンライナー
+    reading: あーばんらいなー
+    tags: [しでつ]

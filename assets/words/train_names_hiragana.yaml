@@ -1,0 +1,129 @@
+# 電車の愛称。ひらがなで書ける名だけを集めてある。
+# カタカナ版は train_names_katakana.yaml。
+#
+# 語の選びかた:
+#   - ひらがな 80 字だけで書ける名にする。「そにっく」のようにカタカナが
+#     元の名でも、ひらがなで書けるものは置く。長音符「ー」を含む名
+#     （「すーぱーはくと」など）は、ひらがなに「ー」が無いので置かない
+#   - 2〜4 字の名が多く、4 歳でも 1 語を書き終えられる
+version: 1
+name: でんしゃのなまえ（ひらがな）
+author: sharkpp
+description: 電車の愛称のうち、ひらがな 80 字だけで書ける名
+author: sharkpp
+description: 新幹線と特急の愛称。ひらがな 80 字だけで書ける名を集めてある
+words:
+  - text: のぞみ
+    reading: のぞみ
+    tags: [しんかんせん]
+  - text: ひかり
+    reading: ひかり
+    tags: [しんかんせん]
+  - text: こだま
+    reading: こだま
+    tags: [しんかんせん]
+  - text: はやぶさ
+    reading: はやぶさ
+    tags: [しんかんせん]
+  - text: はやて
+    reading: はやて
+    tags: [しんかんせん]
+  - text: こまち
+    reading: こまち
+    tags: [しんかんせん]
+  - text: つばさ
+    reading: つばさ
+    tags: [しんかんせん]
+  - text: やまびこ
+    reading: やまびこ
+    tags: [しんかんせん]
+  - text: なすの
+    reading: なすの
+    tags: [しんかんせん]
+  - text: とき
+    reading: とき
+    tags: [しんかんせん]
+  - text: たにがわ
+    reading: たにがわ
+    tags: [しんかんせん]
+  - text: かがやき
+    reading: かがやき
+    tags: [しんかんせん]
+  - text: はくたか
+    reading: はくたか
+    tags: [しんかんせん]
+  - text: つるぎ
+    reading: つるぎ
+    tags: [しんかんせん]
+  - text: あさま
+    reading: あさま
+    tags: [しんかんせん]
+  - text: さくら
+    reading: さくら
+    tags: [しんかんせん]
+  - text: みずほ
+    reading: みずほ
+    tags: [しんかんせん]
+  - text: つばめ
+    reading: つばめ
+    tags: [しんかんせん]
+  - text: かもめ
+    reading: かもめ
+    tags: [しんかんせん]
+  - text: あずさ
+    reading: あずさ
+    tags: [とっきゅう]
+  - text: かいじ
+    reading: かいじ
+    tags: [とっきゅう]
+  - text: ひたち
+    reading: ひたち
+    tags: [とっきゅう]
+  - text: ときわ
+    reading: ときわ
+    tags: [とっきゅう]
+  - text: しなの
+    reading: しなの
+    tags: [とっきゅう]
+  - text: ひだ
+    reading: ひだ
+    tags: [とっきゅう]
+  - text: やくも
+    reading: やくも
+    tags: [とっきゅう]
+  - text: くろしお
+    reading: くろしお
+    tags: [とっきゅう]
+  - text: しおかぜ
+    reading: しおかぜ
+    tags: [とっきゅう]
+  - text: おどりこ
+    reading: おどりこ
+    tags: [とっきゅう]
+  - text: わかしお
+    reading: わかしお
+    tags: [とっきゅう]
+  - text: さざなみ
+    reading: さざなみ
+    tags: [とっきゅう]
+  - text: あかぎ
+    reading: あかぎ
+    tags: [とっきゅう]
+  - text: くさつ
+    reading: くさつ
+    tags: [とっきゅう]
+  - text: きりしま
+    reading: きりしま
+    tags: [とっきゅう]
+  - text: にちりん
+    reading: にちりん
+    tags: [とっきゅう]
+  - text: らいちょう
+    reading: らいちょう
+    tags: [とっきゅう]
+  - text: ふじさん
+    reading: ふじさん
+    tags: [とっきゅう]
+  - text: そにっく
+    reading: そにっく
+    tags: [とっきゅう]

@@ -1,0 +1,88 @@
+# はたらくくるまの名を、ひらがなで書けるかたちにして集めてある。
+# カタカナ版は work_vehicles_katakana.yaml。
+#
+# 語の選びかた:
+#   - ひらがな 80 字だけで書ける語にする。長音符「ー」はひらがなに無いので
+#     （CharSet.hiragana）、「くれーんしゃ」「ぶるどーざー」のような語は
+#     ここには置かない。置くと、ひらがなを集めている人には 1 語も出ない。
+#     歌の 36 台のうち半分がこれで落ちる（ぱとかー・れっかーしゃ・
+#     たんくろーりー・ふぉーくりふと・しょべるかー・くれーんしゃ ほか）
+#   - 8 字までにする。「てれびちゅうけいしゃ」「きゅうしょくうんぱんしゃ」は
+#     1 セッション（3〜5 分）で書き終わらない
+#   - 「〜しゃ」で終わる名が多く、拗音・濁音はどうしても入る。短い語を先に置く
+version: 1
+name: はたらくくるま（ひらがな）
+author: sharkpp
+description: はたらくくるまの名を、ひらがなだけで書けるかたちにしたもの
+author: sharkpp
+description: はたらくくるまの名。ひらがなで書けるものを入れてある
+words:
+  - text: ばす
+    reading: ばす
+    tags: [はたらくくるま]
+  - text: だんぷ
+    reading: だんぷ
+    tags: [はたらくくるま]
+  - text: とらっく
+    reading: とらっく
+    tags: [はたらくくるま]
+  - text: たうえき
+    reading: たうえき
+    tags: [はたらくくるま]
+  - text: ぽんぷしゃ
+    reading: ぽんぷしゃ
+    tags: [はたらくくるま]
+  - text: はしごしゃ
+    reading: はしごしゃ
+    tags: [はたらくくるま]
+  - text: こんばいん
+    reading: こんばいん
+    tags: [はたらくくるま]
+  - text: こううんき
+    reading: こううんき
+    tags: [はたらくくるま]
+  - text: ぱねるばん
+    reading: ぱねるばん
+    tags: [はたらくくるま]
+  - text: ゆうびんしゃ
+    reading: ゆうびんしゃ
+    tags: [はたらくくるま]
+  - text: せいそうしゃ
+    reading: せいそうしゃ
+    tags: [はたらくくるま]
+  - text: さんすいしゃ
+    reading: さんすいしゃ
+    tags: [はたらくくるま]
+  - text: じょせつしゃ
+    reading: じょせつしゃ
+    tags: [はたらくくるま]
+  - text: たらっぷしゃ
+    reading: たらっぷしゃ
+    tags: [はたらくくるま]
+  - text: たくはいしゃ
+    reading: たくはいしゃ
+    tags: [はたらくくるま]
+  - text: れいとうしゃ
+    reading: れいとうしゃ
+    tags: [はたらくくるま]
+  - text: りむじんばす
+    reading: りむじんばす
+    tags: [はたらくくるま]
+  - text: さふぁりばす
+    reading: さふぁりばす
+    tags: [はたらくくるま]
+  - text: ようちえんばす
+    reading: ようちえんばす
+    tags: [はたらくくるま]
+  - text: きゅうすいしゃ
+    reading: きゅうすいしゃ
+    tags: [はたらくくるま]
+  - text: きゅうじょしゃ
+    reading: きゅうじょしゃ
+    tags: [はたらくくるま]
+  - text: しょうぼうしゃ
+    reading: しょうぼうしゃ
+    tags: [はたらくくるま]
+  - text: きゅうきゅうしゃ
+    reading: きゅうきゅうしゃ
+    tags: [はたらくくるま]

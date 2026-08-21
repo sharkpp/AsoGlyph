@@ -1,0 +1,128 @@
+# はたらくくるまの名を、カタカナで書けるかたちにして集めてある。
+# ひらがな版（work_vehicles_hiragana.yaml）と同じ 36 台を、カタカナで書く。
+#
+# 語の選びかた:
+#   - カタカナ 81 字だけで書ける語にする。「ヴ」は収集対象に無いので使わない
+#   - 8 字までにする（「ー」も 1 字）。「トーイングトラクター」
+#     「ポテトハーベスター」「コンクリートミキサーシャ」は 1 セッション
+#     （3〜5 分）で書き終わらない。長い名は短い通称にした
+#     （コンクリートミキサーシャ → ミキサーシャ、パトロールカー → パトカー、
+#     ハシゴショウボウシャ → ハシゴシャ）
+#   - 「〜シャ」で終わる漢語の名も、カタカナで書く。版をまたいで同じ 36 台に
+#     しておかないと、ひらがなで書けた車がカタカナでは出てこなくなる
+#   - 短い語を先に置く
+version: 1
+name: はたらくくるま（カタカナ）
+author: sharkpp
+description: はたらくくるまの名を、カタカナで書くもの
+author: sharkpp
+description: はたらくくるまの名。カタカナで書けるかたちにしてある
+words:
+  - text: バス
+    reading: ばす
+    tags: [はたらくくるま]
+  - text: パトカー
+    reading: ぱとかー
+    tags: [はたらくくるま]
+  - text: タクシー
+    reading: たくしー
+    tags: [はたらくくるま]
+  - text: トラック
+    reading: とらっく
+    tags: [はたらくくるま]
+  - text: タウエキ
+    reading: たうえき
+    tags: [はたらくくるま]
+  - text: ダンプカー
+    reading: だんぷかー
+    tags: [はたらくくるま]
+  - text: パネルバン
+    reading: ぱねるばん
+    tags: [はたらくくるま]
+  - text: ボトルカー
+    reading: ぼとるかー
+    tags: [はたらくくるま]
+  - text: ハシゴシャ
+    reading: はしごしゃ
+    tags: [はたらくくるま]
+  - text: ポンプシャ
+    reading: ぽんぷしゃ
+    tags: [はたらくくるま]
+  - text: コンバイン
+    reading: こんばいん
+    tags: [はたらくくるま]
+  - text: コウウンキ
+    reading: こううんき
+    tags: [はたらくくるま]
+  - text: ブルドーザー
+    reading: ぶるどーざー
+    tags: [はたらくくるま]
+  - text: ショベルカー
+    reading: しょべるかー
+    tags: [はたらくくるま]
+  - text: カーキャリア
+    reading: かーきゃりあ
+    tags: [はたらくくるま]
+  - text: レッカーシャ
+    reading: れっかーしゃ
+    tags: [はたらくくるま]
+  - text: クレーンシャ
+    reading: くれーんしゃ
+    tags: [はたらくくるま]
+  - text: ミキサーシャ
+    reading: みきさーしゃ
+    tags: [はたらくくるま]
+  - text: リムジンバス
+    reading: りむじんばす
+    tags: [はたらくくるま]
+  - text: サファリバス
+    reading: さふぁりばす
+    tags: [はたらくくるま]
+  - text: リリーフカー
+    reading: りりーふかー
+    tags: [はたらくくるま]
+  - text: ユウビンシャ
+    reading: ゆうびんしゃ
+    tags: [はたらくくるま]
+  - text: セイソウシャ
+    reading: せいそうしゃ
+    tags: [はたらくくるま]
+  - text: サンスイシャ
+    reading: さんすいしゃ
+    tags: [はたらくくるま]
+  - text: ジョセツシャ
+    reading: じょせつしゃ
+    tags: [はたらくくるま]
+  - text: タラップシャ
+    reading: たらっぷしゃ
+    tags: [はたらくくるま]
+  - text: タクハイシャ
+    reading: たくはいしゃ
+    tags: [はたらくくるま]
+  - text: レイトウシャ
+    reading: れいとうしゃ
+    tags: [はたらくくるま]
+  - text: タンクローリー
+    reading: たんくろーりー
+    tags: [はたらくくるま]
+  - text: フォークリフト
+    reading: ふぉーくりふと
+    tags: [はたらくくるま]
+  - text: ロードローラー
+    reading: ろーどろーらー
+    tags: [はたらくくるま]
+  - text: ヨウチエンバス
+    reading: ようちえんばす
+    tags: [はたらくくるま]
+  - text: キュウスイシャ
+    reading: きゅうすいしゃ
+    tags: [はたらくくるま]
+  - text: キュウジョシャ
+    reading: きゅうじょしゃ
+    tags: [はたらくくるま]
+  - text: ショウボウシャ
+    reading: しょうぼうしゃ
+    tags: [はたらくくるま]
+  - text: キュウキュウシャ
+    reading: きゅうきゅうしゃ
+    tags: [はたらくくるま]
