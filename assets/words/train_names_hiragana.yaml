@@ -9,8 +9,6 @@
 version: 1
 name: でんしゃのなまえ（ひらがな）
 author: sharkpp
-description: 電車の愛称のうち、ひらがな 80 字だけで書ける名
-author: sharkpp
 description: 新幹線と特急の愛称。ひらがな 80 字だけで書ける名を集めてある
 words:
   - text: のぞみ

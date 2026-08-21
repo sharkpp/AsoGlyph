@@ -14,8 +14,6 @@
 version: 1
 name: でんしゃのなまえ（カタカナ）
 author: sharkpp
-description: 電車の愛称のうち、カタカナ 81 字だけで書ける名
-author: sharkpp
 description: 在来線の特急と私鉄の愛称。カタカナ 81 字だけで書ける名を集めてある
 words:
   - text: ドクターイエロー

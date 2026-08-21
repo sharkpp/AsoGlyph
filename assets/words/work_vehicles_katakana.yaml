@@ -14,8 +14,6 @@
 version: 1
 name: はたらくくるま（カタカナ）
 author: sharkpp
-description: はたらくくるまの名を、カタカナで書くもの
-author: sharkpp
 description: はたらくくるまの名。カタカナで書けるかたちにしてある
 words:
   - text: バス

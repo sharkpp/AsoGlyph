@@ -13,8 +13,6 @@
 version: 1
 name: はたらくくるま（ひらがな）
 author: sharkpp
-description: はたらくくるまの名を、ひらがなだけで書けるかたちにしたもの
-author: sharkpp
 description: はたらくくるまの名。ひらがなで書けるものを入れてある
 words:
   - text: ばす

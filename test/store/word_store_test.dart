@@ -42,6 +42,22 @@ void main() {
       );
     });
 
+    test('置いた辞書は、1 冊も落ちずに読める', () async {
+      // 読めない辞書は、その 1 冊が出ないだけになる（SPEC 7.4.3）。アプリは
+      // 開くが、**配るものに混ざっていても誰も気づかない**。ここで落とす。
+      final assets = await const AppBundledAssets().list();
+      final books = await openMemoryWordBooks();
+
+      expect(assets, isNotEmpty, reason: 'assets/words/ に辞書が無い');
+      for (final asset in assets) {
+        expect(
+          books.all.map((book) => book.source),
+          contains(asset),
+          reason: '$asset が読めていない',
+        );
+      }
+    });
+
     test('同梱の語は、集められる字だけで書ける', () async {
       final books = await openMemoryWordBooks();
       final all = {for (final set in CharSet.values) ...set.chars};
