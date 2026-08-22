@@ -156,7 +156,8 @@ python3 tool/word_book/asodict2pdf.py --merge -o work/ウルトラ怪獣.pdf \
 | `--page-size` | `a4` | 用紙。名前（`a3`〜`a6` `b4`〜`b6` `letter` `legal`）か `210mm,297mm` |
 | `--landscape` | — | 紙を横にする |
 | `--word-size` | `40mm` | マスのサイズ。`40mm,30mm` か 1 辺だけ |
-| `--margin` / `--gap` / `--padding` | `0` / `0` / `1mm` | 紙の余白／マスの間／マスの内側 |
+| `--margin` | `0` | 紙の余白。1 つ（上下左右）・2 つ（上下,左右）・4 つ（上,下,左,右） |
+| `--gap` / `--padding` | `0` / `1mm` | マスの間／マスの内側 |
 | `--title` / `--title-size` | `yes` / `5mm` | 単語帳の名前を刷るか（2 ページ以上なら丁付けも） |
 | `--image` / `--image-zoom` | `yes` / `1.0` | 絵を描くか／マスいっぱいを 1.0 とした割合 |
 | `--word` / `--word-source` | `yes` / `text` | ことばを描くか／ことばか読みか |
@@ -169,7 +170,9 @@ python3 tool/word_book/asodict2pdf.py --merge -o work/ウルトラ怪獣.pdf \
 | `--font` | — | 埋め込む TTF。省くと `HeiseiKakuGo-W5` を名前で指すだけ |
 
 - **紙の余白は既定で 0**（詰められるだけ詰める）。端が切れるプリンタで刷るときは
-  `--margin` を足す
+  `--margin` を足す。`--margin 10mm`（上下左右）・`--margin 5mm,20mm`（上下,左右）・
+  `--margin 30mm,5mm,10mm,40mm`（上,下,左,右）。並びは「縦から横へ」で
+  `--word-align` の 垂直,水平 と同じ（**CSS の 上,右,下,左 とは違う**）
 - **絵はマスいっぱいが `--image-zoom 1.0`。** そこから割合で縮める。
   引き伸ばさない（縦横の比を変えると、親が入れた絵と違うものが出る）
 - 縮めたぶんの空きは**名前の反対側**に出す（名前が下なら絵は上へ寄る）。

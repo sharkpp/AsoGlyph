@@ -41,8 +41,12 @@
 入るだけ並べる。余りは次の紙へ。
 
 **紙の余白は既定で 0。** 一覧は詰まっているほうが見やすく、刷る枚数も減る。
-端が切れるプリンタで刷るときは `--margin` を足す。マスが入りきらなかったぶんの
-空きは左右で半分ずつにする（片側に寄せると、切って使うときに向きで狂う）。
+端が切れるプリンタで刷るときは `--margin` を足す。1 つなら上下左右、2 つなら
+上下と左右、4 つなら上・下・左・右。並びは「縦から横へ」で、`--word-align` の
+垂直,水平 と同じ（CSS の 上,右,下,左 とは違う）。
+
+マスが入りきらなかったぶんの空きは左右で半分ずつにする（片側に寄せると、
+切って使うときに向きで狂う）。
 
 - 絵は**マスいっぱいが `--image-zoom 1.0`**。そこから割合で縮める。
   **引き伸ばさない。** 縦横の比を変えると、親が入れた絵と違うものが出る
@@ -94,6 +98,7 @@ import os
 import re
 import sys
 import zipfile
+from collections import namedtuple
 
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
@@ -129,6 +134,9 @@ HORIZONTAL = ("left", "center", "right")
 
 # 絵の形（SPEC 7.4.2）。SVG だけは描き方が違う。
 SVG_SUFFIXES = (".svg",)
+
+# 紙の余白。並びは「縦から横へ」（`--word-align` と同じ）。
+Margins = namedtuple("Margins", "top bottom left right")
 
 
 # --------------------------------------------------------------- 引数の読み取り
@@ -171,6 +179,29 @@ def rect_size(value):
     if len(parts) == 2:
         return length(parts[0]), length(parts[1])
     raise argparse.ArgumentTypeError(f"「幅,高さ」の形で書いてください: {value}")
+
+
+def margins(value):
+    """紙の余白。`10mm` / `10mm,5mm`（上下,左右）/ `10mm,5mm,8mm,8mm`（上,下,左,右）。
+
+    2 つのときの並び（上下,左右）をそのまま開くと 上,下,左,右 になる。CSS の
+    4 つ組（上,右,下,左）とは並びが違うが、この道具のほかの指定（`--word-align`
+    の 垂直,水平）と同じ「縦から横へ」の並びに揃える。
+    """
+    parts = [part for part in value.split(",") if part.strip()]
+    sizes = [length(part) for part in parts]
+    if len(sizes) == 1:
+        top = bottom = left = right = sizes[0]
+    elif len(sizes) == 2:
+        top = bottom = sizes[0]
+        left = right = sizes[1]
+    elif len(sizes) == 4:
+        top, bottom, left, right = sizes
+    else:
+        raise argparse.ArgumentTypeError(
+            f"余白は 1 つ（上下左右）・2 つ（上下,左右）・4 つ（上,下,左,右）で書いてください: {value}"
+        )
+    return Margins(top, bottom, left, right)
 
 
 def flag(value):
@@ -517,21 +548,22 @@ class Layout:
         self.margin = margin
         self.title_height = title_height
 
-        usable_width = self.page_width - margin * 2
-        usable_height = self.page_height - margin * 2 - title_height
+        usable_width = self.page_width - margin.left - margin.right
+        usable_height = self.page_height - margin.top - margin.bottom - title_height
         self.columns = int((usable_width + gap) // (self.cell_width + gap))
         self.rows = int((usable_height + gap) // (self.cell_height + gap))
         if self.columns < 1 or self.rows < 1:
             raise ValueError(
                 "マスが紙に入りません（"
                 f"紙 {self.page_width / MM:.0f}×{self.page_height / MM:.0f}mm、"
-                f"余白 {margin / MM:.0f}mm、"
+                f"余白 縦 {(margin.top + margin.bottom) / MM:.0f}mm・"
+                f"横 {(margin.left + margin.right) / MM:.0f}mm、"
                 f"マス {self.cell_width / MM:.0f}×{self.cell_height / MM:.0f}mm）"
             )
         self.per_page = self.columns * self.rows
         grid_width = self.columns * self.cell_width + (self.columns - 1) * gap
-        self.left = (self.page_width - grid_width) / 2
-        self.top = self.page_height - margin - title_height
+        self.left = margin.left + (usable_width - grid_width) / 2
+        self.top = self.page_height - margin.top - title_height
 
     def cell(self, index):
         """ページの中の何番目か → マスの (x, y, 幅, 高さ)。"""
@@ -624,11 +656,11 @@ def render(path, sections, options, meta):
             if options.title and section.name:
                 canvas.setFillColorRGB(0, 0, 0)
                 canvas.setFont(font, title_size)
-                baseline = layout.page_height - options.margin - title_size
+                baseline = layout.page_height - options.margin.top - title_size
                 canvas.drawString(layout.left, baseline, section.name)
                 if pages > 1:
                     canvas.drawRightString(
-                        layout.page_width - options.margin, baseline, f"{number} / {pages}"
+                        layout.page_width - options.margin.right, baseline, f"{number} / {pages}"
                     )
 
             for index in range(layout.per_page):
@@ -731,8 +763,9 @@ def parse_args(argv):
         help="マスのサイズ。「40mm,30mm」か「40mm」（正方形）。既定 40mm",
     )
     parser.add_argument(
-        "--margin", type=length, default=0.0,
-        help="紙の余白。既定 0（詰められるだけ詰める）。端の切れるプリンタでは足す",
+        "--margin", type=margins, default=margins("0"),
+        help="紙の余白。1 つ（上下左右）・2 つ（上下,左右）・4 つ（上,下,左,右）。"
+        "既定 0（詰められるだけ詰める）。端の切れるプリンタでは足す",
     )
     parser.add_argument("--gap", type=length, default=0.0, help="マスの間。既定 0（敷き詰める）")
     parser.add_argument(
