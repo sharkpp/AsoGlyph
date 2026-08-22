@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- URL から単語帳を取り込むのに要る（SPEC 7.4.1）。
+         debug と profile には Flutter が自ら足すので、ここが無いと
+         release でだけ取ってこられない。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="asoglyph"
         android:name="${applicationName}"

@@ -5,9 +5,10 @@ import '../model/word.dart';
 import '../practice/question_picker.dart';
 import '../store/session.dart';
 import '../store/word_book_store.dart';
-import '../word/word_image.dart';
+import '../word/word_image.dart' show extensionOf;
 import '../word/word_book_codec.dart';
 import '../word/word_book_export.dart';
+import '../word/word_book_fetch.dart';
 import 'file_types.dart';
 import 'word_book_editor.dart';
 
@@ -99,6 +100,14 @@ class WordBookSection extends StatelessWidget {
           ),
           onTap: () => _import(context),
         ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.link),
+          title: const Text('URL から取り込む'),
+          // 渡す側が置き場に上げてあるなら、落としてから選ぶより早い。
+          subtitle: const Text('置いてある単語帳を、落とさずに取り込みます'),
+          onTap: () => _importUrl(context),
+        ),
       ],
     );
   }
@@ -143,9 +152,33 @@ class WordBookSection extends StatelessWidget {
     final file = await openFile(acceptedTypeGroups: wordBookTypeGroups);
     if (file == null || !context.mounted) return;
 
+    await _take(context, () => _read(file));
+  }
+
+  /// URL から取り込む（SPEC 7.4.1）。
+  Future<void> _importUrl(BuildContext context) async {
+    final url = await _askUrl(context);
+    if (url == null || !context.mounted) return;
+
+    await _take(context, () async {
+      final fetched = await fetchWordBook(url);
+      return fetched.isBundle
+          ? books.importBundle(
+              fetched.bytes!,
+              name: _withoutExtension(fetched.fileName),
+            )
+          : books.importText(fetched.text!, fileName: fetched.fileName);
+    });
+  }
+
+  /// 取り込みの結末を出す。入口（ファイル・URL）で変わらない。
+  Future<void> _take(
+    BuildContext context,
+    Future<WordBook> Function() read,
+  ) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final book = await _read(file);
+      final book = await read();
       messenger.showSnackBar(
         SnackBar(
           content: Text('「${book.name}」を取り込みました（${book.words.length} 語）'),
@@ -160,47 +193,51 @@ class WordBookSection extends StatelessWidget {
     }
   }
 
-  /// 取り込んだファイルを単語帳にする。
-  ///
-  /// 単語帳ファイルだけは絵が入っているので、先に絵を端末へ入れてから、
-  /// 語の指す先を端末の中の id に付け替える。
-  Future<WordBook> _read(XFile file) async {
-    if (extensionOf(file.name) != wordBookBundleExtension) {
-      return books.add(
-        parseWordBookFile(
-          fileName: file.name,
-          source: await file.readAsString(),
+  /// 取り込んだファイルを単語帳にする。読み方は拡張子で決める。
+  Future<WordBook> _read(XFile file) async =>
+      extensionOf(file.name) == wordBookBundleExtension
+      ? books.importBundle(
+          await file.readAsBytes(),
+          name: _withoutExtension(file.name),
+        )
+      : books.importText(await file.readAsString(), fileName: file.name);
+}
+
+/// 単語帳の名前にするために拡張子を落とす。
+String _withoutExtension(String fileName) =>
+    fileName.replaceAll(RegExp(r'\.[^.]*$'), '');
+
+/// URL を聞く。
+Future<String?> _askUrl(BuildContext context) {
+  final controller = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('URL から取り込む'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        keyboardType: TextInputType.url,
+        autocorrect: false,
+        decoration: const InputDecoration(
+          labelText: 'URL',
+          hintText: 'https://example.com/どうぶつ.yaml',
+          helperText: '単語帳ファイル（.asodict）・YAML・CSV を指す URL',
         ),
-      );
-    }
-
-    final bundle = parseWordBookBundle(
-      await file.readAsBytes(),
-      name: file.name.replaceAll(RegExp(r'\.[^.]*$'), ''),
-    );
-    final ids = <String, String>{};
-    for (final entry in bundle.images.entries) {
-      // 大きすぎる絵は入れない。取り込みでも同じ物差しで測る。
-      if (entry.value.length > maxImageBytes) continue;
-      ids[entry.key] = await books.addImage(
-        entry.value,
-        fileName: entry.key,
-      );
-    }
-    return books.add(
-      bundle.book.copyWith(
-        words: [
-          for (final word in bundle.book.words)
-            word.image == null
-                ? word
-                : ids[word.image!] == null
-                ? word.withoutImage()
-                : word.copyWith(image: ids[word.image!]),
-        ],
+        onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
       ),
-    );
-  }
-
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('やめる'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+          child: const Text('取り込む'),
+        ),
+      ],
+    ),
+  ).then((value) => (value == null || value.isEmpty) ? null : value);
 }
 
 /// 「内蔵」「動作確認用」の印。

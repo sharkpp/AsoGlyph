@@ -328,6 +328,28 @@ void main() {
     expect(find.text('3 歳の下の子向け'), findsOneWidget);
   });
 
+  testWidgets('URL から取り込める。読めない URL はそう言って断る', (tester) async {
+    await pumpScreen(tester);
+    await tester.scrollUntilVisible(
+      find.text('URL から取り込む'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    await tester.tap(find.text('URL から取り込む'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'URL'), findsOneWidget);
+
+    // http:// も https:// も無い URL は、取りに行く前に断る。
+    await tester.enterText(find.byType(TextField), 'example.com/どうぶつ.yaml');
+    await tester.tap(find.widgetWithText(FilledButton, '取り込む'));
+    await tester.pumpAndSettle();
+
+    // 何が悪いのかを言う。直せない指摘は、直しようがないのと同じ。
+    expect(find.textContaining('http:// か https:// で'), findsOneWidget);
+    expect(session.books.all.where((book) => !book.isBundled), isEmpty);
+  });
+
   testWidgets('語に出てこない字を数えて見せる', (tester) async {
     await pumpScreen(tester);
     await tester.scrollUntilVisible(find.text('ことばに出てこない字'), 200);

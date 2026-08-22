@@ -261,6 +261,31 @@ class WordBookStore extends ChangeNotifier {
     return saved;
   }
 
+  /// 取り込んだ文字（YAML・CSV）を単語帳にする。
+  ///
+  /// 読み方は拡張子で決まる（[parseWordBookFile]）。ファイルから取り込むときと
+  /// URL から取り込むときで、同じ道を通す。
+  Future<WordBook> importText(String source, {required String fileName}) =>
+      add(parseWordBookFile(fileName: fileName, source: source));
+
+  /// 取り込んだ単語帳ファイル（絵ごとの zip）を単語帳にする。
+  ///
+  /// 絵を先に端末へ入れてから、語の指す先を端末の中の id に付け替える。
+  /// 入れ物の中の名前をそのまま持っていても、次に開いたときには読めない。
+  Future<WordBook> importBundle(
+    Uint8List bytes, {
+    required String name,
+  }) async {
+    final bundle = parseWordBookBundle(bytes, name: name);
+    final ids = <String, String>{};
+    for (final entry in bundle.images.entries) {
+      // 大きすぎる絵は入れない。どの入口でも同じ物差しで測る。
+      if (entry.value.length > maxImageBytes) continue;
+      ids[entry.key] = await addImage(entry.value, fileName: entry.key);
+    }
+    return add(_relinked(bundle.book, ids));
+  }
+
   /// 内蔵の単語帳をもとに、直せるコピーを作る。
   ///
   /// 内蔵は直せない。語を 1 つ足したいだけの親が、まるごと作り直すことに
