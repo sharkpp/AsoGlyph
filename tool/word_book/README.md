@@ -138,6 +138,19 @@ python3 tool/word_book/asodict2pdf.py \
 `.asodict` / `.yaml` / フォルダのどれでも渡せる（**集める道具が書くのはフォルダ**
 なので、`pack.dart` を通す前でも刷れる）。出す先は入力ごとに `<名前>.pdf`。
 
+**`--merge` で、渡した単語帳ぜんぶを 1 つの PDF にまとめる。**
+
+```
+python3 tool/word_book/asodict2pdf.py --merge -o work/ウルトラ怪獣.pdf \
+    --word-size 35mm --border yes assets/words/_ウルトラ怪獣*.asodict
+```
+
+作品ごとに 1 冊にしてある単語帳（`m78_character.py` は 10 冊書く）を、刷るときだけ
+1 つに束ねるためのもの。名前を刷るなら（`--title yes`）**単語帳ごとに紙を変えて**
+見出しの下から始め、丁付けは PDF ぜんぶを通して数える。名前を刷らないなら
+（`--title no`）**紙を変えずに詰める**——名前の出ない切れ目で紙を変えても、
+変わったことが紙の上に何も残らないので、ただ空きが増える。
+
 | 選択肢 | 既定 | |
 |---|---|---|
 | `--page-size` | `a4` | 用紙。名前（`a3`〜`a6` `b4`〜`b6` `letter` `legal`）か `210mm,297mm` |
@@ -148,9 +161,10 @@ python3 tool/word_book/asodict2pdf.py \
 | `--image` / `--image-zoom` | `yes` / `1.0` | 絵を描くか／マスいっぱいを 1.0 とした割合 |
 | `--word` / `--word-source` | `yes` / `text` | ことばを描くか／ことばか読みか |
 | `--word-align` | `bottom,center` | ことばの位置。`垂直,水平` |
-| `--word-font-size` / `--word-color` | `auto` / `0,0,0` | 字の大きさ（既定は 1 冊で 1 つに決める）／色 |
+| `--word-font-size` / `--word-color` | `auto` / `0,0,0` | 字の大きさ（既定は PDF 1 つで 1 つに決める）／色 |
 | `--word-outline-width` / `--word-outline-color` | `auto` / `255,255,255` | 縁取りの幅（既定は字の大きさの 0.08 倍。`0` で取らない）／色 |
 | `--border` / `--border-color` / `--border-width` | `no` / `0,0,0` / `0.1mm` | マスの枠 |
+| `--merge` | — | 渡した単語帳ぜんぶを 1 つの PDF にまとめる（`-o` が要る） |
 | `--tag` | — | このタグの語だけを刷る（`,` で複数） |
 | `--font` | — | 埋め込む TTF。省くと `HeiseiKakuGo-W5` を名前で指すだけ |
 
@@ -167,7 +181,10 @@ python3 tool/word_book/asodict2pdf.py \
   絵の大きさが変わる
 - `[かっこ]`（SPEC 7.4.0）は外して続けて出す。紙の上では書く／書かないの区別が
   要らない
-- **絵が 1 枚描けなくても止まらない**。名前と理由を挙げて、残りを刷る
+- **絵が 1 枚描けなくても止まらない**。名前と理由を挙げて、残りを刷る。
+  読めない単語帳が混ざっていても、残りの冊は刷る
+- まとめるとき、**作った人は渡された冊ぜんぶで同じときだけ** PDF に残す。混ざった
+  ものを 1 人の名前で出すと、出どころを取り違えたまま渡ることになる（SPEC 7.4）
 
 reportlab が要る（`pip install reportlab`）。SVG の絵を描くには svglib も
 （無ければ SVG の絵だけが抜ける。PNG・JPEG・WebP はそのまま描ける）。

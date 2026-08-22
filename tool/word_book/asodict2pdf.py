@@ -18,6 +18,23 @@
 集める道具（`m78_character.py`）が書くのはフォルダなので、`pack.dart` を
 通す前でも刷れる。**出す先は入力ごとに 1 つ**（`<名前>.pdf`）。
 
+## まとめて 1 つにする
+
+`--merge` を付けると、渡した単語帳ぜんぶが 1 つの PDF になる（出す先は
+`--output` で決める）。作品ごとに 1 冊にしてある単語帳（`m78_character.py` は
+10 冊書く）を、刷るときだけ束ねるためのもの。
+
+- **名前を刷るなら（`--title yes`）単語帳ごとに紙を変える。** 見出しの下から
+  始めないと、どこから別の冊になったのかが紙の上で分からない
+- **名前を刷らないなら（`--title no`）紙を変えずに詰める。** 名前の出ない
+  切れ目で紙を変えても、変わったことが紙に何も残らないので、ただ空きが増える
+  （ウルトラ怪獣 10 冊 364 語で 12 ページ → 8 ページ）
+- 丁付けは**PDF ぜんぶを通して**数える。刷って重ねる順そのままになる
+- **作った人は、渡された冊ぜんぶで同じときだけ残す。** 混ざったものを 1 人の
+  名前で出すと、出どころを取り違えたまま渡ることになる（SPEC 7.4）
+- 語が 1 つも残らなかった冊（`--tag` で全部落ちた）には**紙を割り当てない**。
+  白紙が挟まるだけで、何も伝えない
+
 ## 1 マスが 1 語
 
 紙をマスに割って、1 マスに 1 語を置く。マスの大きさは指定（`--word-size`）で、
@@ -527,52 +544,101 @@ class Layout:
         )
 
 
-def render(book, path, options):
-    """単語帳 1 冊を PDF にする。`(刷った語, ページ数, 描けなかった絵)` を返す。"""
-    words = book.words
-    if options.tag:
-        wanted = set(options.tag)
-        words = [word for word in words if wanted & set(word[3])]
+class Section:
+    """紙の上のひとまとまり。見出しと、その中の語。
 
+    まとめて 1 つの PDF にするとき（`--merge`）、単語帳ごとに 1 つ作る。
+    語は単語帳をぶら下げて持つ——絵は単語帳の中から引くので、どの冊から来た
+    語なのかが分からなくなると絵が出せない。
+    """
+
+    def __init__(self, name, items):
+        self.name = name
+        self.items = items  # (単語帳, ことば, 読み, 絵の名前)
+
+
+def selected_words(book, options):
+    """刷る語。`--tag` があればそれで絞る。"""
+    if not options.tag:
+        return book.words
+    wanted = set(options.tag)
+    return [word for word in book.words if wanted & set(word[3])]
+
+
+def sections_of(books, options):
+    """刷る単位に割る。
+
+    **名前を刷るなら単語帳ごと**（見出しの下から始める）、**刷らないなら 1 つに
+    続ける**。名前の出ない切れ目で紙を変えても、変わったことが紙の上に何も
+    残らないので、ただ空きが増える。
+    """
+    if options.merge and not options.title:
+        return [
+            Section("", [(book, *word[:3]) for book in books for word in selected_words(book, options)])
+        ]
+    return [
+        Section(book.name, [(book, *word[:3]) for word in selected_words(book, options)])
+        for book in books
+    ]
+
+
+def render(path, sections, options, meta):
+    """PDF を 1 つ書く。`(刷った語の数, ページ数, 描けなかった絵)` を返す。
+
+    `meta` は `(表題, 作った人, 概要)`。渡した単語帳が空になった節（`--tag` で
+    全部落ちた冊）は**紙を割り当てない**。白紙が挟まるだけで、何も伝えない。
+    """
     font, title_size = options.font_name, options.title_size
     title_height = band_height(title_size) if options.title else 0.0
     layout = Layout(options.page_size, options.word_size, options.margin, options.gap, title_height)
-    pages = max(1, -(-len(words) // layout.per_page))
 
-    # ことばの大きさは **1 冊につき 1 つ**決める。マスごとに決めると、絵のある語と
-    # 無い語で字の大きさが変わり、同じ紙の上で見出しの大きさが揃わなくなる。
+    sections = [section for section in sections if section.items]
+    if not sections:
+        raise ValueError("刷る語がありません")
+    counts = [max(1, -(-len(section.items) // layout.per_page)) for section in sections]
+    pages = sum(counts)
+    words = sum(len(section.items) for section in sections)
+
+    # ことばの大きさは **1 つの PDF につき 1 つ**決める。マスごとに決めると、絵の
+    # ある語と無い語で字の大きさが変わり、同じ紙の上で見出しの大きさが揃わない。
     # 絵が出るなら添え書き、絵が無ければマスはことばのものなので大きく出す。
     inner_height = max(0.0, options.word_size[1] - content_inset(options) * 2)
-    with_image = options.image and any(book.image_of(word[2]) for word in words)
+    with_image = options.image and any(
+        book.image_of(image) for section in sections for book, _, _, image in section.items
+    )
     text_size = options.word_font_size or inner_height * (0.14 if with_image else 0.5)
 
+    title, author, description = meta
     canvas = pdfcanvas.Canvas(path, pagesize=options.page_size)
-    canvas.setTitle(book.name or os.path.basename(path))
-    if book.author:
-        canvas.setAuthor(book.author)  # 単語帳の作った人（＝著作権者）を残す（SPEC 7.4）
-    if book.description:
-        canvas.setSubject(book.description)
+    canvas.setTitle(title or os.path.basename(path))
+    if author:
+        canvas.setAuthor(author)  # 単語帳の作った人（＝著作権者）を残す（SPEC 7.4）
+    if description:
+        canvas.setSubject(description)
 
     failed = []
-    for page in range(pages):
-        if options.title:
-            canvas.setFillColorRGB(0, 0, 0)
-            canvas.setFont(font, title_size)
-            baseline = layout.page_height - options.margin - title_size
-            canvas.drawString(layout.left, baseline, book.name)
-            if pages > 1:
-                canvas.drawRightString(
-                    layout.page_width - options.margin, baseline, f"{page + 1} / {pages}"
-                )
+    number = 0  # 丁付けは PDF ぜんぶを通して数える。刷って重ねる順そのままになる
+    for section, section_pages in zip(sections, counts):
+        for page in range(section_pages):
+            number += 1
+            if options.title and section.name:
+                canvas.setFillColorRGB(0, 0, 0)
+                canvas.setFont(font, title_size)
+                baseline = layout.page_height - options.margin - title_size
+                canvas.drawString(layout.left, baseline, section.name)
+                if pages > 1:
+                    canvas.drawRightString(
+                        layout.page_width - options.margin, baseline, f"{number} / {pages}"
+                    )
 
-        for index in range(layout.per_page):
-            position = page * layout.per_page + index
-            if position >= len(words):
-                break
-            text, reading, image, _ = words[position]
-            box = layout.cell(index)
-            _draw_cell(canvas, book, options, box, text_size, text, reading, image, failed)
-        canvas.showPage()
+            for index in range(layout.per_page):
+                position = page * layout.per_page + index
+                if position >= len(section.items):
+                    break
+                book, text, reading, image = section.items[position]
+                box = layout.cell(index)
+                _draw_cell(canvas, book, options, box, text_size, text, reading, image, failed)
+            canvas.showPage()
 
     canvas.save()
     return words, pages, failed
@@ -594,7 +660,7 @@ def _draw_cell(canvas, book, options, box, size, text, reading, image, failed):
     if options.image and image:
         data = book.image_of(image)
         if data is None:
-            failed.append((image, "絵が入っていません"))
+            failed.append((book.name, image, "絵が入っていません"))
         else:
             zoom = options.image_zoom
             anchor = {"bottom": "top", "top": "bottom"}.get(vertical, "middle") if show_word else "middle"
@@ -607,7 +673,7 @@ def _draw_cell(canvas, book, options, box, size, text, reading, image, failed):
             try:
                 draw_image(canvas, data, image, zoomed, anchor)
             except Exception as error:  # 1 枚のために止めない
-                failed.append((image, str(error)))
+                failed.append((book.name, image, str(error)))
 
     # 枠は絵のあとに描く。先に描くと、いっぱいに広げた絵が線の内側半分を覆う。
     if options.border:
@@ -650,7 +716,11 @@ def parse_args(argv):
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("books", nargs="+", metavar="単語帳", help=".asodict / .yaml / フォルダ")
-    parser.add_argument("-o", "--output", help="出す先。入力が 1 つのときだけ")
+    parser.add_argument("-o", "--output", help="出す先。入力が 1 つのとき、または --merge のとき")
+    parser.add_argument(
+        "--merge", action="store_true",
+        help="渡した単語帳ぜんぶを 1 つの PDF にまとめる（--output で出す先を決める）",
+    )
     parser.add_argument(
         "--page-size", type=page_size, default=page_size("a4"),
         help="紙のサイズ。名前（%s）か「210mm,297mm」。既定 a4" % "/".join(PAGE_SIZES),
@@ -705,8 +775,10 @@ def parse_args(argv):
     )
     options = parser.parse_args(argv)
 
-    if options.output and len(options.books) > 1:
-        parser.error("--output は入力が 1 つのときだけ書けます")
+    if options.merge and not options.output:
+        parser.error("--merge のときは --output で出す先を決めてください")
+    if options.output and len(options.books) > 1 and not options.merge:
+        parser.error("出す先が 1 つに重なります。1 つにまとめるなら --merge を付けてください")
     if options.landscape:
         width, height = options.page_size
         options.page_size = (max(width, height), min(width, height))
@@ -739,24 +811,59 @@ def main(argv):
         print(error, file=sys.stderr)
         return 1
 
-    failed_books = 0
+    books = []
+    failures = 0
     for path in options.books:
-        output = options.output or os.path.splitext(path.rstrip(os.sep))[0] + ".pdf"
         try:
             book = read_book(path)
             if not book.words:
                 raise ValueError("語が入っていません")
-            words, pages, failed = render(book, output, options)
         except Exception as error:  # 1 冊のために止めない
             print(f"{path}: {error}", file=sys.stderr)
-            failed_books += 1
+            failures += 1
+            continue
+        books.append(book)
+
+    if not books:
+        return 1
+
+    if options.merge:
+        # 作った人は、渡された冊ぜんぶで同じときだけ残す。混ざったものを 1 人の
+        # 名前で出すと、出どころを取り違えたまま渡ることになる（SPEC 7.4）。
+        authors = {book.author for book in books if book.author}
+        meta = (
+            os.path.splitext(os.path.basename(options.output))[0],
+            authors.pop() if len(authors) == 1 else "",
+            "",
+        )
+        jobs = [(options.output, books, meta)]
+    else:
+        jobs = [
+            (
+                options.output or os.path.splitext(path.rstrip(os.sep))[0] + ".pdf",
+                [book],
+                (book.name, book.author, book.description),
+            )
+            for path, book in zip(options.books, books)
+        ]
+
+    for output, group, meta in jobs:
+        try:
+            words, pages, failed = render(output, sections_of(group, options), options, meta)
+        except Exception as error:
+            print(f"{output}: {error}", file=sys.stderr)
+            failures += 1
             continue
 
-        print(f"{output}: {len(words)} 語 / {pages} ページ")
-        for name, reason in failed:
-            print(f"  絵が描けません: {name}（{reason}）", file=sys.stderr)
+        if len(group) > 1:
+            for book in group:
+                print(f"  {book.name}: {len(selected_words(book, options))} 語")
+        print(f"{output}: {words} 語 / {pages} ページ")
+        for name, image, reason in failed:
+            where = f"{name} の {image}" if len(group) > 1 else image
+            print(f"  絵が描けません: {where}（{reason}）", file=sys.stderr)
 
-    return 1 if failed_books else 0
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
