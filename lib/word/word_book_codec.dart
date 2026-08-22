@@ -171,5 +171,7 @@ WordBook parseWordBookFile({
   if (lower.endsWith('.yaml') || lower.endsWith('.yml')) {
     return parseWordBookYaml(source, id: fileName, fallbackName: name);
   }
-  throw const WordBookFormatException('読めるのは .yaml と .csv です');
+  throw const WordBookFormatException(
+    '読めるのは 単語帳ファイル（.asodict）と YAML と CSV です',
+  );
 }

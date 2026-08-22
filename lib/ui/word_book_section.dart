@@ -138,9 +138,9 @@ class WordBookSection extends StatelessWidget {
   }
 
   Future<void> _import(BuildContext context) async {
-    final file = await openFile(
-      acceptedTypeGroups: [wordBookTypeGroup],
-    );
+    // web では種類で絞らない。絞ると Safari で単語帳が選べなくなる
+    // （lib/ui/file_types.dart）。
+    final file = await openFile(acceptedTypeGroups: wordBookTypeGroups);
     if (file == null || !context.mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);

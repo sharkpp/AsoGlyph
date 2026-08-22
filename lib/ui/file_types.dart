@@ -14,6 +14,7 @@
 library;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../word/word_book_export.dart' show wordBookBundleExtension;
 import '../word/word_image.dart' show imageExtensions;
@@ -39,6 +40,25 @@ const wordBookTypeGroup = XTypeGroup(
     'public.plain-text',
   ],
 );
+
+/// 単語帳を選ばせるときに渡すもの。
+///
+/// **web では絞らない。** ブラウザに渡るのは拡張子の並び（`accept`）で、
+/// Safari はそれを端末の種類の識別子へ直してから見る。直せなかったもの
+/// （`.asodict` と `.yaml`）は落ち、`.csv` だけが残るので、**単語帳ファイルと
+/// YAML が選ぶ画面で灰色になって選べない**。
+///
+/// 全部落ちたときだけ何でも選べるようになるため、控え（`.asoglyph` だけ）は
+/// 選べて単語帳は選べない、という食い違いになっていた。
+///
+/// 絞らなければどれも選べる。読めるかどうかは読んだところで見て、駄目なら
+/// 何が悪いのかを言う（SPEC 7.4）。**選べないより、選んでから断るほうがよい。**
+List<XTypeGroup> get wordBookTypeGroups =>
+    wordBookTypeGroupsFor(web: kIsWeb);
+
+/// [wordBookTypeGroups] の中身。web かどうかを渡して確かめられるようにする。
+List<XTypeGroup> wordBookTypeGroupsFor({required bool web}) =>
+    web ? const [] : const [wordBookTypeGroup];
 
 /// 語に添える絵（SPEC 7.4.2）。どれも識別子は決まったものがある。
 const imageTypeGroup = XTypeGroup(

@@ -45,6 +45,20 @@ Map<String, List<String>> _declaredTypes() {
 }
 
 void main() {
+  group('単語帳を選ばせるとき', () {
+    test('web では種類で絞らない', () {
+      // Safari は accept の拡張子を端末の種類へ直してから見る。直せない
+      // .asodict と .yaml が落ちて .csv だけが残るので、単語帳ファイルと
+      // YAML が灰色になって選べない。絞らなければどれも選べる。
+      expect(wordBookTypeGroupsFor(web: true), isEmpty);
+    });
+
+    test('web でなければ絞る', () {
+      // iOS は識別子で、Android とデスクトップは拡張子で絞れる。
+      expect(wordBookTypeGroupsFor(web: false), [wordBookTypeGroup]);
+    });
+  });
+
   /// iOS の選ぶ画面は識別子しか見ない。渡さないとそこで投げて、押しても
   /// 何も出ない（SPEC 7.5 の「控えから戻す」が動かない形になる）。
   test('どの種類にも iOS 用の識別子がある', () {
