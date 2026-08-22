@@ -54,8 +54,8 @@
 - 縮めたぶんの空きは**名前の反対側**に出す（名前が下なら絵は上へ寄る）。
   1.0 のままなら空きが無いので、名前は絵の上に重なる。重ねたくなければ
   `--image-zoom` を下げて、名前の側を空ける
-- 名前がマスに入らなければ**字を小さくする**。`--word-wrap yes` にすると、
-  小さくする代わりに**折り返す**
+- 名前がマスに入らなければ**字を小さくする**。`--word-wrap <字数>` を渡すと、
+  その字数で**折り返す**
 - マスは敷き詰める（`--gap` の既定は 0）ので、マスの内側に余白を取る
   （`--padding`）。取らないと隣の語と字がくっついて、どこまでが 1 語か読めない
 
@@ -517,22 +517,22 @@ def fit_size(text, font, size, width):
     return size * width / drawn
 
 
-def wrap_text(text, font, size, width):
-    """`width` に入るところで折る。
+def wrap_text(text, count):
+    """`count` 字までで折る。**字の大きさは見ない。**
 
-    - **空白があれば空白で折る**（落とす）。「ウルトラマントリガー NEW GENERATION
-      TIGA」のような名前で、語の途中から折れないようにする
-    - 空白が無ければ字と字のあいだで折る。日本語の名前は空白で切れていない
+    どこで折るかを字数で決めると、折り返しと大きさが混ざらない。行が決まって
+    から大きさを決められるので（[fit_lines]）、「入るいちばん大きい字」を
+    探し回らずに済み、頼んだ大きさより大きくもならない。
+
+    - 空白があれば**その手前で折る**（空白は落とす）。「ウルトラマントリガー
+      NEW GENERATION TIGA」のような名前で、語の途中から折れないようにする。
+      そのぶん行は `count` 字より短くなる
     - **行頭に置かない字**（小書き・長音符・句読点・閉じかっこ）は、折る前の行に
       連れていく。行の頭に「ー」や「っ」が来ると、そこで別の語のように読める
     """
     lines, line = [], ""
     for char in text:
-        if line and pdfmetrics.stringWidth(line + char, font, size) > width:
-            if char in NOT_LINE_START:
-                lines.append(line + char)
-                line = ""
-                continue
+        if len(line) >= count and char not in NOT_LINE_START:
             if char in " 　":
                 lines.append(line)
                 line = ""
@@ -557,33 +557,22 @@ def block_height(count, font, size):
     return (count - 1) * size * LEADING + (ascent - descent)
 
 
-def fit_block(text, font, size, width, height):
-    """折り返して `box` に収まる、いちばん大きい字と、その行。
+def fit_lines(lines, font, size, width, height):
+    """行が幅と高さに収まる大きさ。**頼んだ大きさより大きくはしない。**
 
-    幅は折り返しで収まるが、行が増えれば縦にはみ出す。**はみ出したぶんの割合で
-    縮めるやり方は採らない。** 縮めると 1 行に入る字が増えて行数も減るので、
-    高さは字の大きさに比例して減らない。1 度で当てようとすると必ず行き過ぎ、
-    まだ 2 行ぶんの余地があるのに 2 行のまま小さいだけの字になる。
-
-    渡された大きさから下だけを見て、**収まるいちばん大きいところを挟み込む**。
+    行は字数で決まっていて（[wrap_text]）大きさによらないので、はみ出した割合で
+    1 度縮めればそれで収まる。
     """
-    lines = wrap_text(text, font, size, width)
-    if block_height(len(lines), font, size) <= height:
-        return size, lines
-
-    low, high = 0.0, size
-    for _ in range(12):
-        middle = (low + high) / 2
-        lines = wrap_text(text, font, middle, width)
-        if block_height(len(lines), font, middle) <= height:
-            low = middle
-        else:
-            high = middle
-    size = low or high
-    return size, wrap_text(text, font, size, width)
+    widest = max(pdfmetrics.stringWidth(line, font, size) for line in lines)
+    if widest > width > 0:
+        size *= width / widest
+    needed = block_height(len(lines), font, size)
+    if needed > height > 0:
+        size *= height / needed
+    return size
 
 
-def draw_word(canvas, text, font, size, box, align, color, outline, outline_width, wrap=False):
+def draw_word(canvas, text, font, size, box, align, color, outline, outline_width, wrap=0):
     """名前を `box` の中の指定の位置に描く。縁取りをしてから中を塗る。
 
     絵の上に重なる（`--image-zoom 1.0`）ので、縁取りが無いと絵の濃いところで
@@ -597,7 +586,8 @@ def draw_word(canvas, text, font, size, box, align, color, outline, outline_widt
     x, y, width, height = box
     vertical, horizontal = align
     if wrap:
-        size, lines = fit_block(text, font, size, width, height)
+        lines = wrap_text(text, wrap)
+        size = fit_lines(lines, font, size, width, height)
     else:
         size, lines = fit_size(text, font, size, width), [text]
     ascent, descent = (value * size / 1000.0 for value in pdfmetrics.getAscentDescent(font, 1000))
@@ -869,7 +859,7 @@ def _draw_cell(canvas, book, options, box, size, text, reading, image, failed):
         _put(canvas, options, label, size, band_box, (vertical, horizontal), options.word_wrap)
 
 
-def _put(canvas, options, text, size, box, align, wrap=False):
+def _put(canvas, options, text, size, box, align, wrap=0):
     """1 つのことばを、ことばと同じ塗り・縁取りで置く。
 
     縁取りの幅を省いてあるときは字の大きさから決めるので、小見出しにも同じ
@@ -942,8 +932,8 @@ def parse_args(argv):
     )
     parser.add_argument("--word-color", type=color, default=color("0,0,0"), help="ことばの色。既定 0,0,0")
     parser.add_argument(
-        "--word-wrap", type=flag, default=False,
-        help="長いことばを途中で折り返すか。既定 no（折らずに字を小さくする）",
+        "--word-wrap", type=int, default=0,
+        help="ことばを何字で折り返すか。既定 0（折らずに 1 行のまま字を小さくする）",
     )
     parser.add_argument(
         "--word-title", default="",
@@ -977,6 +967,8 @@ def parse_args(argv):
     if options.landscape:
         width, height = options.page_size
         options.page_size = (max(width, height), min(width, height))
+    if options.word_wrap < 0:
+        parser.error("--word-wrap は 0 以上で書いてください")
     if not 0 < options.image_zoom <= 1:
         parser.error("--image-zoom は 0 より大きく 1 までで書いてください")
     options.tag = [tag.strip() for tag in options.tag.split(",") if tag.strip()] if options.tag else []
