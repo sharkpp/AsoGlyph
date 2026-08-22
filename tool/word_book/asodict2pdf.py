@@ -54,8 +54,8 @@
 - 縮めたぶんの空きは**名前の反対側**に出す（名前が下なら絵は上へ寄る）。
   1.0 のままなら空きが無いので、名前は絵の上に重なる。重ねたくなければ
   `--image-zoom` を下げて、名前の側を空ける
-- 名前がマスに入らなければ**字を小さくする**。折り返さない。折り返すと、
-  段の数でマスごとに絵の大きさが変わる
+- 名前がマスに入らなければ**字を小さくする**。`--word-wrap yes` にすると、
+  小さくする代わりに**折り返す**
 - マスは敷き詰める（`--gap` の既定は 0）ので、マスの内側に余白を取る
   （`--padding`）。取らないと隣の語と字がくっついて、どこまでが 1 語か読めない
 
@@ -74,6 +74,20 @@
 
 ことばを上に寄せているとき（`--word-align top,...`）は、**ことばを小見出しの
 下に置く**。同じ上端に重ねると読めなくなる。
+
+## 長い名前は、縮めるか折り返すか
+
+既定は**縮める**（1 行のまま小さくする）。同じ紙の上で行数が揃っているほうが
+一覧として読みやすく、長い名前だけが 2 行になると札の見た目が揃わない。
+字が小さくなりすぎるときは `--word-wrap yes` で**折り返す**に替える。
+
+折り返すときは、
+
+- **空白があれば空白で折る**（「ウルトラマントリガー NEW GENERATION TIGA」で
+  語の途中から折れないように）。無ければ字と字のあいだで折る
+- **行頭に置かない字**（小書き・長音符・句読点・閉じかっこ）は前の行に連れていく。
+  行の頭に「ー」や「っ」が来ると、そこで別の語のように読める
+- 行が増えて縦にはみ出したら、はみ出したぶんだけ字を小さくして折り直す
 
 ## 名前は縁を取ってから塗る
 
@@ -153,6 +167,13 @@ SVG_SUFFIXES = (".svg",)
 
 # 紙の余白。並びは「縦から横へ」（`--word-align` と同じ）。
 Margins = namedtuple("Margins", "top bottom left right")
+
+# 行と行の間（字の大きさに対する割合）。
+LEADING = 1.15
+
+# 行頭に置かない字（行頭禁則）。小書き・長音符・句読点・閉じかっこ。
+NOT_LINE_START = set("、。，．・：；？！ー〜ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ")
+NOT_LINE_START |= set("」』）］｝〉》】〕”’!?),.:;")
 
 
 # --------------------------------------------------------------- 引数の読み取り
@@ -496,41 +517,119 @@ def fit_size(text, font, size, width):
     return size * width / drawn
 
 
-def draw_word(canvas, text, font, size, box, align, color, outline, outline_width):
+def wrap_text(text, font, size, width):
+    """`width` に入るところで折る。
+
+    - **空白があれば空白で折る**（落とす）。「ウルトラマントリガー NEW GENERATION
+      TIGA」のような名前で、語の途中から折れないようにする
+    - 空白が無ければ字と字のあいだで折る。日本語の名前は空白で切れていない
+    - **行頭に置かない字**（小書き・長音符・句読点・閉じかっこ）は、折る前の行に
+      連れていく。行の頭に「ー」や「っ」が来ると、そこで別の語のように読める
+    """
+    lines, line = [], ""
+    for char in text:
+        if line and pdfmetrics.stringWidth(line + char, font, size) > width:
+            if char in NOT_LINE_START:
+                lines.append(line + char)
+                line = ""
+                continue
+            if char in " 　":
+                lines.append(line)
+                line = ""
+                continue
+            cut = line.rfind(" ")
+            if cut > 0:
+                lines.append(line[:cut])
+                line = line[cut + 1 :] + char
+            else:
+                lines.append(line)
+                line = char
+            continue
+        line += char
+    if line:
+        lines.append(line)
+    return lines or [""]
+
+
+def block_height(count, font, size):
+    """`count` 行ぶんの高さ。"""
+    ascent, descent = (value * size / 1000.0 for value in pdfmetrics.getAscentDescent(font, 1000))
+    return (count - 1) * size * LEADING + (ascent - descent)
+
+
+def fit_block(text, font, size, width, height):
+    """折り返して `box` に収まる、いちばん大きい字と、その行。
+
+    幅は折り返しで収まるが、行が増えれば縦にはみ出す。**はみ出したぶんの割合で
+    縮めるやり方は採らない。** 縮めると 1 行に入る字が増えて行数も減るので、
+    高さは字の大きさに比例して減らない。1 度で当てようとすると必ず行き過ぎ、
+    まだ 2 行ぶんの余地があるのに 2 行のまま小さいだけの字になる。
+
+    渡された大きさから下だけを見て、**収まるいちばん大きいところを挟み込む**。
+    """
+    lines = wrap_text(text, font, size, width)
+    if block_height(len(lines), font, size) <= height:
+        return size, lines
+
+    low, high = 0.0, size
+    for _ in range(12):
+        middle = (low + high) / 2
+        lines = wrap_text(text, font, middle, width)
+        if block_height(len(lines), font, middle) <= height:
+            low = middle
+        else:
+            high = middle
+    size = low or high
+    return size, wrap_text(text, font, size, width)
+
+
+def draw_word(canvas, text, font, size, box, align, color, outline, outline_width, wrap=False):
     """名前を `box` の中の指定の位置に描く。縁取りをしてから中を塗る。
 
     絵の上に重なる（`--image-zoom 1.0`）ので、縁取りが無いと絵の濃いところで
     名前が読めなくなる。**縁を先に、中をあとに描く。** 逆にすると、縁の内側
     半分が字を細らせる。線の幅を倍にしているのはそのためで、内側の半分は
     あとから塗る中に隠れ、外へ出た半分だけが縁として残る。
+
+    **縁は行ぜんぶを先に引く。** 行ごとに縁と中を交互に描くと、次の行の縁が
+    前の行の字を削る。
     """
     x, y, width, height = box
     vertical, horizontal = align
-    size = fit_size(text, font, size, width)
+    if wrap:
+        size, lines = fit_block(text, font, size, width, height)
+    else:
+        size, lines = fit_size(text, font, size, width), [text]
     ascent, descent = (value * size / 1000.0 for value in pdfmetrics.getAscentDescent(font, 1000))
 
+    block = block_height(len(lines), font, size)
     if vertical == "top":
-        baseline = y + height - ascent
+        top_baseline = y + height - ascent
     elif vertical == "bottom":
-        baseline = y - descent
+        top_baseline = y - descent + block - (ascent - descent)
     else:
-        baseline = y + (height - (ascent - descent)) / 2 - descent
+        top_baseline = y + (height + block) / 2 - ascent
 
-    drawn = pdfmetrics.stringWidth(text, font, size)
-    if horizontal == "left":
-        left = x
-    elif horizontal == "right":
-        left = x + width - drawn
-    else:
-        left = x + (width - drawn) / 2
+    places = []
+    for index, line in enumerate(lines):
+        drawn = pdfmetrics.stringWidth(line, font, size)
+        if horizontal == "left":
+            left = x
+        elif horizontal == "right":
+            left = x + width - drawn
+        else:
+            left = x + (width - drawn) / 2
+        places.append((line, left, top_baseline - index * size * LEADING))
 
     if outline_width > 0:
         canvas.setLineWidth(outline_width * 2)
         canvas.setLineJoin(1)  # 角を丸める。尖ったままだと縁が角から飛び出す
         canvas.setStrokeColorRGB(*outline)
-        _write(canvas, text, font, size, left, baseline, mode=1)  # 縁だけ
+        for line, left, baseline in places:
+            _write(canvas, line, font, size, left, baseline, mode=1)  # 縁だけ
     canvas.setFillColorRGB(*color)
-    _write(canvas, text, font, size, left, baseline, mode=0)  # 中だけ
+    for line, left, baseline in places:
+        _write(canvas, line, font, size, left, baseline, mode=0)  # 中だけ
 
 
 def _write(canvas, text, font, size, left, baseline, mode):
@@ -736,8 +835,12 @@ def _draw_cell(canvas, book, options, box, size, text, reading, image, failed):
     inner = (x + inset, y + inset, max(0.0, width - inset * 2), max(0.0, height - inset * 2))
 
     # 小見出し（`--word-title`）はマスの上端に置く。`{book}` は単語帳の名前に替える。
+    #
+    # **帯の高さは、縮めたあとの字から決める。** 頼んだ大きさから決めると、
+    # 幅に入らなくて縮んだぶんだけ帯が余る。絵の無い単語帳ではことばの大きさが
+    # マスの高さの半分から始まるので、余りがマスの半分に届く。
     heading = options.word_title.replace("{book}", book.name) if options.word_title else ""
-    heading_size = options.word_title_size or size * 0.7
+    heading_size = fit_size(heading, options.font_name, options.word_title_size or size * 0.7, inner[2])
     heading_band = min(band_height(heading_size), inner[3]) if heading else 0.0
     if heading:
         _put(
@@ -750,7 +853,12 @@ def _draw_cell(canvas, book, options, box, size, text, reading, image, failed):
         )
 
     if show_word:
-        band = min(band_height(size), inner[3])
+        # 折り返すなら、残っているところぜんぶを渡す。行が増えたぶんはその中で
+        # 伸びる（`--word-align` の側に寄せて積む）。
+        available = max(0.0, inner[3] - heading_band)
+        band = available if options.word_wrap else min(
+            band_height(fit_size(label, options.font_name, size, inner[2])), available
+        )
         if vertical == "top":
             # ことばは**小見出しの下**に置く。同じ上端に重ねると読めなくなる。
             band_box = (inner[0], inner[1] + inner[3] - heading_band - band, inner[2], band)
@@ -758,11 +866,11 @@ def _draw_cell(canvas, book, options, box, size, text, reading, image, failed):
             band_box = (inner[0], inner[1], inner[2], band)
         else:
             band_box = (inner[0], inner[1], inner[2], max(0.0, inner[3] - heading_band))
-        _put(canvas, options, label, size, band_box, (vertical, horizontal))
+        _put(canvas, options, label, size, band_box, (vertical, horizontal), options.word_wrap)
 
 
-def _put(canvas, options, text, size, box, align):
-    """1 行を、ことばと同じ塗り・縁取りで置く。
+def _put(canvas, options, text, size, box, align, wrap=False):
+    """1 つのことばを、ことばと同じ塗り・縁取りで置く。
 
     縁取りの幅を省いてあるときは字の大きさから決めるので、小見出しにも同じ
     割合で付く（字が小さいほど縁も細くなる）。
@@ -777,6 +885,7 @@ def _put(canvas, options, text, size, box, align):
         options.word_color,
         options.word_outline_color,
         options.word_outline_width if options.word_outline_width is not None else size * 0.08,
+        wrap,
     )
 
 
@@ -832,6 +941,10 @@ def parse_args(argv):
         "入らなければ縮める）",
     )
     parser.add_argument("--word-color", type=color, default=color("0,0,0"), help="ことばの色。既定 0,0,0")
+    parser.add_argument(
+        "--word-wrap", type=flag, default=False,
+        help="長いことばを途中で折り返すか。既定 no（折らずに字を小さくする）",
+    )
     parser.add_argument(
         "--word-title", default="",
         help="マスの上端に置く小見出し。`{book}` は単語帳の名前に替わる。既定は出さない",
