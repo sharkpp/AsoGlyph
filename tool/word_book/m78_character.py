@@ -1,43 +1,58 @@
 #!/usr/bin/env python3
 """m-78.jp（ウルトラマン公式）のキャラクター一覧から単語帳を作る（SPEC 7.4）。
 
-    python3 tool/word_book/m78_character.py <一覧のURL> [出力先フォルダ]
+    python3 tool/word_book/m78_character.py <一覧のURL> [出力先フォルダ] [選択肢]
 
 一覧のページをたどり（`rel="next"` を追う）、載っているキャラクターの
-名前とサムネイルを集めて、単語帳のフォルダ（YAML ＋ 絵）を書く。
+名前とサムネイルを集めて、**作品ごとに** 単語帳のフォルダ（YAML ＋ 絵）を書く。
 書いたあとは tool/word_book/pack.dart を呼び、`.asodict` にまとめる。
 
-    python3 tool/word_book/m78_character.py https://m-78.jp/character/category/261/
-      → work/ウルトラヒーロー/         （YAML ＋ 絵）
-      → assets/words/_ウルトラヒーロー.asodict
+    python3 tool/word_book/m78_character.py https://m-78.jp/character/category/626/ \
+        --kanji tool/word_book/ultra_monster_kanji2hira.toml
+      → work/ウルトラ怪獣/ウルトラ怪獣(ウルトラQ)/    （YAML ＋ 絵）
+      → assets/words/_ウルトラ怪獣(ウルトラQ).asodict
+      → …作品の数だけ
 
 **URL は 1 つも書かない。** 出発点は引数で受け、次のページも絵の場所も、
 そのページに書いてあるものだけをたどる。ページの作りが変われば読めなくなるが、
 こちらで組み立てた URL が黙って別のものを指すよりよい。
 
-単語帳の名前も、集める語も、絵の大きさも、ページから引く。だから
-一覧の URL を変えれば、そのカテゴリの単語帳がそのまま作れる。
+## 作品ごとに分ける
+
+一覧は作品の見出し（`<h2 class="character-archive__title">`）で区切られている。
+ウルトラ怪獣は 364 体あり、1 冊にすると子供の一覧が延々と続く。作品ごとなら
+「うちの子はウルトラマンだけ」という割り振り（`User.wordBooks`）ができる。
+見出しはページをまたいで続くので、見出しの無いまま始まるページは前のページの
+作品に続ける。
 
 ## 名前の落とし方
 
-一覧のカードの見出しは 2 行に割れている（「ウルトラマン」＋「オメガ」）。
+一覧のカードの見出しは 2 行に割れている（「深海怪獣」＋「ピーター」）。
 これがそのまま SPEC 7.4.0 の `[かっこ]` になる。
 
-    ウルトラマン<br />オメガ  →  [ウルトラマン]オメガ   よみ: うるとらまん おめが
+    深海怪獣<br />ピーター  →  [深海怪獣]ピーター
 
-「ウルトラマン」を毎回 6 字書かせると 1 セッション（3〜5分）で終わらないし、
-オメガ だけを出したのでは何の語か分からない。前半を出しておくだけにする。
+**漢字はそのまま持つ。** かなに開くのは置き換えの表（`--kanji` の TOML）だけの
+仕事で、ここでは何も直さない。名前をここで直すと、直したあとの字が
+どこから来たのかが単語帳からは読めなくなる。表なら 1 か所を見れば分かる。
 
-読みが添えてある名前（「A(エース)」「80(エイティ)」）は、かっこの中を読みにする。
-書けない字（漢字・ラテン）が添えられているときは、見た目のほうも読みで置き換える
-（「A(エース)」→ エース）。数字やカタカナは書けるのでそのまま残す（「80」）。
+読み（`reading`）だけは、その場で表を当ててから起こす。読みは声で読み上げる
+ためだけにあり（SPEC 7.4）、かなでなければ単語帳として読み込めない。
+表に無い漢字ばかりの名前（「異次元列車」）は読みが空になるので**入れずに、
+名前を挙げて知らせる**。表に読みを書いて、もう一度掛ければ入る。
 
-ページに読みが書いていない字は、`KANA_READINGS` でかなに開く（「ウルトラの父」
-→ 「ウルトラのちち」）。それでも読みに落とせない字が残った語は**入れずに、
-名前を挙げて知らせる**。読みは声で読み上げるためだけにあり（SPEC 7.4）、
-欠けた読みで読み上げると別の語になる。
+## 置き換えの表
+
+集めた名前に出てくる漢字は、`--kanji` に指した TOML へ書き出す。すでにある
+ファイルは**読みを残したまま**書き直すので、掛け直しても書いた読みは消えない。
+
+    "深海怪獣" = "しんかいかいじゅう"  # 深海怪獣 ピーター
+
+Pillow が要る（`pip install Pillow`）。落とした PNG・JPEG を WebP に焼き直す。
+元のままだと 364 枚で 90 MB を超え、資産に入れるには大きすぎる。
 """
 
+import argparse
 import io
 import os
 import re
@@ -49,8 +64,10 @@ from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 
 from PIL import Image
 
-# 絵は WebP にそろえる。元は 100〜300 KB の PNG・JPEG で、58 枚も入れると
-# 資産が 14 MB を超える。同じ絵が WebP なら 20 KB 前後で収まる（SPEC 7.4.2）。
+from word_text import apply_table, load_table, reading_of, table_keys, write_table, yaml_scalar
+
+# 絵は WebP にそろえる。元は 100〜300 KB の PNG・JPEG で、364 枚も入れると
+# 資産が 90 MB を超える。同じ絵が WebP なら 20 KB 前後で収まる（SPEC 7.4.2）。
 # 大きさは変えない。ページが出している大きさのまま焼き直すだけ。
 IMAGE_QUALITY = 85
 
@@ -64,7 +81,7 @@ USER_AGENT = "AsoGlyph word-book builder (+https://sharkpp.net)"
 
 
 class _ListingParser(HTMLParser):
-    """一覧ページから、カテゴリ名・カード・次のページを拾う。
+    """一覧ページから、カテゴリ名・作品の見出し・カード・次のページを拾う。
 
     カードは `<main>` の中だけを見る。同じ作りのカードがヘッダのメニューにも
     並んでいて、そちらまで拾うと一覧に無いものが混ざる。
@@ -79,6 +96,8 @@ class _ListingParser(HTMLParser):
         self._main = 0
         self._h1 = 0
         self._in_name = False
+        self._in_work = False
+        self._work = None
         self._card = None
         self._in_title = False
 
@@ -94,20 +113,27 @@ class _ListingParser(HTMLParser):
         elif tag == "h1":
             self._h1 += 1
         elif tag == "span" and self._h1 and "c-title-main__ja" in classes:
-            # カテゴリ名。単語帳の名前になる。
+            # カテゴリ名。単語帳の名前の頭になる。
             self._in_name = self.name is None
 
         if not self._main:
             return
 
-        if tag == "a":
+        if tag == "h2" and "character-archive__title" in classes:
+            # 作品の見出し。ここから下のカードはこの作品のもの。
+            self._in_work = True
+        elif tag == "a":
             href = attr.get("href")
             if not href:
                 return
             if attr.get("rel") == "next":
                 self.next_url = urljoin(self._page_url, href)
             elif "c-card" in classes:
-                self._card = {"url": urljoin(self._page_url, href), "title": [""]}
+                self._card = {
+                    "url": urljoin(self._page_url, href),
+                    "title": [""],
+                    "work": self._work,
+                }
         elif tag == "img" and self._card is not None:
             # 遅らせて読む作りなので、素の src は placeholder が入っている。
             src = attr.get("data-src") or attr.get("src")
@@ -124,6 +150,8 @@ class _ListingParser(HTMLParser):
         elif tag == "h1":
             self._h1 = max(0, self._h1 - 1)
             self._in_name = False
+        elif tag == "h2":
+            self._in_work = False
         elif tag == "span":
             self._in_name = False
         elif tag == "p":
@@ -136,6 +164,8 @@ class _ListingParser(HTMLParser):
         if self._in_name and self.name is None:
             self.name = data.strip() or None
             self._in_name = False
+        elif self._in_work:
+            self._work = data.strip() or self._work
         elif self._in_title:
             self._card["title"][-1] += data
 
@@ -153,15 +183,16 @@ def fetch(url):
         return response.read()
 
 
-def crawl(start_url):
+def crawl(start_url, until=None):
     """一覧をたどって、カテゴリ名とカードの並びを返す。
 
-    並びはページに出ている順のまま。新しいヒーローが先に来て、最後が
-    いちばん古い「ウルトラマン」になる。
+    並びはページに出ている順のまま。新しい作品が先に来て、最後がいちばん古い
+    作品になる。[until] を渡すと、その名前のカードまでで打ち切る。
     """
     name = None
     cards = []
     seen = set()
+    work = None
     url = start_url
     while url and url not in seen:
         seen.add(url)
@@ -169,114 +200,48 @@ def crawl(start_url):
         parser = _ListingParser(url)
         parser.feed(fetch(url).decode("utf-8", "replace"))
         name = name or parser.name
-        cards += parser.cards
+        for card in parser.cards:
+            # 見出しはページをまたいで続く。見出しの無いまま始まったページは、
+            # 前のページの作品に続ける。
+            work = card["work"] or work
+            card["work"] = work
+            cards.append(card)
+            if until and until in "".join(line.strip() for line in card["title"]):
+                print(f"  {until} まで来たので打ち切ります")
+                return name, cards
         url = parser.next_url
     return name, cards
 
 
 # -------------------------------------------------------------------- 語にする
 
-# 「A(エース)」「80(エイティ)」のように読みが添えてある形。
-_RUBY = re.compile(r"([^()（）\s]+)[（(]([^)）]+)[)）]")
 
-# ページに読みが書いていない字を、かなに開く表。
-#
-# 「ウルトラの父」には読みが添えられていない。落とすと「うるとらの」になって
-# 読み上げが別の語になるので、**かなに開いて書かせる字ごと差し替える**
-# （「ウルトラのちち」）。父・母は 2 年生の漢字で、かなを集めている子は
-# そもそも書けない。読みが添えてある字を読みで置き換えるのと同じ扱い。
-#
-# 読みが 1 つに決まる字だけを入れる。「風」のように場面で変わる字は入れない
-# （語ごとに違うものを、字の表では決められない）。
-KANA_READINGS = {
-    "父": "ちち",
-    "母": "はは",
-}
+def to_text(title_lines):
+    """カードの見出し（`<br>` で割れた行）から、ことばを作る。
 
+    2 行あれば 1 行目を `[かっこ]` に入れて、出しておくだけにする（SPEC 7.4.0）。
+    漢字はそのまま。かなに開くのは置き換えの表の仕事。
 
-def to_reading(text):
-    """読みに使える字だけを残し、カタカナはひらがなに直す。
+    1 行しかないときは、全角の空白も同じ区切りとして見る。ページは肩書きと
+    名前を `<br>` で割っているが、たまに空白で済ませている（「冥府闇将軍獣　
+    ヘルナラク」）。同じものなので同じに扱う。
 
-    lib/word/reading.dart の toReading と同じ規則。長音符「ー」と空白は残す
-    （落とすと「あーく」が「あく」になり、読み上げが別の語になる）。
+    **書かせるほうの空白は落とす。** 空白はどの文字種にも入っていないので
+    （SPEC 5）、混じっているとその語は出題から丸ごと外れる（SPEC 7.4.2）。
     """
-    out = []
-    for char in text:
-        code = ord(char)
-        if 0x30A1 <= code <= 0x30F6:  # カタカナ → ひらがな。並びが 0x60 ずれている
-            out.append(chr(code - 0x60))
-        elif 0x3041 <= code <= 0x3096:
-            out.append(char)
-        elif code in (0x30FC, 0x20, 0x3000):
-            out.append(char)
-    return "".join(out)
-
-
-def _writable(text):
-    """かな・長音符・数字だけでできているか。子供が書ける字かどうか。"""
-    return bool(text) and all(
-        0x3041 <= ord(c) <= 0x3096
-        or 0x30A1 <= ord(c) <= 0x30F6
-        or ord(c) == 0x30FC
-        or c.isdecimal()
-        for c in text
-    )
-
-
-def _unreadable(text):
-    """読みに落とせない字（漢字・ラテン・数字など）を挙げる。"""
-    return [c for c in text if not c.isspace() and not to_reading(c)]
-
-
-def _convert(part):
-    """見出しの 1 行を、書く字・読み・読めなかった字に分ける。"""
-    part = "".join(KANA_READINGS.get(char, char) for char in part)
-    text, reading, unreadable = "", "", []
-    pos = 0
-    for match in _RUBY.finditer(part):
-        head = part[pos : match.start()]
-        text += head
-        reading += to_reading(head)
-        unreadable += _unreadable(head)
-
-        base, ruby = match.group(1), match.group(2)
-        # 読みが添えてある。書ける字なら見た目を残し、書けない字は読みで置き換える。
-        text += base if _writable(base) else ruby
-        reading += to_reading(ruby)
-        pos = match.end()
-
-    tail = part[pos:]
-    text += tail
-    reading += to_reading(tail)
-    unreadable += _unreadable(tail)
-    return text, reading, unreadable
-
-
-def to_word(title_lines):
-    """カードの見出し（`<br>` で割れた行）から語と読みを作る。
-
-    2 行あれば 1 行目を `[かっこ]` に入れて、出しておくだけにする。
-    読めない字が残ったら (None, None, 挙げた字) を返す。
-    """
-    lines = [line.strip() for line in title_lines]
+    lines = list(title_lines)
+    if len(lines) == 1:
+        lines = lines[0].split("　", 1)
+    lines = [re.sub(r"\s+", " ", line).strip() for line in lines]
     lines = [line for line in lines if line]
     if not lines:
-        return None, None, []
-
+        return None
     if len(lines) == 1:
-        text, reading, unreadable = _convert(lines[0])
-    else:
-        given, given_reading, a = _convert(lines[0])
-        written, written_reading, b = _convert("".join(lines[1:]))
-        if not written:
-            return None, None, []  # 書かせる字が 1 つも無い語は受けない（SPEC 7.4.0）
-        text = f"[{given}]{written}"
-        reading = f"{given_reading} {written_reading}".strip()
-        unreadable = a + b
-
-    if unreadable:
-        return None, None, unreadable
-    return text, reading, []
+        return lines[0].replace(" ", "")
+    written = "".join(lines[1:]).replace(" ", "")
+    if not written:
+        return None  # 書かせる字が 1 つも無い語は受けない（SPEC 7.4.0）
+    return f"[{lines[0]}]{written}"
 
 
 # ---------------------------------------------------------------------- 絵と出力
@@ -298,11 +263,6 @@ def image_name(url):
     return re.sub(r"[^0-9A-Za-z_-]+", "-", slug) or "image"
 
 
-def yaml_scalar(value):
-    """必ず引用符でくくる。「80」のような語が数として読み戻るのを避ける。"""
-    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-
 def write_word_book(directory, name, words):
     os.makedirs(directory, exist_ok=True)
     out = ["version: 1", f"name: {yaml_scalar(name)}", "words:"]
@@ -317,79 +277,127 @@ def write_word_book(directory, name, words):
     return path
 
 
+def book_name(category, work):
+    """単語帳の名前。「ウルトラ怪獣(ウルトラQ)」。
+
+    作品の見出しが 1 つも無い一覧（ウルトラヒーロー）は、割りようがないので
+    1 冊にまとめ、カテゴリ名でそのまま呼ぶ。
+
+    ファイル名にもなるので、置き場の区切りに使われる字だけ落とす。
+    """
+    return re.sub(r'[/\\:*?"<>|]+', "-", f"{category}({work})")
+
+
 # ------------------------------------------------------------------------ 本体
 
 
 def main(argv):
-    if not argv:
-        print(__doc__.strip().splitlines()[2].strip(), file=sys.stderr)
-        return 64
+    parser = argparse.ArgumentParser(description="m-78.jp の一覧から単語帳を作る")
+    parser.add_argument("url", help="一覧のURL")
+    parser.add_argument("directory", nargs="?", help="出力先フォルダ（既定 work/<カテゴリ名>）")
+    parser.add_argument("--until", help="この名前のカードまでで打ち切る")
+    parser.add_argument("--kanji", help="漢字をかなに開く表（既定 <出力先>/kanji2hira.toml）")
+    args = parser.parse_args(argv)
 
-    start_url = argv[0]
     root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    print(f"{start_url} をたどります")
-    name, cards = crawl(start_url)
-    if not name:
+    print(f"{args.url} をたどります")
+    category, cards = crawl(args.url, args.until)
+    if not category:
         print("カテゴリ名が読めませんでした", file=sys.stderr)
         return 65
-    print(f"{name}: {len(cards)} 件")
 
-    directory = argv[1] if len(argv) > 1 else os.path.join(root, "work", name)
-    words = []
-    skipped = []
-    used = {}
-
+    # 作品ごとに束ねる。並びはページに出ていた順のまま。
+    works = {}
     for card in cards:
-        text, reading, unreadable = to_word(card["title"])
-        title = " ".join(line.strip() for line in card["title"] if line.strip())
-        if text is None:
-            skipped.append((title, unreadable))
-            continue
+        card["text"] = to_text(card["title"])
+        works.setdefault(card["work"], []).append(card)
+    print(f"{category}: {len(cards)} 件 / {len(works)} 作品")
 
-        word = {"text": text, "reading": reading}
-        source = card.get("image")
-        if source:
-            try:
-                data = to_webp(fetch(source))
-            except Exception as error:  # 絵 1 枚のために止めない
-                print(f"  絵が入りませんでした: {title}（{error}）")
-                data = None
-            if data and len(data) > MAX_IMAGE_BYTES:
-                print(f"  絵が大きすぎます: {title}（{len(data) // 1024} KB）")
-                data = None
-            if data:
+    directory = args.directory or os.path.join(root, "work", category)
+    table_path = args.kanji or os.path.join(directory, "kanji2hira.toml")
+
+    # 表を書き直す。読みを書いたぶんはそのまま残る。
+    entries = {}
+    for work, group in works.items():
+        for card in group:
+            for key in table_keys(card["text"] or ""):
+                entries.setdefault(key, (key, card["text"], work))
+    table = load_table(table_path) if os.path.exists(table_path) else {}
+    os.makedirs(os.path.dirname(os.path.abspath(table_path)), exist_ok=True)
+    blank = write_table(table_path, list(entries.values()), table)
+    print(f"{table_path}: {len(entries)} 語（読みがまだ {blank} 語）")
+
+    packed = 0
+    skipped = []
+    for work, group in works.items():
+        name = category if work is None else book_name(category, work)
+        folder = os.path.join(directory, name)
+        words = []
+        used = {}
+
+        for card in group:
+            text = card["text"]
+            reading = reading_of(apply_table(text or "", table))
+            if not text or not reading:
+                skipped.append((text or "".join(card["title"]), work))
+                continue
+
+            word = {"text": text, "reading": reading}
+            source = card.get("image")
+            if source:
                 stem = image_name(card["url"])
                 used[stem] = used.get(stem, 0) + 1
                 file_name = f"{stem}.webp" if used[stem] == 1 else f"{stem}-{used[stem]}.webp"
-                os.makedirs(directory, exist_ok=True)
-                with open(os.path.join(directory, file_name), "wb") as file:
-                    file.write(data)
-                word["image"] = file_name
-        words.append(word)
+                path = os.path.join(folder, file_name)
+                # すでに落としてある絵は取り直さない。表に読みを足して
+                # 掛け直すのがふつうの使い方で、そのたびに 364 枚は重い。
+                if not os.path.exists(path):
+                    data = _load_image(source, text)
+                    if data:
+                        os.makedirs(folder, exist_ok=True)
+                        with open(path, "wb") as file:
+                            file.write(data)
+                if os.path.exists(path):
+                    word["image"] = file_name
+            words.append(word)
 
-    if not words:
-        print("語が 1 つも取れませんでした", file=sys.stderr)
-        return 65
+        if not words:
+            continue
+        yaml_path = write_word_book(folder, name, words)
+        print(f"{yaml_path}（{len(words)} 語）")
+        output = os.path.join("assets", "words", f"_{name}.asodict")
+        if _pack(root, os.path.relpath(folder, root), output) == 0:
+            packed += 1
 
-    path = write_word_book(directory, name, words)
-    print(f"{path} を書きました（{len(words)} 語）")
-
+    print(f"\n{packed} 冊 書きました")
     if skipped:
-        print(f"\n読みに落とせない字があるので入れなかった語（{len(skipped)} 件）:")
-        for title, unreadable in skipped:
-            print(f"  {title} … {''.join(unreadable)}")
-        print(f"  入れるなら {path} に手で足して、下の 1 行を掛け直してください")
+        print(f"\n読みが起こせないので入れなかった語（{len(skipped)} 件）:")
+        for text, work in skipped:
+            print(f"  {work}: {text}")
+        print(f"  {table_path} に読みを書いて、もう一度掛けてください")
+    return 0
 
-    packer = os.path.join("tool", "word_book", "pack.dart")
-    print(f"\ndart run {packer} {os.path.relpath(directory, root)}")
+
+def _load_image(source, text):
     try:
-        return subprocess.call(
-            ["dart", "run", packer, os.path.relpath(directory, root)], cwd=root
-        )
+        data = to_webp(fetch(source))
+    except Exception as error:  # 絵 1 枚のために止めない
+        print(f"  絵が入りませんでした: {text}（{error}）")
+        return None
+    if len(data) > MAX_IMAGE_BYTES:
+        print(f"  絵が大きすぎます: {text}（{len(data) // 1024} KB）")
+        return None
+    return data
+
+
+def _pack(root, folder, output):
+    packer = os.path.join("tool", "word_book", "pack.dart")
+    try:
+        return subprocess.call(["dart", "run", packer, folder, output], cwd=root)
     except FileNotFoundError:
-        print("dart が見つかりません。上の 1 行を手で叩いてください", file=sys.stderr)
-        return 0
+        print(f"dart が見つかりません: dart run {packer} {folder} {output}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
