@@ -23,12 +23,40 @@ Future<RecipeStore> openMemoryRecipes() async =>
 /// テスト用の Session。記録も版も同じ 1 つのメモリ DB に置く。
 ///
 /// 同じ DB を渡すと、開き直したときの姿を確かめられる。
-Future<Session> openMemorySession([Database? db]) async =>
-    Session.open(db ?? await openMemoryDatabase());
+///
+/// 内蔵の辞書は**配るぶんだけ**を読む（[ShippedBundledAssets]）。
+Future<Session> openMemorySession([Database? db]) async => Session.open(
+  db ?? await openMemoryDatabase(),
+  assets: const ShippedBundledAssets(),
+);
 
 /// テスト用の単語帳。はじめの単語帳が入った状態で開く。
 Future<WordBookStore> openMemoryWordBooks([Database? db]) async =>
     WordBookStore.open(db ?? await openMemoryDatabase());
+
+/// 配る辞書だけを読む内蔵辞書。動作確認用（`_` で始まる資産）は外す。
+///
+/// 手元に何を置いても、テストの結果は変わらないようにする（SPEC 7.4.3）。
+/// 動作確認用の辞書は数も大きさもまちまちで、置いてあるだけで管理画面の
+/// 節が伸びる。伸びると、下の節が組まれる前に画面の外へ出て、そこを見て
+/// いるテストが「無い」と言い出す。
+class ShippedBundledAssets implements BundledAssets {
+  const ShippedBundledAssets([this._assets = const AppBundledAssets()]);
+
+  final BundledAssets _assets;
+
+  @override
+  Future<List<String>> list() async => [
+    for (final path in await _assets.list())
+      if (!AppBundledAssets.isDebugAsset(path)) path,
+  ];
+
+  @override
+  Future<String> loadString(String path) => _assets.loadString(path);
+
+  @override
+  Future<Uint8List> load(String path) => _assets.load(path);
+}
 
 /// テスト用の内蔵辞書。資産の代わりに、その場で書き換えられる中身を返す。
 ///

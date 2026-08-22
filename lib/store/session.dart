@@ -3,6 +3,7 @@ import 'package:sembast/sembast.dart';
 
 import '../export/backup.dart';
 import '../model/user.dart';
+import 'bundled_assets.dart';
 import 'recipe_store.dart';
 import 'sample_store.dart';
 import 'user_store.dart';
@@ -34,7 +35,9 @@ class Session extends ChangeNotifier {
     super.dispose();
   }
 
-  static Future<Session> open(Database db) async {
+  /// [assets] を省くとアプリの資産を読む。差し替えられるようにしてあるのは、
+  /// テストで内蔵の辞書を入れ替えるため（[WordBookStore.open] と同じ理由）。
+  static Future<Session> open(Database db, {BundledAssets? assets}) async {
     final users = await UserStore.open(db);
     return Session(
       db: db,
@@ -42,7 +45,11 @@ class Session extends ChangeNotifier {
       samples: await SampleStore.open(db, userId: users.current.id),
       recipes: await RecipeStore.open(db, userId: users.current.id),
       attempts: await WordAttemptStore.open(db, userId: users.current.id),
-      books: await WordBookStore.open(db, preferred: _assigned(users)),
+      books: await WordBookStore.open(
+        db,
+        assets: assets,
+        preferred: _assigned(users),
+      ),
     );
   }
 
