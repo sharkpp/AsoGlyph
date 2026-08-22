@@ -93,7 +93,12 @@
 
 名前は絵の上に重なることがある（`--image-zoom 1.0`）ので、**縁取りが無いと
 絵の濃いところで読めなくなる**。既定は白い縁（`--word-outline-color`）を
-字の大きさの 0.08 倍（`--word-outline-width`）で取る。`0` を渡せば取らない。
+**描く大きさ**の 0.08 倍で取る。`--word-outline-width` で幅を書けばそのまま使い、
+`0` を渡せば取らない。
+
+幅を書かないときに描く大きさから決めるのは、**縮んだ字に太いままの縁が付くと、
+細い画が縁で埋まって字が縁の色の塊になる**ため。頼んだ大きさは、幅に入らなければ
+縮む（マスに 14 字の名前など）。
 
 縁を先に、中をあとに描く。逆にすると縁の内側半分が字を細らせる。線の幅を倍に
 しているのも同じ理由で、内側の半分はあとから塗る中に隠れる。
@@ -170,6 +175,12 @@ Margins = namedtuple("Margins", "top bottom left right")
 
 # 行と行の間（字の大きさに対する割合）。
 LEADING = 1.15
+
+# 縁取りの幅（字の大きさに対する割合）。幅を書かなかったときに使う。
+OUTLINE_RATIO = 0.08
+
+# 折り返しの決めごと。`count` が 0 なら折らない。`minimum` は最後の行の下限。
+Wrap = namedtuple("Wrap", "count minimum")
 
 # 行頭に置かない字（行頭禁則）。小書き・長音符・句読点・閉じかっこ。
 NOT_LINE_START = set("、。，．・：；？！ー〜ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ")
@@ -517,8 +528,8 @@ def fit_size(text, font, size, width):
     return size * width / drawn
 
 
-def wrap_text(text, count):
-    """`count` 字までで折る。**字の大きさは見ない。**
+def wrap_text(text, wrap):
+    """`wrap.count` 字までで折る。**字の大きさは見ない。**
 
     どこで折るかを字数で決めると、折り返しと大きさが混ざらない。行が決まって
     から大きさを決められるので（[fit_lines]）、「入るいちばん大きい字」を
@@ -529,10 +540,16 @@ def wrap_text(text, count):
       そのぶん行は `count` 字より短くなる
     - **行頭に置かない字**（小書き・長音符・句読点・閉じかっこ）は、折る前の行に
       連れていく。行の頭に「ー」や「っ」が来ると、そこで別の語のように読める
+    - **最後の行が `wrap.minimum` 字以下になるなら、折るのをやめる**（1 行に戻す）。
+      2 字だけの行がぶら下がると、そこで語が終わっているように見える。1 行のまま
+      小さくしたほうが読める
     """
+    if not wrap.count:
+        return [text]
+
     lines, line = [], ""
     for char in text:
-        if len(line) >= count and char not in NOT_LINE_START:
+        if len(line) >= wrap.count and char not in NOT_LINE_START:
             if char in " 　":
                 lines.append(line)
                 line = ""
@@ -548,7 +565,11 @@ def wrap_text(text, count):
         line += char
     if line:
         lines.append(line)
-    return lines or [""]
+    if not lines:
+        return [""]
+    if len(lines) > 1 and len(lines[-1]) <= wrap.minimum:
+        return [text]
+    return lines
 
 
 def block_height(count, font, size):
@@ -572,7 +593,7 @@ def fit_lines(lines, font, size, width, height):
     return size
 
 
-def draw_word(canvas, text, font, size, box, align, color, outline, outline_width, wrap=0):
+def draw_word(canvas, text, font, size, box, align, color, outline, outline_width, wrap):
     """名前を `box` の中の指定の位置に描く。縁取りをしてから中を塗る。
 
     絵の上に重なる（`--image-zoom 1.0`）ので、縁取りが無いと絵の濃いところで
@@ -582,14 +603,17 @@ def draw_word(canvas, text, font, size, box, align, color, outline, outline_widt
 
     **縁は行ぜんぶを先に引く。** 行ごとに縁と中を交互に描くと、次の行の縁が
     前の行の字を削る。
+
+    幅を書かなかったとき（`outline_width` が `None`）は、**縮めたあとの大きさから
+    決める**。頼んだ大きさから決めると、幅に入らなくて縮んだ字に太いままの縁が
+    付き、細い画が縁で埋まって字が縁の色の塊になる。
     """
     x, y, width, height = box
     vertical, horizontal = align
-    if wrap:
-        lines = wrap_text(text, wrap)
-        size = fit_lines(lines, font, size, width, height)
-    else:
-        size, lines = fit_size(text, font, size, width), [text]
+    lines = wrap_text(text, wrap)
+    size = fit_lines(lines, font, size, width, height)
+    if outline_width is None:
+        outline_width = size * OUTLINE_RATIO
     ascent, descent = (value * size / 1000.0 for value in pdfmetrics.getAscentDescent(font, 1000))
 
     block = block_height(len(lines), font, size)
@@ -846,7 +870,7 @@ def _draw_cell(canvas, book, options, box, size, text, reading, image, failed):
         # 折り返すなら、残っているところぜんぶを渡す。行が増えたぶんはその中で
         # 伸びる（`--word-align` の側に寄せて積む）。
         available = max(0.0, inner[3] - heading_band)
-        band = available if options.word_wrap else min(
+        band = available if options.wrap.count else min(
             band_height(fit_size(label, options.font_name, size, inner[2])), available
         )
         if vertical == "top":
@@ -856,13 +880,13 @@ def _draw_cell(canvas, book, options, box, size, text, reading, image, failed):
             band_box = (inner[0], inner[1], inner[2], band)
         else:
             band_box = (inner[0], inner[1], inner[2], max(0.0, inner[3] - heading_band))
-        _put(canvas, options, label, size, band_box, (vertical, horizontal), options.word_wrap)
+        _put(canvas, options, label, size, band_box, (vertical, horizontal), options.wrap)
 
 
-def _put(canvas, options, text, size, box, align, wrap=0):
+def _put(canvas, options, text, size, box, align, wrap=None):
     """1 つのことばを、ことばと同じ塗り・縁取りで置く。
 
-    縁取りの幅を省いてあるときは字の大きさから決めるので、小見出しにも同じ
+    縁取りの幅を省いてあるときは描く大きさから決まるので、小見出しにも同じ
     割合で付く（字が小さいほど縁も細くなる）。
     """
     draw_word(
@@ -874,8 +898,8 @@ def _put(canvas, options, text, size, box, align, wrap=0):
         align,
         options.word_color,
         options.word_outline_color,
-        options.word_outline_width if options.word_outline_width is not None else size * 0.08,
-        wrap,
+        options.word_outline_width,
+        wrap or Wrap(0, 0),
     )
 
 
@@ -936,6 +960,10 @@ def parse_args(argv):
         help="ことばを何字で折り返すか。既定 0（折らずに 1 行のまま字を小さくする）",
     )
     parser.add_argument(
+        "--word-wrap-min", type=int, default=0,
+        help="折ったあと、最後の行がこの字数以下なら折るのをやめる。既定 0（やめない）",
+    )
+    parser.add_argument(
         "--word-title", default="",
         help="マスの上端に置く小見出し。`{book}` は単語帳の名前に替わる。既定は出さない",
     )
@@ -967,8 +995,9 @@ def parse_args(argv):
     if options.landscape:
         width, height = options.page_size
         options.page_size = (max(width, height), min(width, height))
-    if options.word_wrap < 0:
-        parser.error("--word-wrap は 0 以上で書いてください")
+    if options.word_wrap < 0 or options.word_wrap_min < 0:
+        parser.error("--word-wrap と --word-wrap-min は 0 以上で書いてください")
+    options.wrap = Wrap(options.word_wrap, options.word_wrap_min)
     if not 0 < options.image_zoom <= 1:
         parser.error("--image-zoom は 0 より大きく 1 までで書いてください")
     options.tag = [tag.strip() for tag in options.tag.split(",") if tag.strip()] if options.tag else []
