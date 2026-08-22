@@ -162,6 +162,7 @@ python3 tool/word_book/asodict2pdf.py --merge -o work/ウルトラ怪獣.pdf \
 | `--image` / `--image-zoom` | `yes` / `1.0` | 絵を描くか／マスいっぱいを 1.0 とした割合 |
 | `--word` / `--word-source` | `yes` / `text` | ことばを描くか／ことばか読みか |
 | `--word-align` | `bottom,center` | ことばの位置。`垂直,水平` |
+| `--word-title` / `--word-title-size` | — / `auto` | マスの上端に置く小見出し（`{book}` は単語帳の名前）／字の大きさ（既定はことばの 0.7 倍） |
 | `--word-font-size` / `--word-color` | `auto` / `0,0,0` | 字の大きさ（既定は PDF 1 つで 1 つに決める）／色 |
 | `--word-outline-width` / `--word-outline-color` | `auto` / `255,255,255` | 縁取りの幅（既定は字の大きさの 0.08 倍。`0` で取らない）／色 |
 | `--border` / `--border-color` / `--border-width` | `no` / `0,0,0` / `0.1mm` | マスの枠 |
@@ -177,6 +178,10 @@ python3 tool/word_book/asodict2pdf.py --merge -o work/ウルトラ怪獣.pdf \
   引き伸ばさない（縦横の比を変えると、親が入れた絵と違うものが出る）
 - 縮めたぶんの空きは**名前の反対側**に出す（名前が下なら絵は上へ寄る）。
   1.0 のままなら空きが無いので、名前は絵の上に重なる
+- **`--word-title` でマスの上端に 1 行添えられる。** `{book}` はその語が入っていた
+  単語帳の名前に替わる。まとめて詰めたとき（`--merge --title no`）は、どの冊から
+  来た語なのかが紙の上から消えるので、切ってかるたにするならここに出す。
+  ことばを上に寄せているときは、ことばを小見出しの下に置く
 - **名前は縁を取ってから中を塗る。** 絵の上に重なるので、縁が無いと絵の濃い
   ところで読めない。白抜きにしたいときは `--word-color 255,255,255
   --word-outline-color 0,0,0`

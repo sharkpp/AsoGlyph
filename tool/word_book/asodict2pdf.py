@@ -59,6 +59,22 @@
 - マスは敷き詰める（`--gap` の既定は 0）ので、マスの内側に余白を取る
   （`--padding`）。取らないと隣の語と字がくっついて、どこまでが 1 語か読めない
 
+## マスの上端に小見出しを置ける
+
+`--word-title` を書くと、マスの上端に 1 行を添える。`{book}` はその語が入って
+いた単語帳の名前に替わる。
+
+    --word-title "{book}"      → ウルトラ怪獣(ウルトラマンテオ)
+    --word-title ウルトラ怪獣   → 書いたとおり
+
+まとめて 1 つにして詰めたとき（`--merge --title no`）、**どの冊から来た語なのかが
+紙の上から消える**。切ってかるたにするなら、その 1 枚がどの作品のものかは
+札の側に要る。塗りと縁取りはことばと同じものを使う（同じ紙の上で見出しだけ
+別の色になる理由がない）。
+
+ことばを上に寄せているとき（`--word-align top,...`）は、**ことばを小見出しの
+下に置く**。同じ上端に重ねると読めなくなる。
+
 ## 名前は縁を取ってから塗る
 
 名前は絵の上に重なることがある（`--image-zoom 1.0`）ので、**縁取りが無いと
@@ -713,30 +729,55 @@ def _draw_cell(canvas, book, options, box, size, text, reading, image, failed):
         canvas.setLineWidth(options.border_width)
         canvas.rect(x, y, width, height)
 
+    # 字はマスの縁から内へ入れる。マスは敷き詰めるので（--gap の既定は 0）、
+    # 余白を取らないと隣のマスの字と自分の字がくっついて、どこまでが 1 語か
+    # 読めなくなる。
+    inset = content_inset(options)
+    inner = (x + inset, y + inset, max(0.0, width - inset * 2), max(0.0, height - inset * 2))
+
+    # 小見出し（`--word-title`）はマスの上端に置く。`{book}` は単語帳の名前に替える。
+    heading = options.word_title.replace("{book}", book.name) if options.word_title else ""
+    heading_size = options.word_title_size or size * 0.7
+    heading_band = min(band_height(heading_size), inner[3]) if heading else 0.0
+    if heading:
+        _put(
+            canvas,
+            options,
+            heading,
+            heading_size,
+            (inner[0], inner[1] + inner[3] - heading_band, inner[2], heading_band),
+            ("top", horizontal),
+        )
+
     if show_word:
-        # 名前はマスの縁から内へ入れる。マスは敷き詰めるので（--gap の既定は 0）、
-        # 余白を取らないと隣のマスの字と自分の字がくっついて、どこまでが 1 語か
-        # 読めなくなる。
-        inset = content_inset(options)
-        inner = (x + inset, y + inset, max(0.0, width - inset * 2), max(0.0, height - inset * 2))
         band = min(band_height(size), inner[3])
         if vertical == "top":
-            band_box = (inner[0], inner[1] + inner[3] - band, inner[2], band)
+            # ことばは**小見出しの下**に置く。同じ上端に重ねると読めなくなる。
+            band_box = (inner[0], inner[1] + inner[3] - heading_band - band, inner[2], band)
         elif vertical == "bottom":
             band_box = (inner[0], inner[1], inner[2], band)
         else:
-            band_box = inner
-        draw_word(
-            canvas,
-            label,
-            options.font_name,
-            size,
-            band_box,
-            (vertical, horizontal),
-            options.word_color,
-            options.word_outline_color,
-            options.word_outline_width if options.word_outline_width is not None else size * 0.08,
-        )
+            band_box = (inner[0], inner[1], inner[2], max(0.0, inner[3] - heading_band))
+        _put(canvas, options, label, size, band_box, (vertical, horizontal))
+
+
+def _put(canvas, options, text, size, box, align):
+    """1 行を、ことばと同じ塗り・縁取りで置く。
+
+    縁取りの幅を省いてあるときは字の大きさから決めるので、小見出しにも同じ
+    割合で付く（字が小さいほど縁も細くなる）。
+    """
+    draw_word(
+        canvas,
+        text,
+        options.font_name,
+        size,
+        box,
+        align,
+        options.word_color,
+        options.word_outline_color,
+        options.word_outline_width if options.word_outline_width is not None else size * 0.08,
+    )
 
 
 # ----------------------------------------------------------------------- 入り口
@@ -791,6 +832,14 @@ def parse_args(argv):
         "入らなければ縮める）",
     )
     parser.add_argument("--word-color", type=color, default=color("0,0,0"), help="ことばの色。既定 0,0,0")
+    parser.add_argument(
+        "--word-title", default="",
+        help="マスの上端に置く小見出し。`{book}` は単語帳の名前に替わる。既定は出さない",
+    )
+    parser.add_argument(
+        "--word-title-size", type=optional_length, default=None,
+        help="小見出しの字の大きさ。既定 auto（ことばの 0.7 倍）",
+    )
     parser.add_argument(
         "--word-outline-width", type=optional_length, default=None,
         help="ことばの縁取りの幅。既定 auto（字の大きさの 0.08 倍）。0 で縁を取らない",
